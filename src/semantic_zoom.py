@@ -1,0 +1,1613 @@
+#!/usr/bin/env python3
+"""Build an offline label hierarchy and a semantic-zoom Vega timecurve."""
+
+from __future__ import annotations
+
+import argparse
+import colorsys
+import hashlib
+import html
+import json
+import math
+import re
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Iterable
+
+from openai import OpenAI
+from pydantic import BaseModel, Field
+
+from config import BASE_DIR, article_paths
+from revert_detection import (
+    analyze_reverts,
+    history_window_for_points,
+    load_revert_history,
+)
+from revision_keywords import (
+    DEFAULT_GIT_DIFF_ALGORITHM,
+    diff_opcodes,
+    iter_revisions,
+    load_api_key,
+    select_visualized_revisions,
+)
+
+
+MODEL = "gpt-5.6-terra"
+SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-08-16-v033"
+LABEL_SYSTEM_PROMPT = """You create concise map labels for a semantic revision trajectory.
+Use only the supplied revision-keyword evidence. Never add outside knowledge.
+The final visualization is a three-layer level-of-detail pyramid: abstract
+cluster topics, narrower chronological sections, and detailed consecutive
+revision differences. You are labeling the first two layers; the detailed
+revision differences already exist as grounded leaf labels.
+Each label is an umbrella concept for its node, not a generic label such as
+'changes', 'revision', 'miscellaneous', or a numbered level. Prefer two to five
+words. Preserve meaningful names, institutions, places, events, and policies."""
+
+MACRO_LABEL_SYSTEM_PROMPT = """You create concise overview labels for a semantic map.
+Use only the supplied child cluster labels and grounded revision keywords. Never add
+outside knowledge. Each node combines several spatially adjacent HDBSCAN clusters and
+needs one broad umbrella concept that makes the map understandable before the user
+zooms into the individual clusters. Prefer two to five words. Preserve meaningful
+names, institutions, places, events, and policies. Never use technical terms such as
+'cluster', 'group', 'area', 'level', 'miscellaneous', or a number."""
+
+
+class NodeLabel(BaseModel):
+    node_id: str
+    label: str = Field(min_length=2, max_length=80)
+
+
+class NodeLabelBatch(BaseModel):
+    labels: list[NodeLabel]
+
+
+def _normalise_term(value: str) -> str:
+    return " ".join(value.strip().split())
+
+
+def _term_key(value: str) -> str:
+    return re.sub(r"[^\w]+", " ", value.casefold()).strip()
+
+
+def top_terms(keyword_groups: Iterable[Iterable[str]], limit: int = 12) -> list[str]:
+    """Return frequent grounded terms while preserving their best spelling."""
+    counts: Counter[str] = Counter()
+    spelling: dict[str, str] = {}
+    for group in keyword_groups:
+        seen = set()
+        for raw in group:
+            term = _normalise_term(raw)
+            key = _term_key(term)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            counts[key] += 1
+            spelling.setdefault(key, term)
+    return [spelling[key] for key, _ in counts.most_common(limit)]
+
+
+def fallback_label(terms: list[str], default: str) -> str:
+    """A grounded deterministic label used when LLM generation is disabled."""
+    if not terms:
+        return default
+    if len(terms) == 1:
+        return terms[0]
+    first_words = {_term_key(term).split()[0] for term in terms[:3] if _term_key(term)}
+    if len(first_words) == 1:
+        return terms[0]
+    return " · ".join(terms[:2])
+
+
+def edge_phrase(terms: Iterable[str], max_words: int = 4) -> str:
+    """Return one intact grounded phrase suitable for a trajectory edge.
+
+    Edge labels are atomic: words from different keyword candidates are never
+    joined, and a long candidate is never truncated because either operation
+    could change its meaning. If no complete candidate fits, the edge remains
+    unlabeled.
+    """
+    for term in terms:
+        phrase = _normalise_term(term)
+        if phrase and 1 <= len(phrase.split()) <= max_words:
+            return phrase
+    return ""
+
+
+def validate_sources(projection: dict, keywords: dict) -> tuple[list[dict], list[dict]]:
+    points = projection.get("points")
+    pairs = keywords.get("revision_pairs")
+    if not isinstance(points, list) or len(points) < 2:
+        raise ValueError("Projektionsdatei enthält weniger als zwei Punkte.")
+    if not isinstance(pairs, list) or len(pairs) != len(points) - 1:
+        raise ValueError("Keyword-Datei muss genau ein Paar pro Trajektorienkante enthalten.")
+    for index, pair in enumerate(pairs):
+        if (
+            str(pair.get("previous_revision_id")) != str(points[index]["revision_id"])
+            or str(pair.get("current_revision_id")) != str(points[index + 1]["revision_id"])
+        ):
+            raise ValueError(f"Keyword-Paar {index + 1} passt nicht zur Projektion.")
+    return points, pairs
+
+
+def chronological_runs(points: list[dict]) -> list[dict]:
+    """Return maximal chronological runs of one HDBSCAN cluster."""
+    runs = []
+    start = 0
+    while start < len(points):
+        cluster_id = int(points[start]["cluster_id"])
+        end = start + 1
+        while end < len(points) and int(points[end]["cluster_id"]) == cluster_id:
+            end += 1
+        runs.append({"cluster_id": cluster_id, "start": start, "end": end})
+        start = end
+    return runs
+
+
+def _mean_xy(points: list[dict], indices: Iterable[int]) -> tuple[float, float]:
+    selected = [points[index]["mds"] for index in indices]
+    return (
+        sum(float(item[0]) for item in selected) / len(selected),
+        sum(float(item[1]) for item in selected) / len(selected),
+    )
+
+
+def spatial_macro_groups(
+    clusters: list[dict], target_count: int | None = None
+) -> list[list[int]]:
+    """Agglomerate adjacent cluster centroids into deterministic overview groups."""
+    if not clusters:
+        return []
+    if target_count is None:
+        target_count = max(1, round(math.sqrt(len(clusters))))
+    target_count = max(1, min(int(target_count), len(clusters)))
+    groups = [
+        {
+            "cluster_ids": [int(cluster["cluster_id"])],
+            "x": float(cluster["x"]),
+            "y": float(cluster["y"]),
+            "weight": max(1, int(cluster.get("revision_count", 1))),
+        }
+        for cluster in clusters
+    ]
+    while len(groups) > target_count:
+        closest = min(
+            (
+                (
+                    (groups[first]["x"] - groups[second]["x"]) ** 2
+                    + (groups[first]["y"] - groups[second]["y"]) ** 2,
+                    tuple(groups[first]["cluster_ids"]),
+                    tuple(groups[second]["cluster_ids"]),
+                    first,
+                    second,
+                )
+                for first in range(len(groups))
+                for second in range(first + 1, len(groups))
+            ),
+            key=lambda item: item[:3],
+        )
+        first_index, second_index = closest[-2:]
+        first = groups[first_index]
+        second = groups[second_index]
+        weight = first["weight"] + second["weight"]
+        merged = {
+            "cluster_ids": sorted(first["cluster_ids"] + second["cluster_ids"]),
+            "x": (first["x"] * first["weight"] + second["x"] * second["weight"]) / weight,
+            "y": (first["y"] * first["weight"] + second["y"] * second["weight"]) / weight,
+            "weight": weight,
+        }
+        groups.pop(second_index)
+        groups.pop(first_index)
+        groups.append(merged)
+        groups.sort(key=lambda group: tuple(group["cluster_ids"]))
+    return [group["cluster_ids"] for group in groups]
+
+
+def _counts_from_xml(xml_path: Path, points: list[dict]) -> list[tuple[int, int]]:
+    """Compute true added/removed word counts with the configured Git word diff."""
+    revision_ids = [str(point["revision_id"]) for point in points]
+    revisions = list(select_visualized_revisions(
+        iter_revisions(xml_path, revision_ids=revision_ids), revision_ids
+    ))
+    counts = []
+    for previous, current in zip(revisions, revisions[1:]):
+        old_words = previous["text"].split()
+        new_words = current["text"].split()
+        opcodes = diff_opcodes(
+            old_words, new_words, "git", DEFAULT_GIT_DIFF_ALGORITHM
+        )
+        removed = sum(i2 - i1 for tag, i1, i2, _, _ in opcodes if tag in {"delete", "replace"})
+        added = sum(j2 - j1 for tag, _, _, j1, j2 in opcodes if tag in {"insert", "replace"})
+        counts.append((added, removed))
+    return counts
+
+
+def cached_word_counts(
+    labels_path: Path,
+    projection_path: Path,
+    keywords_path: Path,
+    pair_count: int,
+) -> list[tuple[int, int]] | None:
+    """Reuse audited Git counts from an earlier hierarchy build."""
+    if not labels_path.exists():
+        return None
+    payload = json.loads(labels_path.read_text(encoding="utf-8"))
+    if (
+        Path(payload.get("projection", "")) != projection_path
+        or Path(payload.get("revision_keywords", "")) != keywords_path
+        or not payload.get("word_counts_are_git_word_diff")
+    ):
+        return None
+    edges = payload.get("hierarchy", {}).get("edges", [])
+    if len(edges) != pair_count:
+        return None
+    result = []
+    pattern = re.compile(r"^\+(\d+)/−(\d+) Wörter$")
+    for edge in edges:
+        match = pattern.match(edge.get("count_text", ""))
+        if not match:
+            return None
+        result.append((int(match.group(1)), int(match.group(2))))
+    return result
+
+
+def build_hierarchy(
+    projection: dict,
+    keywords: dict,
+    word_counts: list[tuple[int, int]] | None = None,
+    root_label: str = "Article",
+) -> dict:
+    """Create root, macro, cluster, chronological-section, and edge candidates."""
+    points, pairs = validate_sources(projection, keywords)
+    if word_counts is not None and len(word_counts) != len(pairs):
+        raise ValueError("Die Zahl der Wortzählungen passt nicht zu den Paaren.")
+
+    edges = []
+    for index, pair in enumerate(pairs):
+        previous = points[index]
+        current = points[index + 1]
+        x = (float(previous["mds"][0]) + float(current["mds"][0])) / 2
+        y = (float(previous["mds"][1]) + float(current["mds"][1])) / 2
+        terms = top_terms([
+            pair.get("focus_keywords", []),
+            pair.get("added_keywords", []),
+            pair.get("removed_keywords", []),
+        ], 6)
+        added, removed = word_counts[index] if word_counts else (None, None)
+        count_text = f"+{added}/−{removed} Wörter" if added is not None else ""
+        # A trajectory edge carries exactly one intact grounded phrase. A
+        # phrase may contain up to four words (for example "UN General
+        # Assembly"), but separate candidates are never combined.
+        label = edge_phrase(terms)
+        if not label:
+            label = (
+                "No cleaned-text change"
+                if added == 0 and removed == 0
+                else "Unspecified text change"
+            )
+        edges.append({
+            "node_id": f"edge-{index + 1}",
+            "level": "edge",
+            "x": x,
+            "y": y,
+            "label": label,
+            "short_label": fallback_label(terms, "Textänderung"),
+            "terms": terms,
+            "count_text": count_text,
+            "added_words": added,
+            "removed_words": removed,
+            "pair_index": index,
+            "previous_revision_id": str(pair["previous_revision_id"]),
+            "current_revision_id": str(pair["current_revision_id"]),
+            "importance": max(
+                float(current.get("semantic_jump_from_previous", 0.0)), 1e-9
+            ),
+        })
+
+    sections = []
+    edge_to_section: dict[int, str] = {}
+    for run_number, run in enumerate(chronological_runs(points), start=1):
+        # HDBSCAN -1 denotes unassigned noise, not a shared semantic cluster.
+        # Consecutive noise revisions therefore remain individual leaf edges
+        # instead of being grouped into a potentially misleading section.
+        if int(run["cluster_id"]) < 0:
+            continue
+        # A section needs at least two edges. Shorter runs remain leaf-only.
+        edge_indices = list(range(run["start"], run["end"] - 1))
+        if len(edge_indices) < 2:
+            continue
+        node_id = f"section-{run_number}"
+        x, y = _mean_xy(points, range(run["start"], run["end"]))
+        terms = top_terms((edges[index]["terms"] for index in edge_indices), 12)
+        if not terms:
+            continue
+        sections.append({
+            "node_id": node_id,
+            "level": "section",
+            "cluster_id": run["cluster_id"],
+            "x": x,
+            "y": y,
+            "label": fallback_label(terms, "Lokale Entwicklung"),
+            "terms": terms,
+            "edge_indices": edge_indices,
+            "revision_count": len(edge_indices) + 1,
+            "importance": len(edge_indices) * (
+                1 + sum(edges[index]["importance"] for index in edge_indices)
+            ),
+        })
+        for index in edge_indices:
+            edge_to_section[index] = node_id
+
+    clusters = []
+    clustered_indices: dict[int, list[int]] = defaultdict(list)
+    for index, point in enumerate(points):
+        cluster_id = int(point["cluster_id"])
+        if cluster_id >= 0:
+            clustered_indices[cluster_id].append(index)
+    for cluster_id, indices in sorted(clustered_indices.items()):
+        node_id = f"cluster-{cluster_id}"
+        related_edges = [
+            index for index in range(len(edges))
+            if int(points[index + 1]["cluster_id"]) == cluster_id
+        ]
+        x, y = _mean_xy(points, indices)
+        terms = top_terms((edges[index]["terms"] for index in related_edges), 16)
+        clusters.append({
+            "node_id": node_id,
+            "level": "cluster",
+            "cluster_id": cluster_id,
+            "hdbscan_label": f"Cluster {cluster_id + 1}",
+            "x": x,
+            "y": y,
+            "label": fallback_label(terms, ""),
+            "terms": terms,
+            "point_indices": indices,
+            "revision_count": len(indices),
+            "importance": len(indices) * (
+                1 + sum(edges[index]["importance"] for index in related_edges)
+            ),
+        })
+
+    for index, edge in enumerate(edges):
+        edge["parent_id"] = edge_to_section.get(index)
+        if edge["parent_id"] is None:
+            cluster_id = int(points[index + 1]["cluster_id"])
+            edge["parent_id"] = f"cluster-{cluster_id}" if cluster_id >= 0 else None
+    for section in sections:
+        cluster_id = int(section["cluster_id"])
+        section["parent_id"] = f"cluster-{cluster_id}" if cluster_id >= 0 else "root"
+
+    root_x, root_y = _mean_xy(points, range(len(points)))
+    roots = [{
+        "node_id": "root",
+        "level": "root",
+        "x": root_x,
+        "y": root_y,
+        "label": root_label,
+        "terms": [root_label],
+        "revision_count": len(points),
+        "importance": float(len(points)),
+        "parent_id": None,
+    }]
+    macros = []
+    cluster_by_id = {int(cluster["cluster_id"]): cluster for cluster in clusters}
+    for macro_number, cluster_ids in enumerate(spatial_macro_groups(clusters), start=1):
+        children = [cluster_by_id[cluster_id] for cluster_id in cluster_ids]
+        revision_count = sum(int(child["revision_count"]) for child in children)
+        x = sum(
+            float(child["x"]) * int(child["revision_count"]) for child in children
+        ) / revision_count
+        y = sum(
+            float(child["y"]) * int(child["revision_count"]) for child in children
+        ) / revision_count
+        terms = top_terms((child["terms"] for child in children), 20)
+        macro_id = f"macro-{macro_number}"
+        macros.append({
+            "node_id": macro_id,
+            "level": "macro",
+            "cluster_ids": cluster_ids,
+            "x": x,
+            "y": y,
+            "label": fallback_label(terms, root_label),
+            "terms": terms,
+            "child_labels": [],
+            "revision_count": revision_count,
+            "importance": sum(float(child["importance"]) for child in children),
+            "parent_id": "root",
+        })
+        for child in children:
+            child["parent_id"] = macro_id
+    for edge in edges:
+        if edge["parent_id"] is None:
+            edge["parent_id"] = "root"
+
+    return {
+        "roots": roots,
+        "macros": macros,
+        "clusters": clusters,
+        "sections": sections,
+        "edges": edges,
+    }
+
+
+def format_label_pyramid(hierarchy: dict) -> str:
+    """Format a compact, continuous Root-to-Edge hierarchy for the terminal."""
+    levels = ("macros", "clusters", "sections", "edges")
+    nodes = [node for level in levels for node in hierarchy.get(level, [])]
+    children: dict[str, list[dict]] = defaultdict(list)
+    for node in nodes:
+        parent_id = node.get("parent_id")
+        if parent_id:
+            children[str(parent_id)].append(node)
+    for siblings in children.values():
+        siblings.sort(
+            key=lambda node: (-float(node.get("importance", 0.0)), node["node_id"])
+        )
+
+    def counts_below(node_id: str) -> dict[str, int]:
+        counts = {"macro": 0, "cluster": 0, "section": 0, "edge": 0}
+        pending = list(children.get(node_id, []))
+        while pending:
+            node = pending.pop()
+            level = node.get("level")
+            if level in counts:
+                counts[level] += 1
+            pending.extend(children.get(str(node["node_id"]), []))
+        return counts
+
+    def best_child(node_id: str, level: str) -> dict | None:
+        return next(
+            (
+                node for node in children.get(node_id, [])
+                if node.get("level") == level and node.get("label")
+            ),
+            None,
+        )
+
+    roots = hierarchy.get("roots", [])
+    root = roots[0] if roots else {"node_id": "root", "label": "Article"}
+    total = counts_below(str(root["node_id"]))
+    lines = [
+        "",
+        "Labelpyramide",
+        "Maßstab: Artikel → Makrothema → Themencluster → zeitlicher Abschnitt → Revisionsübergang",
+        "Map-Analogie: Land → Bundesland → Region → Ort → Straße",
+        (
+            f"{root.get('label') or 'Article'}/  "
+            f"[{total['macro']} Macros | {total['cluster']} Cluster | "
+            f"{total['section']} Sections | {total['edge']} Übergänge]"
+        ),
+    ]
+
+    root_children = children.get(str(root["node_id"]), [])
+    macros = [
+        node for node in root_children
+        if node.get("level") == "macro"
+    ]
+    direct_root_children = [
+        node for node in root_children
+        if node.get("level") != "macro"
+    ]
+    for macro_index, macro in enumerate(macros):
+        macro_last = macro_index == len(macros) - 1 and not direct_root_children
+        macro_branch = "└── " if macro_last else "├── "
+        macro_indent = "    " if macro_last else "│   "
+        counts = counts_below(str(macro["node_id"]))
+        lines.append(
+            f"{macro_branch}{macro['label']}  "
+            f"[{counts['cluster']} Cluster | {counts['section']} Sections | "
+            f"{counts['edge']} Übergänge]"
+        )
+
+        cluster = best_child(str(macro["node_id"]), "cluster")
+        if not cluster:
+            continue
+        lines.append(f"{macro_indent}└── {cluster['label']}")
+        section = best_child(str(cluster["node_id"]), "section")
+        if section:
+            lines.append(f"{macro_indent}    └── {section['label']}")
+            edge = best_child(str(section["node_id"]), "edge")
+            if edge:
+                lines.append(f"{macro_indent}        └── {edge['label']}")
+        else:
+            edge = best_child(str(cluster["node_id"]), "edge")
+            if edge:
+                lines.append(f"{macro_indent}    └── {edge['label']}")
+
+    if direct_root_children:
+        direct_sections = sum(
+            1 for node in direct_root_children if node.get("level") == "section"
+        )
+        direct_edges = sum(
+            1 for node in direct_root_children if node.get("level") == "edge"
+        ) + sum(
+            counts_below(str(node["node_id"]))["edge"]
+            for node in direct_root_children if node.get("level") == "section"
+        )
+        lines.append(
+            "└── Direkt unter Root / nicht einem Macro zugeordnet  "
+            f"[{direct_sections} Sections | {direct_edges} Übergänge]"
+        )
+    return "\n".join(lines)
+
+
+def generate_labels(
+    client: OpenAI,
+    model: str,
+    nodes: list[dict],
+    batch_size: int = 16,
+    system_prompt: str = LABEL_SYSTEM_PROMPT,
+) -> dict[str, str]:
+    """Generate hierarchy labels in offline batches and validate node IDs."""
+    generated: dict[str, str] = {}
+    for start in range(0, len(nodes), batch_size):
+        batch = nodes[start:start + batch_size]
+        evidence = [
+            {
+                "node_id": node["node_id"],
+                "kind": node["level"],
+                "revision_count": node.get("revision_count"),
+                "grounded_keywords": node["terms"],
+                "child_cluster_labels": node.get("child_labels", []),
+            }
+            for node in batch
+        ]
+        prompt = (
+            "Create one umbrella label for every node below. More abstract cluster labels "
+            "must summarize the supplied evidence; section labels should be narrower. "
+            "Return every node_id exactly once.\n\n"
+            + json.dumps(evidence, ensure_ascii=False, indent=2)
+        )
+        response = client.responses.parse(
+            model=model,
+            store=False,
+            input=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+            text_format=NodeLabelBatch,
+        )
+        if response.output_parsed is None:
+            raise RuntimeError(f"Keine auswertbaren Hierarchielabels: {response.output_text}")
+        expected = {node["node_id"] for node in batch}
+        actual = {item.node_id for item in response.output_parsed.labels}
+        if actual != expected:
+            raise RuntimeError(
+                "LLM-Label-IDs stimmen nicht mit dem Batch überein: "
+                f"fehlend={sorted(expected - actual)}, extra={sorted(actual - expected)}"
+            )
+        for item in response.output_parsed.labels:
+            generated[item.node_id] = _normalise_term(item.label)
+    return generated
+
+
+def cached_llm_labels(
+    labels_path: Path,
+    projection_path: Path,
+    keywords_path: Path,
+    model: str,
+) -> dict[str, str]:
+    """Reuse already generated offline labels for unchanged hierarchy nodes."""
+    if not labels_path.exists():
+        return {}
+    payload = json.loads(labels_path.read_text(encoding="utf-8"))
+    if (
+        Path(payload.get("projection", "")) != projection_path
+        or Path(payload.get("revision_keywords", "")) != keywords_path
+        or payload.get("model") != model
+        or payload.get("label_system_prompt") != LABEL_SYSTEM_PROMPT
+    ):
+        return {}
+    result = {}
+    hierarchy = payload.get("hierarchy", {})
+    for level in ("clusters", "sections"):
+        for node in hierarchy.get(level, []):
+            if node.get("node_id") and node.get("label"):
+                result[node["node_id"]] = node["label"]
+    return result
+
+
+def cached_macro_labels(
+    labels_path: Path,
+    projection_path: Path,
+    keywords_path: Path,
+    model: str,
+    macros: list[dict],
+) -> dict[str, str]:
+    """Reuse macro labels only when their spatial memberships are unchanged."""
+    if not labels_path.exists():
+        return {}
+    payload = json.loads(labels_path.read_text(encoding="utf-8"))
+    if (
+        Path(payload.get("projection", "")) != projection_path
+        or Path(payload.get("revision_keywords", "")) != keywords_path
+        or payload.get("model") != model
+        or payload.get("macro_label_system_prompt") != MACRO_LABEL_SYSTEM_PROMPT
+    ):
+        return {}
+    expected = {
+        node["node_id"]: tuple(node["cluster_ids"])
+        for node in macros
+    }
+    result = {}
+    for node in payload.get("hierarchy", {}).get("macros", []):
+        node_id = node.get("node_id")
+        if (
+            node_id in expected
+            and tuple(node.get("cluster_ids", [])) == expected[node_id]
+            and node.get("label")
+        ):
+            result[node_id] = node["label"]
+    return result
+
+
+def _finite_extent(values: list[float]) -> list[float]:
+    low, high = min(values), max(values)
+    padding = max((high - low) * 0.06, 1e-9)
+    return [low - padding, high + padding]
+
+
+def cluster_colour(cluster_id: int) -> str:
+    """Return the stable HDBSCAN colour used by the original timecurve."""
+    if cluster_id == -1:
+        return "#8a8a8a"
+    hue = (cluster_id * 0.61803398875) % 1.0
+    lightness = 0.48 if cluster_id % 2 == 0 else 0.60
+    red, green, blue = colorsys.hls_to_rgb(hue, lightness, 0.72)
+    return f"#{round(red * 255):02x}{round(green * 255):02x}{round(blue * 255):02x}"
+
+
+def cluster_label_colour(cluster_id: int) -> str:
+    """Return a darker, readable variant of the stable cluster hue."""
+    if cluster_id == -1:
+        return "#555b5e"
+    hue = (cluster_id * 0.61803398875) % 1.0
+    red, green, blue = colorsys.hls_to_rgb(hue, 0.32, 0.68)
+    return f"#{round(red * 255):02x}{round(green * 255):02x}{round(blue * 255):02x}"
+
+
+def convex_hull(points: Iterable[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Compute a deterministic monotonic-chain hull without extra dependencies."""
+    ordered = sorted(set(points))
+    if len(ordered) <= 1:
+        return ordered
+
+    def cross(
+        origin: tuple[float, float],
+        first: tuple[float, float],
+        second: tuple[float, float],
+    ) -> float:
+        return (
+            (first[0] - origin[0]) * (second[1] - origin[1])
+            - (first[1] - origin[1]) * (second[0] - origin[0])
+        )
+
+    lower: list[tuple[float, float]] = []
+    for point in ordered:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], point) <= 0:
+            lower.pop()
+        lower.append(point)
+    upper: list[tuple[float, float]] = []
+    for point in reversed(ordered):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], point) <= 0:
+            upper.pop()
+        upper.append(point)
+    return lower[:-1] + upper[:-1]
+
+
+def cluster_hull_rows(point_rows: list[dict], expansion: float = 1.08) -> list[dict]:
+    """Create lightly expanded closed polygons for non-noise HDBSCAN clusters."""
+    grouped: dict[int, list[tuple[float, float]]] = defaultdict(list)
+    for point in point_rows:
+        if point["cluster_id"] >= 0:
+            grouped[point["cluster_id"]].append((point["x"], point["y"]))
+
+    rows = []
+    for cluster_id, coordinates in sorted(grouped.items()):
+        hull = convex_hull(coordinates)
+        if len(hull) < 3:
+            continue
+        center_x = sum(x for x, _ in hull) / len(hull)
+        center_y = sum(y for _, y in hull) / len(hull)
+        expanded = [
+            (
+                center_x + (x - center_x) * expansion,
+                center_y + (y - center_y) * expansion,
+            )
+            for x, y in hull
+        ]
+        for order, (x, y) in enumerate(expanded + expanded[:1]):
+            rows.append({
+                "cluster_id": cluster_id,
+                "order": order,
+                "x": x,
+                "y": y,
+            })
+    return rows
+
+
+def macro_hull_rows(point_rows: list[dict], expansion: float = 1.04) -> list[dict]:
+    """Create closed overview polygons around the clusters of each macro topic."""
+    grouped: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    for point in point_rows:
+        if point.get("macro_id"):
+            grouped[point["macro_id"]].append((point["x"], point["y"]))
+
+    rows = []
+    for macro_id, coordinates in sorted(grouped.items()):
+        hull = convex_hull(coordinates)
+        if len(hull) < 3:
+            continue
+        center_x = sum(x for x, _ in hull) / len(hull)
+        center_y = sum(y for _, y in hull) / len(hull)
+        expanded = [
+            (
+                center_x + (x - center_x) * expansion,
+                center_y + (y - center_y) * expansion,
+            )
+            for x, y in hull
+        ]
+        for order, (x, y) in enumerate(expanded + expanded[:1]):
+            rows.append({"macro_id": macro_id, "order": order, "x": x, "y": y})
+    return rows
+
+
+def section_region_rows(
+    point_rows: list[dict],
+    sections: list[dict],
+    expansion: float = 1.12,
+) -> tuple[list[dict], list[dict], list[dict]]:
+    """Create section hulls, with fixed-width path capsules as a fallback."""
+    polygons: list[dict] = []
+    corridors: list[dict] = []
+    corridor_points: list[dict] = []
+    for section in sections:
+        edge_indices = [int(index) for index in section["edge_indices"]]
+        point_indices = sorted({
+            point_index
+            for edge_index in edge_indices
+            for point_index in (edge_index, edge_index + 1)
+        })
+        coordinates = [
+            (point_rows[index]["x"], point_rows[index]["y"])
+            for index in point_indices
+        ]
+        hull = convex_hull(coordinates)
+        twice_area = abs(sum(
+            first[0] * second[1] - second[0] * first[1]
+            for first, second in zip(hull, hull[1:] + hull[:1])
+        )) if len(hull) >= 3 else 0.0
+        section_id = section["node_id"]
+        cluster_id = int(section["cluster_id"])
+        # Near-identical embeddings can technically form a three-point hull
+        # whose area is too small to be visible. Those sections use a
+        # screen-space capsule around their actual trajectory instead.
+        if len(hull) >= 3 and twice_area > 1e-24:
+            center_x = sum(x for x, _ in hull) / len(hull)
+            center_y = sum(y for _, y in hull) / len(hull)
+            expanded = [
+                (
+                    center_x + (x - center_x) * expansion,
+                    center_y + (y - center_y) * expansion,
+                )
+                for x, y in hull
+            ]
+            for order, (x, y) in enumerate(expanded + expanded[:1]):
+                polygons.append({
+                    "section_id": section_id,
+                    "cluster_id": cluster_id,
+                    "order": order,
+                    "x": x,
+                    "y": y,
+                })
+            continue
+
+        for edge_index in edge_indices:
+            start = point_rows[edge_index]
+            end = point_rows[edge_index + 1]
+            corridors.append({
+                "section_id": section_id,
+                "cluster_id": cluster_id,
+                "edge": edge_index,
+                "x": start["x"],
+                "y": start["y"],
+                "x2": end["x"],
+                "y2": end["y"],
+            })
+        for point_index in point_indices:
+            point = point_rows[point_index]
+            corridor_points.append({
+                "section_id": section_id,
+                "cluster_id": cluster_id,
+                "point": point_index,
+                "x": point["x"],
+                "y": point["y"],
+            })
+    return polygons, corridors, corridor_points
+
+
+def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
+    points = projection["points"]
+    labelled_section_point_indices = {
+        point_index
+        for section in hierarchy["sections"]
+        if section.get("label")
+        for edge_index in section["edge_indices"]
+        for point_index in (edge_index, edge_index + 1)
+    }
+    cluster_to_macro = {
+        int(cluster_id): macro["node_id"]
+        for macro in hierarchy.get("macros", [])
+        for cluster_id in macro["cluster_ids"]
+    }
+    point_rows = [
+        {
+            "x": float(point["mds"][0]),
+            "y": float(point["mds"][1]),
+            "order": int(point["revision_index"]),
+            "revision_id": str(point["revision_id"]),
+            "timestamp": point["timestamp"],
+            "author": point["author"],
+            "words": int(point["clean_word_count"]),
+            "cluster_id": int(point["cluster_id"]),
+            "macro_id": cluster_to_macro.get(int(point["cluster_id"])),
+            "cluster_label": (
+                "Noise"
+                if int(point["cluster_id"]) == -1
+                else f"Cluster {int(point['cluster_id']) + 1}"
+            ),
+            "cluster_probability": float(point.get("cluster_probability", 0.0)),
+            "semantic_jump": float(point["semantic_jump_from_previous"]),
+            "interval_revert_count": int(point.get("interval_revert_count", 0)),
+            "interval_mutual_revert_count": int(
+                point.get("interval_mutual_revert_count", 0)
+            ),
+            "gandica_c": float(point.get("cumulative_gandica_c", 0.0)),
+            "labelled_section_point": int(point["revision_index"])
+            in labelled_section_point_indices,
+        }
+        for point in points
+    ]
+    edge_rows = []
+    for index, edge in enumerate(hierarchy["edges"]):
+        a, b = point_rows[index], point_rows[index + 1]
+        semantic_jump = b["semantic_jump"]
+        edge_rows.append({
+            "edge": index,
+            "x": a["x"],
+            "y": a["y"],
+            "x2": b["x"],
+            "y2": b["y"],
+            "label": edge["label"],
+            "previous_revision_id": edge["previous_revision_id"],
+            "current_revision_id": edge["current_revision_id"],
+            "semantic_jump": semantic_jump,
+            "revert_count": b["interval_revert_count"],
+            "mutual_revert_count": b["interval_mutual_revert_count"],
+            "gandica_c": b["gandica_c"],
+            "cluster_id": b["cluster_id"],
+            "in_section": str(edge.get("parent_id", "")).startswith("section-"),
+            "same_cluster": (
+                a["cluster_id"] >= 0 and a["cluster_id"] == b["cluster_id"]
+            ),
+        })
+
+    # Several revisions can traverse exactly the same projected segment, often
+    # in opposite directions. They remain separate trajectory edges and retain
+    # their tooltips, but only the earliest target revision contributes a label
+    # candidate. The undirected key treats A→B and B→A as the same geometry.
+    overlapping_edge_label_winners: dict[
+        tuple[tuple[float, float], tuple[float, float]], tuple[str, int, str]
+    ] = {}
+    for edge in hierarchy["edges"]:
+        pair_index = int(edge["pair_index"])
+        start = point_rows[pair_index]
+        end = point_rows[pair_index + 1]
+        # Repeated embeddings differ occasionally by floating-point noise near
+        # 1e-19. Twelve decimals are still far below one rendered pixel here,
+        # while making visually identical segments compare equal.
+        geometry_key = tuple(sorted((
+            (round(float(start["x"]), 12), round(float(start["y"]), 12)),
+            (round(float(end["x"]), 12), round(float(end["y"]), 12)),
+        )))
+        candidate = (
+            str(end["timestamp"]), pair_index, str(edge["node_id"])
+        )
+        current = overlapping_edge_label_winners.get(geometry_key)
+        if current is None or candidate < current:
+            overlapping_edge_label_winners[geometry_key] = candidate
+    edge_label_winner_ids = {
+        candidate[2] for candidate in overlapping_edge_label_winners.values()
+    }
+
+    xs = [row["x"] for row in point_rows]
+    ys = [row["y"] for row in point_rows]
+    x_extent = _finite_extent(xs)
+    y_extent = _finite_extent(ys)
+    cluster_ids = sorted({row["cluster_id"] for row in point_rows})
+    hull_rows = cluster_hull_rows(point_rows)
+    macro_rows = macro_hull_rows(point_rows)
+    section_rows, section_corridor_rows, section_region_point_rows = (
+        section_region_rows(point_rows, hierarchy["sections"])
+    )
+    detail_labels = [
+        node for node in (
+            hierarchy.get("macros", []) + hierarchy["clusters"]
+            + hierarchy["sections"] + hierarchy["edges"]
+        ) if node["label"] and (
+            node["level"] != "edge" or node["node_id"] in edge_label_winner_ids
+        )
+    ]
+    label_rows = [
+        {
+            "node_id": node["node_id"],
+            "level": node["level"],
+            "x": node["x"],
+            "y": node["y"],
+            "label": node["label"],
+            "display_label": node["label"],
+            "cluster_id": node.get("cluster_id"),
+            "label_colour": (
+                cluster_colour(int(node["cluster_id"]))
+                if node.get("cluster_id") is not None
+                else "#25322a"
+            ),
+            "importance": node["importance"],
+            "revision_count": node.get("revision_count"),
+            "edge_x": (
+                point_rows[node["pair_index"]]["x"]
+                if node["level"] == "edge" else None
+            ),
+            "edge_y": (
+                point_rows[node["pair_index"]]["y"]
+                if node["level"] == "edge" else None
+            ),
+            "edge_x2": (
+                point_rows[node["pair_index"] + 1]["x"]
+                if node["level"] == "edge" else None
+            ),
+            "edge_y2": (
+                point_rows[node["pair_index"] + 1]["y"]
+                if node["level"] == "edge" else None
+            ),
+        }
+        for node in detail_labels
+    ]
+    label_rows.extend([
+        {
+            "node_id": "trajectory-start",
+            "level": "endpoint",
+            "x": point_rows[0]["x"],
+            "y": point_rows[0]["y"],
+            "label": "Start",
+            "display_label": "Start",
+            "cluster_id": point_rows[0]["cluster_id"],
+            "label_colour": "#263029",
+            "importance": 1e12,
+            "revision_count": 1,
+        },
+        {
+            "node_id": "trajectory-end",
+            "level": "endpoint",
+            "x": point_rows[-1]["x"],
+            "y": point_rows[-1]["y"],
+            "label": "Ende",
+            "display_label": "Ende",
+            "cluster_id": point_rows[-1]["cluster_id"],
+            "label_colour": "#263029",
+            "importance": 1e12,
+            "revision_count": 1,
+        },
+    ])
+    root_row = {
+        "x": hierarchy["roots"][0]["x"],
+        "y": hierarchy["roots"][0]["y"],
+        "label": hierarchy["roots"][0]["label"],
+        "revision_count": hierarchy["roots"][0]["revision_count"],
+    }
+    return {
+        "$schema": "https://vega.github.io/schema/vega/v5.json",
+        "description": f"Semantic zoom revision timecurve for {article}",
+        "autosize": "none",
+        "width": 1180,
+        "height": 760,
+        "padding": {"top": 18, "left": 28, "right": 28, "bottom": 28},
+        "background": "#fbfaf7",
+        "signals": [
+            {"name": "xext", "value": x_extent},
+            {"name": "yext", "value": y_extent},
+            {"name": "xdom", "update": "xext", "on": [
+                {"events": {"signal": "delta"}, "update": "[xcur[0] + span(xcur) * delta[0] / width, xcur[1] + span(xcur) * delta[0] / width]"},
+                {"events": {"signal": "zoom"}, "update": "[anchor[0] + (xdom[0] - anchor[0]) * zoom, anchor[0] + (xdom[1] - anchor[0]) * zoom]"},
+                {"events": "dblclick", "update": "xext"},
+            ]},
+            {"name": "ydom", "update": "yext", "on": [
+                {"events": {"signal": "delta"}, "update": "[ycur[0] + span(ycur) * delta[1] / height, ycur[1] + span(ycur) * delta[1] / height]"},
+                {"events": {"signal": "zoom"}, "update": "[anchor[1] + (ydom[0] - anchor[1]) * zoom, anchor[1] + (ydom[1] - anchor[1]) * zoom]"},
+                {"events": "dblclick", "update": "yext"},
+            ]},
+            {"name": "down", "value": None, "on": [
+                {"events": "pointerdown", "update": "xy()"},
+                {"events": "window:pointerup", "update": "null"},
+            ]},
+            {"name": "xcur", "value": None, "on": [
+                {"events": "pointerdown", "update": "slice(xdom)"},
+            ]},
+            {"name": "ycur", "value": None, "on": [
+                {"events": "pointerdown", "update": "slice(ydom)"},
+            ]},
+            {"name": "delta", "value": [0, 0], "on": [
+                {"events": [{"source": "window", "type": "pointermove", "consume": True, "between": [{"type": "pointerdown"}, {"source": "window", "type": "pointerup"}]}],
+                 "update": "down ? [down[0]-x(), y()-down[1]] : [0,0]"},
+            ]},
+            {"name": "anchor", "value": [0, 0], "on": [
+                {"events": "wheel", "update": "[invert('xscale', x()), invert('yscale', y())]"},
+            ]},
+            {"name": "zoom", "value": 1, "on": [
+                {"events": "wheel!", "force": True, "update": "min(pow(1.001, event.deltaY * pow(16, event.deltaMode)), max(1, span(xext)/span(xdom)))"},
+            ]},
+            {"name": "zooming", "value": False, "on": [
+                {"events": "wheel", "update": "true"},
+                {"events": {"type": "wheel", "debounce": 140}, "update": "false"},
+            ]},
+            {"name": "zoomLevel", "update": "max(0, log((xext[1]-xext[0])/(xdom[1]-xdom[0]))/log(2))"},
+            {"name": "semanticLayer", "update": "zoomLevel < 0.7 ? 'root' : zoomLevel < 2.15 ? 'macro' : zoomLevel < 3.45 ? 'cluster' : zoomLevel < 4.4 ? 'section' : 'edge'"},
+            # Filled from the actually rendered label marks by render_html().
+            # A large sort bonus keeps previously visible labels stable across
+            # small zoom and pan changes without changing the LOD hierarchy.
+            {"name": "stableParentLabelIds", "value": []},
+            {"name": "stableEdgeLabelIds", "value": []},
+            {"name": "rootOpacity", "update": "semanticLayer==='root' ? 1 : 0"},
+            {"name": "macroOpacity", "update": "semanticLayer==='macro' ? 1 : 0"},
+            {"name": "clusterOpacity", "update": "semanticLayer==='cluster' ? 1 : 0"},
+            {"name": "sectionOpacity", "update": "semanticLayer==='section' ? 1 : 0"},
+            {"name": "edgeOpacity", "update": "semanticLayer==='edge' ? 1 : 0"},
+        ],
+        "data": [
+            {"name": "points", "values": point_rows},
+            {"name": "labelledSectionPoints", "source": "points", "transform": [
+                {"type": "filter", "expr": "datum.labelled_section_point"},
+            ]},
+            {"name": "edges", "values": edge_rows},
+            {"name": "intraClusterEdges", "source": "edges", "transform": [
+                {"type": "filter", "expr": "datum.same_cluster"},
+            ]},
+            {"name": "rootNode", "values": [root_row]},
+            {"name": "labels", "values": label_rows},
+            {"name": "macroHulls", "values": macro_rows},
+            {"name": "clusterHulls", "values": hull_rows},
+            {"name": "sectionHulls", "values": section_rows},
+            {"name": "sectionCorridors", "values": section_corridor_rows},
+            {"name": "sectionRegionPoints", "values": section_region_point_rows},
+            {"name": "visibleMacroLabels", "source": "labels", "transform": [
+                {"type": "filter", "expr": "!zooming && !down && datum.level==='macro' && macroOpacity>0.03"},
+                {"type": "filter", "expr": "datum.x >= min(xdom[0], xdom[1]) && datum.x <= max(xdom[0], xdom[1]) && datum.y >= min(ydom[0], ydom[1]) && datum.y <= max(ydom[0], ydom[1])"},
+                {"type": "formula", "as": "placementOrder", "expr": "-(datum.importance + (indexof(stableParentLabelIds, datum.node_id)>=0 ? 1e15 : 0))"},
+                {"type": "collect", "sort": {"field": "placementOrder", "order": "ascending"}},
+            ]},
+            {"name": "visibleParentLabels", "source": "labels", "transform": [
+                {"type": "filter", "expr": "!zooming && !down"},
+                {"type": "filter", "expr": "(datum.level==='endpoint' && macroOpacity>0.03) || (datum.level==='cluster' && clusterOpacity>0.03) || (datum.level==='section' && sectionOpacity>0.03)"},
+                {"type": "filter", "expr": "datum.x >= min(xdom[0], xdom[1]) && datum.x <= max(xdom[0], xdom[1]) && datum.y >= min(ydom[0], ydom[1]) && datum.y <= max(ydom[0], ydom[1])"},
+                {"type": "formula", "as": "placementOrder", "expr": "-(datum.importance + (indexof(stableParentLabelIds, datum.node_id)>=0 ? 1e15 : 0))"},
+                {"type": "collect", "sort": {"field": "placementOrder", "order": "ascending"}},
+            ]},
+            {"name": "visibleEdgeLabels", "source": "labels", "transform": [
+                {"type": "filter", "expr": "!zooming && !down && datum.level==='edge' && edgeOpacity>0.03"},
+                {"type": "filter", "expr": "datum.x >= min(xdom[0], xdom[1]) && datum.x <= max(xdom[0], xdom[1]) && datum.y >= min(ydom[0], ydom[1]) && datum.y <= max(ydom[0], ydom[1])"},
+                {"type": "formula", "as": "placementOrder", "expr": "-(datum.importance + (indexof(stableEdgeLabelIds, datum.node_id)>=0 ? 1e15 : 0))"},
+                {"type": "collect", "sort": {"field": "placementOrder", "order": "ascending"}},
+            ]},
+        ],
+        "scales": [
+            {"name": "xscale", "zero": False, "domain": {"signal": "xdom"}, "range": "width"},
+            {"name": "yscale", "zero": False, "domain": {"signal": "ydom"}, "range": "height"},
+            {"name": "clusterColor", "type": "ordinal", "domain": cluster_ids, "range": [cluster_colour(cluster_id) for cluster_id in cluster_ids]},
+            {"name": "jumpWidth", "type": "sqrt", "domain": {"data": "edges", "field": "semantic_jump"}, "range": [0.7, 4.2], "zero": True},
+        ],
+        "marks": [
+            {
+                "name": "macroRegions", "type": "group",
+                "from": {"facet": {"name": "macroHull", "data": "macroHulls", "groupby": "macro_id"}},
+                "marks": [{
+                    "type": "line", "from": {"data": "macroHull"},
+                    "encode": {"update": {
+                        "x": {"scale": "xscale", "field": "x"},
+                        "y": {"scale": "yscale", "field": "y"},
+                        "order": {"field": "order"},
+                        "interpolate": {"value": "linear"},
+                        "fill": {"value": "#b7c3b7"},
+                        "fillOpacity": {"signal": "0.10 * macroOpacity"},
+                        "stroke": {"value": "#788878"},
+                        "strokeOpacity": {"signal": "0.42 * macroOpacity"},
+                        "strokeWidth": {"value": 1.6},
+                    }}
+                }],
+            },
+            {
+                "name": "clusterRegions", "type": "group",
+                "from": {"facet": {"name": "clusterHull", "data": "clusterHulls", "groupby": "cluster_id"}},
+                "marks": [{
+                    "type": "line", "from": {"data": "clusterHull"},
+                    "encode": {"update": {
+                        "x": {"scale": "xscale", "field": "x"},
+                        "y": {"scale": "yscale", "field": "y"},
+                        "order": {"field": "order"},
+                        "interpolate": {"value": "linear"},
+                        "fill": {"scale": "clusterColor", "field": "cluster_id"},
+                        "fillOpacity": {"signal": "0.13 * clusterOpacity"},
+                        "stroke": {"scale": "clusterColor", "field": "cluster_id"},
+                        "strokeOpacity": {"signal": "0.62 * clusterOpacity"},
+                        "strokeWidth": {"value": 1.4},
+                    }}
+                }],
+            },
+            {
+                "name": "sectionRegions", "type": "group",
+                "from": {"facet": {"name": "sectionHull", "data": "sectionHulls", "groupby": "section_id"}},
+                "marks": [{
+                    "type": "line", "from": {"data": "sectionHull"},
+                    "encode": {"update": {
+                        "x": {"scale": "xscale", "field": "x"},
+                        "y": {"scale": "yscale", "field": "y"},
+                        "order": {"field": "order"},
+                        "interpolate": {"value": "linear"},
+                        "fill": {"scale": "clusterColor", "field": "cluster_id"},
+                        "fillOpacity": {"signal": "0.10 * sectionOpacity"},
+                        "stroke": {"scale": "clusterColor", "field": "cluster_id"},
+                        "strokeOpacity": {"signal": "0.52 * sectionOpacity"},
+                        "strokeWidth": {"value": 1.4},
+                    }}
+                }],
+            },
+            {
+                "name": "sectionRegionCorridors", "type": "rule",
+                "interactive": False,
+                "from": {"data": "sectionCorridors"},
+                "encode": {"update": {
+                    "x": {"scale": "xscale", "field": "x"},
+                    "y": {"scale": "yscale", "field": "y"},
+                    "x2": {"scale": "xscale", "field": "x2"},
+                    "y2": {"scale": "yscale", "field": "y2"},
+                    "stroke": {"scale": "clusterColor", "field": "cluster_id"},
+                    "strokeOpacity": {"signal": "0.10 * sectionOpacity"},
+                    "strokeWidth": {"value": 18},
+                    "strokeCap": {"value": "round"},
+                }}
+            },
+            {
+                "name": "sectionRegionPointCaps", "type": "symbol",
+                "interactive": False,
+                "from": {"data": "sectionRegionPoints"},
+                "encode": {"update": {
+                    "x": {"scale": "xscale", "field": "x"},
+                    "y": {"scale": "yscale", "field": "y"},
+                    "size": {"value": 255},
+                    "fill": {"scale": "clusterColor", "field": "cluster_id"},
+                    "fillOpacity": {"signal": "0.10 * sectionOpacity"},
+                    "stroke": {"scale": "clusterColor", "field": "cluster_id"},
+                    "strokeOpacity": {"signal": "0.42 * sectionOpacity"},
+                    "strokeWidth": {"value": 1.2},
+                }}
+            },
+            {
+                "name": "trajectory",
+                "type": "rule",
+                "from": {"data": "edges"},
+                "encode": {"update": {
+                    "x": {"scale": "xscale", "field": "x"},
+                    "y": {"scale": "yscale", "field": "y"},
+                    "x2": {"scale": "xscale", "field": "x2"},
+                    "y2": {"scale": "yscale", "field": "y2"},
+                    "stroke": {"value": "#72806f"},
+                    "strokeOpacity": {"signal": "semanticLayer==='macro' ? 0.08 : semanticLayer==='cluster' ? 0.10 : semanticLayer==='section' ? (datum.in_section ? 0.34 : 0) : 0.28 + 0.2*min(zoomLevel/4,1)"},
+                    "strokeWidth": {"scale": "jumpWidth", "field": "semantic_jump"},
+                    "tooltip": {"signal": "{'Änderung': datum.label, 'Von Revision': datum.previous_revision_id, 'Zu Revision': datum.current_revision_id, 'Semantischer Sprung': format(datum.semantic_jump, '.4f')}"},
+                }}
+            },
+            {
+                "name": "intraClusterTrajectory",
+                "type": "rule", "from": {"data": "intraClusterEdges"},
+                "encode": {"update": {
+                    "x": {"scale": "xscale", "field": "x"},
+                    "y": {"scale": "yscale", "field": "y"},
+                    "x2": {"scale": "xscale", "field": "x2"},
+                    "y2": {"scale": "yscale", "field": "y2"},
+                    "stroke": {"scale": "clusterColor", "field": "cluster_id"},
+                    "strokeOpacity": {"signal": "0.64 * clusterOpacity"},
+                    "strokeWidth": {"scale": "jumpWidth", "field": "semantic_jump"},
+                }}
+            },
+            {
+                "name": "revisionPoints", "type": "symbol", "from": {"data": "points"},
+                "encode": {"enter": {
+                    "tooltip": {"signal": "{'Revision': datum.revision_id, 'Zeit': datum.timestamp, 'Autor': datum.author, 'Wörter': datum.words, 'HDBSCAN': datum.cluster_label, 'Cluster-Wahrscheinlichkeit': format(datum.cluster_probability, '.3f')}"}
+                }, "update": {
+                    "x": {"scale": "xscale", "field": "x"}, "y": {"scale": "yscale", "field": "y"},
+                    "size": {"value": 64},
+                    "fill": {"scale": "clusterColor", "field": "cluster_id"},
+                    "fillOpacity": {"signal": "0.62 + 0.24*min(zoomLevel/4,1)"},
+                    "stroke": {"value": "#fbfaf7"}, "strokeWidth": {"value": 0.8},
+                }}
+            },
+            {
+                "name": "sectionPointHighlights", "type": "symbol",
+                "interactive": False,
+                "from": {"data": "labelledSectionPoints"},
+                "encode": {"update": {
+                    "x": {"scale": "xscale", "field": "x"},
+                    "y": {"scale": "yscale", "field": "y"},
+                    "size": {"value": 64},
+                    "fill": {"scale": "clusterColor", "field": "cluster_id"},
+                    "fillOpacity": {"signal": "0.86 * sectionOpacity"},
+                    "stroke": {"value": "#fbfaf7"},
+                    "strokeWidth": {"value": 0.8},
+                }}
+            },
+            {
+                "name": "macroLabelAnchors", "type": "symbol", "from": {"data": "visibleMacroLabels"},
+                "encode": {"update": {
+                    "x": {"scale": "xscale", "field": "x"}, "y": {"scale": "yscale", "field": "y"},
+                    "size": {"value": 1},
+                    "fillOpacity": {"value": 0}, "strokeOpacity": {"value": 0}
+                }}
+            },
+            {
+                "name": "macroLabels", "type": "text",
+                "key": "datum.node_id",
+                "zindex": 3,
+                "from": {"data": "macroLabelAnchors"},
+                "transform": [
+                    {"type": "label", "anchor": ["middle"], "offset": [0], "padding": 3, "avoidBaseMark": False, "sort": {"field": "datum.placementOrder"}, "size": {"signal": "[width, height]"}},
+                ],
+                "encode": {"update": {
+                    "text": {"field": "datum.display_label"},
+                    "align": {"value": "center"},
+                    "baseline": {"value": "middle"},
+                    "fill": {"field": "datum.label_colour"},
+                    "font": {"value": "Inter, Arial, sans-serif"},
+                    "fontSize": {"value": 19},
+                    "fontWeight": {"value": 700},
+                }}
+            },
+            {
+                "name": "macroLabelHalos", "type": "text",
+                "key": "datum.datum.node_id",
+                "zindex": 2,
+                "from": {"data": "macroLabels"},
+                "encode": {"update": {
+                    "text": {"field": "text"},
+                    "x": {"field": "x"}, "y": {"field": "y"},
+                    "align": {"field": "align"},
+                    "baseline": {"field": "baseline"},
+                    "opacity": {"field": "opacity"},
+                    "stroke": {"value": "#fbfaf7"},
+                    "strokeWidth": {"value": 4},
+                    "strokeOpacity": {"value": 0.94},
+                    "font": {"field": "font"},
+                    "fontSize": {"field": "fontSize"},
+                    "fontWeight": {"field": "fontWeight"},
+                }}
+            },
+            {
+                "name": "semanticLabelAnchors", "type": "symbol", "from": {"data": "visibleParentLabels"},
+                "encode": {"update": {
+                    "x": {"scale": "xscale", "field": "x"}, "y": {"scale": "yscale", "field": "y"},
+                    "size": {"value": 1},
+                    "fillOpacity": {"value": 0}, "strokeOpacity": {"value": 0}
+                }}
+            },
+            {
+                "name": "semanticLabels", "type": "text",
+                "key": "datum.node_id",
+                "zindex": 3,
+                "from": {"data": "semanticLabelAnchors"},
+                "transform": [
+                    {"type": "label", "anchor": ["top", "bottom", "right", "left", "top-right", "top-left", "bottom-right", "bottom-left"], "offset": [9, 9, 10, 10, 12, 12, 12, 12], "padding": 3, "avoidBaseMark": False, "avoidMarks": ["revisionPoints", "macroLabels"], "sort": {"field": "datum.placementOrder"}, "size": {"signal": "[width, height]"}},
+                ],
+                "encode": {"update": {
+                    "text": {"field": "datum.display_label"},
+                    "fill": {"field": "datum.label_colour"},
+                    "font": {"value": "Inter, Arial, sans-serif"},
+                    "fontSize": {"signal": "datum.datum.level==='cluster' ? 16 : 14"},
+                    "fontWeight": {"value": 700},
+                }}
+            },
+            {
+                "name": "semanticLabelHalos", "type": "text",
+                "key": "datum.datum.node_id",
+                "zindex": 2,
+                "from": {"data": "semanticLabels"},
+                "encode": {"update": {
+                    "text": {"field": "text"},
+                    "x": {"field": "x"}, "y": {"field": "y"},
+                    "align": {"field": "align"},
+                    "baseline": {"field": "baseline"},
+                    "opacity": {"field": "opacity"},
+                    "stroke": {"value": "#fbfaf7"},
+                    "strokeWidth": {"value": 4},
+                    "strokeOpacity": {"value": 0.94},
+                    "font": {"field": "font"},
+                    "fontSize": {"field": "fontSize"},
+                    "fontWeight": {"field": "fontWeight"},
+                }}
+            },
+            {
+                "name": "edgeLabelAnchors", "type": "symbol",
+                "key": "node_id",
+                "from": {"data": "visibleEdgeLabels"},
+                "encode": {"update": {
+                    "x": {"signal": "scale('xscale', datum.x) - 9 * (scale('yscale', datum.edge_y2) - scale('yscale', datum.edge_y)) / max(sqrt(pow(scale('xscale', datum.edge_x2) - scale('xscale', datum.edge_x), 2) + pow(scale('yscale', datum.edge_y2) - scale('yscale', datum.edge_y), 2)), 1)"},
+                    "y": {"signal": "scale('yscale', datum.y) + 9 * (scale('xscale', datum.edge_x2) - scale('xscale', datum.edge_x)) / max(sqrt(pow(scale('xscale', datum.edge_x2) - scale('xscale', datum.edge_x), 2) + pow(scale('yscale', datum.edge_y2) - scale('yscale', datum.edge_y), 2)), 1)"},
+                    "size": {"value": 1},
+                    "fillOpacity": {"value": 0}, "strokeOpacity": {"value": 0}
+                }}
+            },
+            {
+                "name": "edgeLabels", "type": "text",
+                "key": "datum.node_id",
+                "from": {"data": "edgeLabelAnchors"},
+                "transform": [
+                    {"type": "label", "anchor": ["middle"], "offset": [0], "padding": 5, "avoidBaseMark": False, "avoidMarks": ["revisionPoints", "macroLabels", "semanticLabels"], "sort": {"field": "datum.placementOrder"}, "size": {"signal": "[width, height]"}},
+                ],
+                "encode": {"update": {
+                    "text": {"field": "datum.label"}, "align": {"value": "center"},
+                    "baseline": {"value": "middle"},
+                    "font": {"value": "Inter, Arial, sans-serif"},
+                    "fontSize": {"value": 11}, "fontWeight": {"value": 700},
+                    "limit": {"value": 280},
+                    "fill": {"value": "#4f5750"},
+                }}
+            },
+            {
+                "name": "rootLabel", "type": "text", "from": {"data": "rootNode"},
+                "encode": {"enter": {
+                    "text": {"field": "label"}, "align": {"value": "center"},
+                    "baseline": {"value": "middle"},
+                    "font": {"value": "Inter, Arial, sans-serif"},
+                    "fontSize": {"value": 28}, "fontWeight": {"value": 700},
+                    "fill": {"value": "#151915"}
+                }, "update": {
+                    "x": {"scale": "xscale", "field": "x"},
+                    "y": {"scale": "yscale", "field": "y"},
+                    "opacity": {"signal": "rootOpacity"},
+                }}
+            },
+        ],
+    }
+
+
+def render_html(article: str, spec: dict) -> str:
+    encoded = json.dumps(spec, ensure_ascii=False, separators=(",", ":"))
+    return f"""<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Semantische Zoom-Timecurve – {html.escape(article)}</title>
+<script src="https://cdn.jsdelivr.net/npm/vega@5.33.1"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-tooltip@0.35.2/build/vega-tooltip.min.js"></script>
+<style>
+html,body{{height:100%;margin:0;background:#fbfaf7;color:#151915;font-family:Inter,Arial,sans-serif}}
+#app{{height:100%;display:flex;flex-direction:column;overflow:hidden}}
+#topbar{{padding:14px 20px 8px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}}
+#topbar h1{{font-size:20px;line-height:1.2;font-weight:700;margin:0}}
+#vis{{flex:1;min-width:0;min-height:0}}canvas{{cursor:grab}}canvas:active{{cursor:grabbing}}
+</style></head><body><main id="app">
+<header id="topbar"><h1>Semantische Revisions-Timecurve – {html.escape(article)}</h1></header>
+<div id="vis" role="img" aria-label="Interaktive semantische Revisions-Timecurve"></div>
+</main>
+<script>
+const spec={encoded};
+const handler=new vegaTooltip.Handler({{theme:'light'}});
+const vis=document.getElementById('vis');
+const view=new vega.View(vega.parse(spec),{{renderer:'canvas',hover:true}})
+  .initialize(vis).tooltip(handler.call);
+let resizeFrame=0;
+let stabilityTimer=0;
+let stabilitySyncing=false;
+let lastWidth=0;
+let lastHeight=0;
+function sameIds(first,second){{
+  return first.length===second.length&&first.every((value,index)=>value===second[index]);
+}}
+function renderedLabelIds(markName){{
+  const ids=new Set();
+  function visit(item){{
+    if(!item)return;
+    if(item.mark&&item.mark.name===markName&&item.opacity!==0&&Number.isFinite(item.x)&&Number.isFinite(item.y)){{
+      const datum=item.datum&&item.datum.datum?item.datum.datum:item.datum;
+      if(datum&&datum.node_id)ids.add(String(datum.node_id));
+    }}
+    if(Array.isArray(item.items))item.items.forEach(visit);
+  }}
+  visit(view.scenegraph().root);
+  return Array.from(ids).sort();
+}}
+async function syncLabelStability(){{
+  if(stabilitySyncing||view.signal('zooming')||view.signal('down'))return;
+  const parentIds=Array.from(new Set([
+    ...renderedLabelIds('macroLabels'),
+    ...renderedLabelIds('semanticLabels')
+  ])).sort();
+  const edgeIds=renderedLabelIds('edgeLabels');
+  const oldParentIds=(view.signal('stableParentLabelIds')||[]).slice().sort();
+  const oldEdgeIds=(view.signal('stableEdgeLabelIds')||[]).slice().sort();
+  vis.dataset.semanticLayer=String(view.signal('semanticLayer'));
+  vis.dataset.stableParentLabels=String(parentIds.length);
+  vis.dataset.stableEdgeLabels=String(edgeIds.length);
+  if(sameIds(parentIds,oldParentIds)&&sameIds(edgeIds,oldEdgeIds))return;
+  stabilitySyncing=true;
+  try{{
+    view.signal('stableParentLabelIds',parentIds);
+    view.signal('stableEdgeLabelIds',edgeIds);
+    await view.runAsync();
+  }}finally{{
+    stabilitySyncing=false;
+  }}
+}}
+function scheduleLabelStability(){{
+  clearTimeout(stabilityTimer);
+  stabilityTimer=setTimeout(()=>{{void syncLabelStability();}},0);
+}}
+view.addSignalListener('zooming',(_name,value)=>{{if(!value)scheduleLabelStability();}});
+view.addSignalListener('down',(_name,value)=>{{if(value===null)scheduleLabelStability();}});
+function resizeView(){{
+  cancelAnimationFrame(resizeFrame);
+  resizeFrame=requestAnimationFrame(async()=>{{
+    const width=Math.max(320,vis.clientWidth-56);
+    const height=Math.max(420,vis.clientHeight-46);
+    if(width===lastWidth&&height===lastHeight)return;
+    lastWidth=width;lastHeight=height;
+    await view.width(width).height(height).runAsync();
+    scheduleLabelStability();
+  }});
+}}
+new ResizeObserver(resizeView).observe(vis);
+resizeView();
+</script></body></html>"""
+
+
+def source_sha256(paths: Iterable[Path]) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(paths, key=lambda item: item.as_posix()):
+        digest.update(path.name.encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Build semantic-zoom hierarchy and Vega timecurve.")
+    parser.add_argument("--projection", type=Path, required=True)
+    parser.add_argument("--keywords", type=Path, required=True)
+    parser.add_argument("--article", required=True)
+    parser.add_argument("--xml", type=Path)
+    parser.add_argument("--model", default=MODEL)
+    parser.add_argument("--no-llm", action="store_true", help="Keep deterministic grounded fallback labels.")
+    parser.add_argument("--skip-word-counts", action="store_true")
+    parser.add_argument("--labels-output", type=Path)
+    parser.add_argument("--html-output", type=Path)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    projection_path = args.projection.expanduser().resolve()
+    keywords_path = args.keywords.expanduser().resolve()
+    projection = json.loads(projection_path.read_text(encoding="utf-8"))
+    keywords = json.loads(keywords_path.read_text(encoding="utf-8"))
+    points, pairs = validate_sources(projection, keywords)
+
+    labels_output = args.labels_output or projection_path.with_name(
+        projection_path.stem.removesuffix("_projection") + "_semantic_zoom_labels.json"
+    )
+    html_output = args.html_output or projection_path.with_name(
+        projection_path.stem.removesuffix("_projection") + "_semantic_zoom.html"
+    )
+
+    xml_path = (args.xml or Path(article_paths(args.article)["xml_path"])).expanduser().resolve()
+    revert_analysis = projection.get("edit_wars")
+    if not revert_analysis or not all(
+        "interval_mutual_revert_count" in point for point in points
+    ):
+        full_history = load_revert_history(xml_path)
+        conflict_history, sampled_for_conflict = history_window_for_points(
+            full_history, points
+        )
+        revert_analysis = analyze_reverts(
+            conflict_history, sampled_for_conflict
+        )
+        for point, statistics in zip(
+            points, revert_analysis["point_statistics"]
+        ):
+            point.update(statistics)
+    word_counts = None
+    if not args.skip_word_counts:
+        word_counts = cached_word_counts(
+            labels_output, projection_path, keywords_path, len(pairs)
+        ) or _counts_from_xml(xml_path, points)
+    hierarchy = build_hierarchy(
+        projection, keywords, word_counts, root_label=args.article
+    )
+
+    llm_labels = {}
+    macro_labels = {}
+    if not args.no_llm:
+        nodes = [
+            node for node in hierarchy["clusters"] + hierarchy["sections"]
+            if node["terms"]
+        ]
+        llm_labels = cached_llm_labels(
+            labels_output, projection_path, keywords_path, args.model
+        )
+        missing = [node for node in nodes if node["node_id"] not in llm_labels]
+        if missing:
+            client = OpenAI(api_key=load_api_key(Path(BASE_DIR) / ".env"))
+            llm_labels.update(generate_labels(client, args.model, missing))
+        for level in ("clusters", "sections"):
+            for node in hierarchy[level]:
+                node["label"] = llm_labels[node["node_id"]] if node["terms"] else ""
+
+        cluster_labels = {
+            int(node["cluster_id"]): node["label"]
+            for node in hierarchy["clusters"]
+        }
+        for macro in hierarchy["macros"]:
+            macro["child_labels"] = [
+                cluster_labels[cluster_id]
+                for cluster_id in macro["cluster_ids"]
+                if cluster_labels.get(cluster_id)
+            ]
+        macro_labels = cached_macro_labels(
+            labels_output, projection_path, keywords_path, args.model, hierarchy["macros"]
+        )
+        missing_macros = [
+            node for node in hierarchy["macros"]
+            if node["node_id"] not in macro_labels
+        ]
+        if missing_macros:
+            if "client" not in locals():
+                client = OpenAI(api_key=load_api_key(Path(BASE_DIR) / ".env"))
+            macro_labels.update(generate_labels(
+                client,
+                args.model,
+                missing_macros,
+                system_prompt=MACRO_LABEL_SYSTEM_PROMPT,
+            ))
+        for node in hierarchy["macros"]:
+            node["label"] = macro_labels[node["node_id"]]
+
+    payload = {
+        "article": args.article,
+        "projection": str(projection_path),
+        "revision_keywords": str(keywords_path),
+        "model": None if args.no_llm else args.model,
+        "labels_generated_offline": True,
+        "interactive_llm_calls": False,
+        "edit_wars": revert_analysis,
+        "pipeline_snapshot_id": SEMANTIC_ZOOM_SNAPSHOT_ID,
+        "source_sha256": source_sha256([Path(__file__), projection_path, keywords_path]),
+        "label_system_prompt": None if args.no_llm else LABEL_SYSTEM_PROMPT,
+        "macro_label_system_prompt": None if args.no_llm else MACRO_LABEL_SYSTEM_PROMPT,
+        "word_counts_are_git_word_diff": word_counts is not None,
+        "hierarchy": hierarchy,
+    }
+    labels_output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    html_output.write_text(render_html(args.article, build_vega_spec(args.article, projection, hierarchy)), encoding="utf-8")
+    print(f"Labelhierarchie: {labels_output}")
+    print(f"Semantische Zoom-Timecurve: {html_output}")
+    print(format_label_pyramid(hierarchy))
+    print(
+        "Makrothemen/Cluster/Abschnitte/Kanten: "
+        f"{len(hierarchy['macros'])}/{len(hierarchy['clusters'])}/"
+        f"{len(hierarchy['sections'])}/{len(hierarchy['edges'])}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (FileNotFoundError, ValueError, RuntimeError, UnicodeError) as error:
+        print(f"[FEHLER] {error}")
+        raise SystemExit(1) from error

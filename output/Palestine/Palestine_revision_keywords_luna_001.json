@@ -1,0 +1,2437 @@
+{
+  "article": "Palestine",
+  "xml": "/Users/vanessadungl/Desktop/wikipedia_timecurve_multi_article/data/Palestine/Palestine.xml",
+  "visualization": "/Users/vanessadungl/Desktop/wikipedia_timecurve_multi_article/output/Palestine/Palestine_bert_timecurve_001_projection.json",
+  "model": "gpt-5.6-luna",
+  "sampling": "exact_revision_order_from_visualization",
+  "system_prompt": "Only use concepts explicitly supported by this revision.\nNever use outside knowledge.",
+  "revision_pairs": [
+    {
+      "previous_revision_id": "1006306",
+      "previous_timestamp": "2003-06-06T20:52:21Z",
+      "current_revision_id": "1246508",
+      "current_timestamp": "2003-07-05T06:52:52Z",
+      "added_keywords": [
+        "Council",
+        "is"
+      ],
+      "removed_keywords": [
+        "Counsil",
+        "was"
+      ]
+    },
+    {
+      "previous_revision_id": "1246508",
+      "previous_timestamp": "2003-07-05T06:52:52Z",
+      "current_revision_id": "1509954",
+      "current_timestamp": "2003-08-05T21:26:15Z",
+      "added_keywords": [],
+      "removed_keywords": []
+    },
+    {
+      "previous_revision_id": "1509954",
+      "previous_timestamp": "2003-08-05T21:26:15Z",
+      "current_revision_id": "3022706",
+      "current_timestamp": "2003-10-01T08:00:04Z",
+      "added_keywords": [
+        "dismantling of terrorist",
+        "Arab-Israeli conflict",
+        "British Mandate of",
+        "Hamas"
+      ],
+      "removed_keywords": [
+        "state",
+        "Palestinian state"
+      ]
+    },
+    {
+      "previous_revision_id": "3022706",
+      "previous_timestamp": "2003-10-01T08:00:04Z",
+      "current_revision_id": "3022716",
+      "current_timestamp": "2004-04-02T12:54:00Z",
+      "added_keywords": [
+        "EU countries",
+        "UK",
+        "diplomatic ties",
+        "Palestinian Authority"
+      ],
+      "removed_keywords": [
+        "Palestinian Authority",
+        "diplomatic ties"
+      ]
+    },
+    {
+      "previous_revision_id": "3022716",
+      "previous_timestamp": "2004-04-02T12:54:00Z",
+      "current_revision_id": "3523957",
+      "current_timestamp": "2004-05-06T15:23:15Z",
+      "added_keywords": [
+        "Palestine Liberation Organization",
+        "series of steps",
+        "Palestinian terrorist groups",
+        "Palestinian Authority",
+        "Israel"
+      ],
+      "removed_keywords": [
+        "PLO",
+        "state",
+        "groups"
+      ]
+    },
+    {
+      "previous_revision_id": "3523957",
+      "previous_timestamp": "2004-05-06T15:23:15Z",
+      "current_revision_id": "4040573",
+      "current_timestamp": "2004-06-02T15:21:31Z",
+      "added_keywords": [
+        "United Nations",
+        "European Union",
+        "United Kingdom",
+        "Islamic state in",
+        "Israel"
+      ],
+      "removed_keywords": [
+        "UN",
+        "EU",
+        "UK"
+      ]
+    },
+    {
+      "previous_revision_id": "4040573",
+      "previous_timestamp": "2004-06-02T15:21:31Z",
+      "current_revision_id": "5409203",
+      "current_timestamp": "2004-08-21T06:42:12Z",
+      "added_keywords": [
+        "by contrast",
+        "Oslo Accords",
+        "established authority",
+        "additional steps"
+      ],
+      "removed_keywords": [
+        "However",
+        "These steps",
+        "include the",
+        "among other"
+      ]
+    },
+    {
+      "previous_revision_id": "5409203",
+      "previous_timestamp": "2004-08-21T06:42:12Z",
+      "current_revision_id": "5747344",
+      "current_timestamp": "2004-09-08T20:56:45Z",
+      "added_keywords": [],
+      "removed_keywords": []
+    },
+    {
+      "previous_revision_id": "5747344",
+      "previous_timestamp": "2004-09-08T20:56:45Z",
+      "current_revision_id": "6750926",
+      "current_timestamp": "2004-10-21T13:51:09Z",
+      "added_keywords": [
+        "State of Palestine",
+        "Official languages",
+        "Yasir Arafat",
+        "Jordanian dinar",
+        "Declaration of Independence"
+      ],
+      "removed_keywords": [
+        "Palestinian flag",
+        "Palestine Liberation Army",
+        "West Bank",
+        "Gaza Strip"
+      ]
+    },
+    {
+      "previous_revision_id": "6750926",
+      "previous_timestamp": "2004-10-21T13:51:09Z",
+      "current_revision_id": "7361443",
+      "current_timestamp": "2004-11-01T15:34:43Z",
+      "added_keywords": [
+        "Proclaimed",
+        "Prime Minister",
+        "West Bank",
+        "Gaza Strip",
+        "did not fulfill",
+        "whole of Palestine",
+        "embassies",
+        "Jewish state"
+      ],
+      "removed_keywords": [
+        "Largest City",
+        "President",
+        "Density",
+        "GDP",
+        "Jordanian dinar",
+        "Bilady",
+        "Muslim countries",
+        "failed to meet"
+      ]
+    },
+    {
+      "previous_revision_id": "7361443",
+      "previous_timestamp": "2004-11-01T15:34:43Z",
+      "current_revision_id": "8081738",
+      "current_timestamp": "2004-12-03T14:22:21Z",
+      "added_keywords": [
+        "Proclaimed",
+        "Israel",
+        "20,770 km²",
+        "+2",
+        ".ps"
+      ],
+      "removed_keywords": [
+        "Yasser Arafat",
+        "Ahmed Qurei",
+        "+2/+3",
+        "Calling Code 970",
+        "TLD.PS"
+      ]
+    },
+    {
+      "previous_revision_id": "8081738",
+      "previous_timestamp": "2004-12-03T14:22:21Z",
+      "current_revision_id": "9450773",
+      "current_timestamp": "2005-01-03T11:12:37Z",
+      "added_keywords": [
+        "the declaration",
+        "whole of Israel",
+        "two-thirds",
+        "it today",
+        "the State",
+        "knowledge wars",
+        "National"
+      ],
+      "removed_keywords": [
+        "roles of a",
+        "occupying a",
+        "idea of partition",
+        "currently",
+        "2/3",
+        "delegations"
+      ]
+    },
+    {
+      "previous_revision_id": "9450773",
+      "previous_timestamp": "2005-01-03T11:12:37Z",
+      "current_revision_id": "10090114",
+      "current_timestamp": "2005-02-09T05:30:48Z",
+      "added_keywords": [
+        "Palestinian",
+        "Arab Gateway",
+        "Palestine LookSmart",
+        "Palestine Open Directory",
+        "Palestine directory category"
+      ],
+      "removed_keywords": [
+        "Palestintian",
+        "Palestintian"
+      ]
+    },
+    {
+      "previous_revision_id": "10090114",
+      "previous_timestamp": "2005-02-09T05:30:48Z",
+      "current_revision_id": "10685547",
+      "current_timestamp": "2005-03-02T00:16:18Z",
+      "added_keywords": [
+        "Palestine",
+        "country"
+      ],
+      "removed_keywords": [
+        "Arab Gateway",
+        "LookSmart",
+        "Open Directory Project",
+        "Yahoo!"
+      ]
+    },
+    {
+      "previous_revision_id": "10685547",
+      "previous_timestamp": "2005-03-02T00:16:18Z",
+      "current_revision_id": "12032269",
+      "current_timestamp": "2005-04-04T01:47:39Z",
+      "added_keywords": [
+        "fa:فلسطین",
+        "he:פלסטין"
+      ],
+      "removed_keywords": [
+        "Palestine",
+        "not a country"
+      ]
+    },
+    {
+      "previous_revision_id": "12032269",
+      "previous_timestamp": "2005-04-04T01:47:39Z",
+      "current_revision_id": "13257454",
+      "current_timestamp": "2005-05-01T18:08:41Z",
+      "added_keywords": [
+        "present-day Israel",
+        "West Bank",
+        "Gaza Strip",
+        "half",
+        "Cold-War-era NATO",
+        "Arab-Israeli conflict"
+      ],
+      "removed_keywords": [
+        "two-thirds",
+        "Capital"
+      ]
+    },
+    {
+      "previous_revision_id": "13257454",
+      "previous_timestamp": "2005-05-01T18:08:41Z",
+      "current_revision_id": "14658195",
+      "current_timestamp": "2005-06-03T20:59:30Z",
+      "added_keywords": [
+        "East Jerusalem",
+        "Greece",
+        "Vatican City",
+        "Syria",
+        "State of Palestine",
+        "Palästina Staat"
+      ],
+      "removed_keywords": [
+        "Population",
+        "Time zone",
+        "Vatican Yugoslavia",
+        "State of Palestine",
+        "Palestine",
+        "width"
+      ]
+    },
+    {
+      "previous_revision_id": "14658195",
+      "previous_timestamp": "2005-06-03T20:59:30Z",
+      "current_revision_id": "18181150",
+      "current_timestamp": "2005-07-05T09:05:07Z",
+      "added_keywords": [
+        "Palestinian National Council",
+        "Algiers",
+        "Treaty of Lausanne",
+        "democratically elected government",
+        "Palestinian Declaration of"
+      ],
+      "removed_keywords": [
+        "Tunis",
+        "unilaterally proclaimed",
+        "British Mandate of",
+        "many other countries",
+        "Road map"
+      ]
+    },
+    {
+      "previous_revision_id": "18181150",
+      "previous_timestamp": "2005-07-05T09:05:07Z",
+      "current_revision_id": "20397154",
+      "current_timestamp": "2005-08-06T08:13:53Z",
+      "added_keywords": [
+        "PLO",
+        "cs:Palestina",
+        "de:Palästina (Staat)",
+        "fa:فلسطین"
+      ],
+      "removed_keywords": [
+        "capitals_coordinates",
+        "Palestine Liberation Organization"
+      ]
+    },
+    {
+      "previous_revision_id": "20397154",
+      "previous_timestamp": "2005-08-06T08:13:53Z",
+      "current_revision_id": "22464865",
+      "current_timestamp": "2005-09-03T11:25:45Z",
+      "added_keywords": [
+        "94",
+        "South Africa",
+        "Ireland",
+        "Serbia and Montenegro",
+        "Palestinian state"
+      ],
+      "removed_keywords": [
+        "93",
+        "Cold-War-era NATO country",
+        "France",
+        "United Kingdom"
+      ]
+    },
+    {
+      "previous_revision_id": "22464865",
+      "previous_timestamp": "2005-09-03T11:25:45Z",
+      "current_revision_id": "24447568",
+      "current_timestamp": "2005-10-01T02:04:15Z",
+      "added_keywords": [
+        "Maldives",
+        "Your mom"
+      ],
+      "removed_keywords": [
+        "Palestinian state",
+        "Yasser Arafat",
+        "Roman Empire",
+        "Six-Day War",
+        "Palestine Post"
+      ]
+    },
+    {
+      "previous_revision_id": "24447568",
+      "previous_timestamp": "2005-10-01T02:04:15Z",
+      "current_revision_id": "28033585",
+      "current_timestamp": "2005-11-11T16:06:23Z",
+      "added_keywords": [
+        "Capital",
+        "Палестина",
+        "автономна територия"
+      ],
+      "removed_keywords": [
+        "Proclaimed capital",
+        "Your mom"
+      ]
+    },
+    {
+      "previous_revision_id": "28033585",
+      "previous_timestamp": "2005-11-11T16:06:23Z",
+      "current_revision_id": "29944393",
+      "current_timestamp": "2005-12-02T20:22:45Z",
+      "added_keywords": [
+        "Proclaimed",
+        "Proclaimed capital"
+      ],
+      "removed_keywords": [
+        "Capital",
+        "capital"
+      ]
+    },
+    {
+      "previous_revision_id": "29944393",
+      "previous_timestamp": "2005-12-02T20:22:45Z",
+      "current_revision_id": "33514268",
+      "current_timestamp": "2006-01-01T21:26:47Z",
+      "added_keywords": [
+        "West Bank",
+        "Gaza",
+        "Estado da Palestina"
+      ],
+      "removed_keywords": [
+        "the whole of",
+        "recognise",
+        "favour"
+      ]
+    },
+    {
+      "previous_revision_id": "33514268",
+      "previous_timestamp": "2006-01-01T21:26:47Z",
+      "current_revision_id": "39373358",
+      "current_timestamp": "2006-02-12T19:11:26Z",
+      "added_keywords": [
+        "Authority (PNA)",
+        "most member states",
+        "Around 100",
+        "State of Palestine",
+        "Bosnia-Herzegovina",
+        "Serbia and Montenegro"
+      ],
+      "removed_keywords": [
+        "Palestinian Authority",
+        "Union countries",
+        "United Kingdom",
+        "fully",
+        "Islamic state in",
+        "Maldives"
+      ]
+    },
+    {
+      "previous_revision_id": "39373358",
+      "previous_timestamp": "2006-02-12T19:11:26Z",
+      "current_revision_id": "41746863",
+      "current_timestamp": "2006-03-01T13:17:07Z",
+      "added_keywords": [
+        "terrorist state",
+        "envoy",
+        "November 2005",
+        "Ireland",
+        "Turkey",
+        "Permanent Observer Mission"
+      ],
+      "removed_keywords": [
+        "Shahid recently",
+        "as",
+        "Turkey"
+      ]
+    },
+    {
+      "previous_revision_id": "41746863",
+      "previous_timestamp": "2006-03-01T13:17:07Z",
+      "current_revision_id": "48871935",
+      "current_timestamp": "2006-04-17T18:24:07Z",
+      "added_keywords": [
+        "Egypt",
+        "Eritrea",
+        "Guyana",
+        "Suriname",
+        "Kazakhstan",
+        "Kyrgyzstan",
+        "Tajikistan",
+        "Turkmenistan"
+      ],
+      "removed_keywords": [
+        "terrorist state",
+        "British Mandate",
+        "West Bank",
+        "Gaza",
+        "Djibouti",
+        "Nicaragua"
+      ]
+    },
+    {
+      "previous_revision_id": "48871935",
+      "previous_timestamp": "2006-04-17T18:24:07Z",
+      "current_revision_id": "51792233",
+      "current_timestamp": "2006-05-06T05:18:12Z",
+      "added_keywords": [
+        "Hungary",
+        "Hungary"
+      ],
+      "removed_keywords": [
+        "Ireland",
+        "Iran-Arab relations",
+        "Arab countries"
+      ]
+    },
+    {
+      "previous_revision_id": "51792233",
+      "previous_timestamp": "2006-05-06T05:18:12Z",
+      "current_revision_id": "56500407",
+      "current_timestamp": "2006-06-02T14:31:03Z",
+      "added_keywords": [
+        "approved",
+        "independent state",
+        "sovereignty",
+        "93",
+        "Austria",
+        "Middle East"
+      ],
+      "removed_keywords": [
+        "proclaimed",
+        "Around 100",
+        "South Africa",
+        "Kazakhstan",
+        "Kyrgyzstan",
+        "Moldova"
+      ]
+    },
+    {
+      "previous_revision_id": "56500407",
+      "previous_timestamp": "2006-06-02T14:31:03Z",
+      "current_revision_id": "61890206",
+      "current_timestamp": "2006-07-03T19:02:22Z",
+      "added_keywords": [
+        "North Korea",
+        "Serbia"
+      ],
+      "removed_keywords": [
+        "Korea (DPRK)",
+        "Serbia and Montenegro"
+      ]
+    },
+    {
+      "previous_revision_id": "61890206",
+      "previous_timestamp": "2006-07-03T19:02:22Z",
+      "current_revision_id": "67044074",
+      "current_timestamp": "2006-08-01T14:31:13Z",
+      "added_keywords": [
+        "State of Israel",
+        "Six-Day War",
+        "Egypt and Jordan",
+        "Palestinian National Charter",
+        "territorial sovereignty",
+        "West Bank",
+        "Gaza Strip",
+        "Himmah Area"
+      ],
+      "removed_keywords": [
+        "دولة فلسطين",
+        "territory",
+        "PNA",
+        "United States",
+        "European Union",
+        "Arab League",
+        "Palästina (Staat)"
+      ]
+    },
+    {
+      "previous_revision_id": "67044074",
+      "previous_timestamp": "2006-08-01T14:31:13Z",
+      "current_revision_id": "73427103",
+      "current_timestamp": "2006-09-02T17:37:04Z",
+      "added_keywords": [
+        "Ninety-four states",
+        "South Africa",
+        "Kazakhstan",
+        "Uzbekistan",
+        "Palestinian Weapons Industry",
+        "Embassy of the"
+      ],
+      "removed_keywords": [
+        "93 countries",
+        "Sao Tome and",
+        "Canada",
+        "PLO representation",
+        "Arab Mission",
+        "Brazil"
+      ]
+    },
+    {
+      "previous_revision_id": "73427103",
+      "previous_timestamp": "2006-09-02T17:37:04Z",
+      "current_revision_id": "79420103",
+      "current_timestamp": "2006-10-04T08:25:22Z",
+      "added_keywords": [
+        "establishment",
+        "95",
+        "11",
+        "Argentina",
+        "Singapore",
+        "Palestine (État revendiqué)"
+      ],
+      "removed_keywords": [
+        "independence",
+        "Ninety-four",
+        "eleven",
+        "Mexico"
+      ]
+    },
+    {
+      "previous_revision_id": "79420103",
+      "previous_timestamp": "2006-10-04T08:25:22Z",
+      "current_revision_id": "85320710",
+      "current_timestamp": "2006-11-02T20:21:53Z",
+      "added_keywords": [
+        "Palestine Portal",
+        "has controlled",
+        "envisions",
+        "More than 100",
+        "20",
+        "Oceania Vanuatu",
+        "Sweden",
+        "Colombia"
+      ],
+      "removed_keywords": [
+        "controls",
+        "envision",
+        "95",
+        "11",
+        "Cyprus Turkey",
+        "France",
+        "Palestinian",
+        "Switzerland"
+      ]
+    },
+    {
+      "previous_revision_id": "85320710",
+      "previous_timestamp": "2006-11-02T20:21:53Z",
+      "current_revision_id": "91337645",
+      "current_timestamp": "2006-12-01T07:54:38Z",
+      "added_keywords": [
+        "Approval of Declaration",
+        "Impact of Declaration",
+        "PLO",
+        "Azerbaijan",
+        "Turkmenistan",
+        "Greece",
+        "non-State representatives"
+      ],
+      "removed_keywords": [
+        "territory in history",
+        "PNA",
+        "special",
+        "Palestinian Weapons Industry"
+      ]
+    },
+    {
+      "previous_revision_id": "91337645",
+      "previous_timestamp": "2006-12-01T07:54:38Z",
+      "current_revision_id": "97992551",
+      "current_timestamp": "2007-01-02T19:18:50Z",
+      "added_keywords": [
+        "proclaimed in Algeria",
+        "declared",
+        "Angola",
+        "PLO Office",
+        "United States"
+      ],
+      "removed_keywords": [
+        "Palestine Portal",
+        "approved",
+        "proclaimed",
+        "actually",
+        "Greece"
+      ]
+    },
+    {
+      "previous_revision_id": "97992551",
+      "previous_timestamp": "2007-01-02T19:18:50Z",
+      "current_revision_id": "105584633",
+      "current_timestamp": "2007-02-04T15:55:23Z",
+      "added_keywords": [
+        "Algiers",
+        "Turkey"
+      ],
+      "removed_keywords": [
+        "Algeria",
+        "Turkey"
+      ]
+    },
+    {
+      "previous_revision_id": "105584633",
+      "previous_timestamp": "2007-02-04T15:55:23Z",
+      "current_revision_id": "111773136",
+      "current_timestamp": "2007-03-01T06:28:47Z",
+      "added_keywords": [
+        "Palestine",
+        "sovereign",
+        "Palestinian state",
+        "government of Palestine",
+        "foreign relations",
+        "15 November 1988",
+        "the PLO",
+        "Tamil Eelam"
+      ],
+      "removed_keywords": [
+        "Palestinian",
+        "not an independent",
+        "generally",
+        "envisages",
+        "partial",
+        "State of Israel",
+        "Occupation"
+      ]
+    },
+    {
+      "previous_revision_id": "111773136",
+      "previous_timestamp": "2007-03-01T06:28:47Z",
+      "current_revision_id": "119493548",
+      "current_timestamp": "2007-04-01T14:57:33Z",
+      "added_keywords": [
+        "State of Palestine",
+        "independent state",
+        "State of Israel",
+        "partial control",
+        "representation",
+        "Occupation"
+      ],
+      "removed_keywords": [
+        "sovereign",
+        "Palestinian state",
+        "disputed by legal",
+        "15 November 1988",
+        "rejected",
+        "PLO"
+      ]
+    },
+    {
+      "previous_revision_id": "119493548",
+      "previous_timestamp": "2007-04-01T14:57:33Z",
+      "current_revision_id": "128515890",
+      "current_timestamp": "2007-05-05T22:31:43Z",
+      "added_keywords": [
+        "Palestinian",
+        "Palestinian"
+      ],
+      "removed_keywords": [
+        "Palestine",
+        "Palestine"
+      ]
+    },
+    {
+      "previous_revision_id": "128515890",
+      "previous_timestamp": "2007-05-05T22:31:43Z",
+      "current_revision_id": "135145425",
+      "current_timestamp": "2007-06-01T18:38:19Z",
+      "added_keywords": [
+        "Egypt",
+        "Jordan",
+        "Gaza",
+        "West Bank",
+        "Diplomatic missions",
+        "Palestinian state"
+      ],
+      "removed_keywords": [
+        "Arab-Israeli conflict",
+        "British Mandate of",
+        "Hamas",
+        "Israel",
+        "Jewish state",
+        "Palestine",
+        "Palestinian Liberation Army",
+        "PLO"
+      ]
+    },
+    {
+      "previous_revision_id": "135145425",
+      "previous_timestamp": "2007-06-01T18:38:19Z",
+      "current_revision_id": "141727101",
+      "current_timestamp": "2007-07-01T03:17:20Z",
+      "added_keywords": [
+        "Egypt",
+        "Territorios Palestinos"
+      ],
+      "removed_keywords": [
+        "Angola",
+        "Botswana",
+        "Burundi",
+        "Cape Verde",
+        "Central African Republic",
+        "Republic of the",
+        "Equatorial Guinea",
+        "Vatican City"
+      ]
+    },
+    {
+      "previous_revision_id": "141727101",
+      "previous_timestamp": "2007-07-01T03:17:20Z",
+      "current_revision_id": "149165304",
+      "current_timestamp": "2007-08-04T16:24:55Z",
+      "added_keywords": [
+        "proposed Palestinian state",
+        "occupied Palestinian Territories",
+        "declared",
+        "Greece"
+      ],
+      "removed_keywords": [
+        "proclaimed",
+        "independent state",
+        "sovereignty",
+        "Six-Day War"
+      ]
+    },
+    {
+      "previous_revision_id": "149165304",
+      "previous_timestamp": "2007-08-04T16:24:55Z",
+      "current_revision_id": "155344496",
+      "current_timestamp": "2007-09-03T04:14:53Z",
+      "added_keywords": [
+        "dawlat filastin",
+        "name given to",
+        "does not currently",
+        "West Bank",
+        "Gaza strip",
+        "United Nations",
+        "Palestine Liberation Orgnization"
+      ],
+      "removed_keywords": [
+        "Territories",
+        "of Declaration",
+        "UN",
+        "PLO"
+      ]
+    },
+    {
+      "previous_revision_id": "155344496",
+      "previous_timestamp": "2007-09-03T04:14:53Z",
+      "current_revision_id": "162405865",
+      "current_timestamp": "2007-10-05T05:52:28Z",
+      "added_keywords": [
+        "Palestinian National Council",
+        "November 15 1988",
+        "Palestinian Authority",
+        "representative Europe"
+      ],
+      "removed_keywords": [
+        "meeting Algiers",
+        "253-46",
+        "PNA",
+        "have recognized"
+      ]
+    },
+    {
+      "previous_revision_id": "162405865",
+      "previous_timestamp": "2007-10-05T05:52:28Z",
+      "current_revision_id": "168838825",
+      "current_timestamp": "2007-11-02T23:45:10Z",
+      "added_keywords": [
+        "phalastin",
+        "பாலஸ்தீன நாடு"
+      ],
+      "removed_keywords": [
+        "philostin",
+        "philostin"
+      ]
+    },
+    {
+      "previous_revision_id": "168838825",
+      "previous_timestamp": "2007-11-02T23:45:10Z",
+      "current_revision_id": "301093554",
+      "current_timestamp": "2009-07-09T00:07:50Z",
+      "added_keywords": [
+        "Palestiin 🏳️‍⚧️",
+        "Palestiin (autonoomne territoorium)"
+      ],
+      "removed_keywords": [
+        "Palestiin (riik)",
+        "Palestiina riik"
+      ]
+    },
+    {
+      "previous_revision_id": "301093554",
+      "previous_timestamp": "2009-07-09T00:07:50Z",
+      "current_revision_id": "305984622",
+      "current_timestamp": "2009-08-04T09:57:03Z",
+      "added_keywords": [
+        "political entity",
+        "limited recognition",
+        "no control",
+        "Palestine Liberation Organization",
+        "observer member",
+        "Palestinian Declaration of",
+        "final settlement",
+        "special status"
+      ],
+      "removed_keywords": [
+        "proposed Palestinian state",
+        "occupied Palestinian territories",
+        "sovereignty",
+        "Arab League",
+        "diplomatic missions"
+      ]
+    },
+    {
+      "previous_revision_id": "305984622",
+      "previous_timestamp": "2009-08-04T09:57:03Z",
+      "current_revision_id": "311262289",
+      "current_timestamp": "2009-09-01T11:59:11Z",
+      "added_keywords": [
+        "officially",
+        "interim administrative body",
+        "parts of",
+        "a synonym",
+        "supporting the rights",
+        "Palestinian passport"
+      ],
+      "removed_keywords": [
+        "also",
+        "no control",
+        "interim administrative authority",
+        "to be confused",
+        "invoked",
+        "claim to"
+      ]
+    },
+    {
+      "previous_revision_id": "311262289",
+      "previous_timestamp": "2009-09-01T11:59:11Z",
+      "current_revision_id": "317369277",
+      "current_timestamp": "2009-10-01T22:49:15Z",
+      "added_keywords": [
+        "75 states",
+        "February 1989",
+        "Bulgaria",
+        "Vatican City",
+        "Australia",
+        "Republic of Korea",
+        "Barcelona Process",
+        "Two-State Solution"
+      ],
+      "removed_keywords": [
+        "historical injustice",
+        "89 states",
+        "Mitterand",
+        "Cyprus",
+        "Vanautu Vatican City"
+      ]
+    },
+    {
+      "previous_revision_id": "317369277",
+      "previous_timestamp": "2009-10-01T22:49:15Z",
+      "current_revision_id": "324015901",
+      "current_timestamp": "2009-11-05T02:47:41Z",
+      "added_keywords": [
+        "the PA",
+        "Arabs refused partition",
+        "Israel",
+        "Ramallah",
+        "Jericho",
+        "Bosnia and Herzegovina",
+        "Oceania",
+        "West Bank"
+      ],
+      "removed_keywords": [
+        "Gaza",
+        "largest city",
+        "Palestinian National Authority",
+        "that were",
+        "Ramallah",
+        "Venezuela",
+        "Other",
+        "Jericho"
+      ]
+    },
+    {
+      "previous_revision_id": "324015901",
+      "previous_timestamp": "2009-11-05T02:47:41Z",
+      "current_revision_id": "329343908",
+      "current_timestamp": "2009-12-02T23:58:48Z",
+      "added_keywords": [
+        "non-member observer entity",
+        "South Africa",
+        "Chile",
+        "Cambodia",
+        "Singapore",
+        "Slovenia"
+      ],
+      "removed_keywords": [
+        "member",
+        "20",
+        "Albania",
+        "Confederation",
+        "Organization of African",
+        "Palestinian passport"
+      ]
+    },
+    {
+      "previous_revision_id": "329343908",
+      "previous_timestamp": "2009-12-02T23:58:48Z",
+      "current_revision_id": "335228965",
+      "current_timestamp": "2010-01-01T03:24:53Z",
+      "added_keywords": [
+        "majority recognition",
+        "Corpus Separatum",
+        "Arab leadership",
+        "Jewish leaders accepted",
+        "customary international law"
+      ],
+      "removed_keywords": [
+        "limited recognition",
+        "Arabs refused",
+        "contemporary political maps",
+        "country in exile",
+        "Kenya"
+      ]
+    },
+    {
+      "previous_revision_id": "335228965",
+      "previous_timestamp": "2010-01-01T03:24:53Z",
+      "current_revision_id": "341271886",
+      "current_timestamp": "2010-02-01T13:42:00Z",
+      "added_keywords": [
+        "adopting name Israel",
+        "110 countries",
+        "country in exile",
+        "political rights",
+        "flashpoint tensions",
+        "Hashemite Kingdom of",
+        "1967 occupation"
+      ],
+      "removed_keywords": [
+        "100 countries",
+        "peaceful diplomacy",
+        "Arab rejection",
+        "control of all",
+        "membership in the",
+        "UN recognized Israel",
+        "Arab state"
+      ]
+    },
+    {
+      "previous_revision_id": "341271886",
+      "previous_timestamp": "2010-02-01T13:42:00Z",
+      "current_revision_id": "347286355",
+      "current_timestamp": "2010-03-02T12:54:05Z",
+      "added_keywords": [
+        "limited recognition",
+        "self determination",
+        "two-state solution",
+        "State of Palestine"
+      ],
+      "removed_keywords": [
+        "political entity",
+        "Palestinian Declaration of",
+        "country-without-a-country",
+        "Government structure"
+      ]
+    },
+    {
+      "previous_revision_id": "347286355",
+      "previous_timestamp": "2010-03-02T12:54:05Z",
+      "current_revision_id": "355018009",
+      "current_timestamp": "2010-04-09T20:57:13Z",
+      "added_keywords": [
+        "British",
+        "valley",
+        "Exodus 1948",
+        "United States",
+        "independent commission",
+        "Goldstone report",
+        "29 January 2010"
+      ],
+      "removed_keywords": [
+        "Swamps",
+        "USA",
+        "1518-1917",
+        "Palestinská autonomie",
+        "حکومت خودگردان فلسطین",
+        "Палестина (автономна територија)",
+        "Filistin Devleti"
+      ]
+    },
+    {
+      "previous_revision_id": "355018009",
+      "previous_timestamp": "2010-04-09T20:57:13Z",
+      "current_revision_id": "359396902",
+      "current_timestamp": "2010-05-01T06:35:13Z",
+      "added_keywords": [
+        "unilaterally declared",
+        "15",
+        "PNC",
+        "illegally",
+        "Arab leadership",
+        "Arab League",
+        "16.3 percents"
+      ],
+      "removed_keywords": [
+        "proclaimed",
+        "self determination",
+        "independent sovereign state",
+        "Jewish state",
+        "when",
+        "the"
+      ]
+    },
+    {
+      "previous_revision_id": "359396902",
+      "previous_timestamp": "2010-05-01T06:35:13Z",
+      "current_revision_id": "365576041",
+      "current_timestamp": "2010-06-02T04:48:20Z",
+      "added_keywords": [
+        "exact number",
+        "observer status",
+        "not to vote",
+        "limited recognition",
+        "Oslo Accords",
+        "violence and terrorism"
+      ],
+      "removed_keywords": [
+        "validity questioned",
+        "more than 100",
+        "James Crawford",
+        "right of self-determination",
+        "regional office"
+      ]
+    },
+    {
+      "previous_revision_id": "365576041",
+      "previous_timestamp": "2010-06-02T04:48:20Z",
+      "current_revision_id": "371149895",
+      "current_timestamp": "2010-07-01T05:25:26Z",
+      "added_keywords": [
+        "Palestinian Declaration of",
+        "McMahon–Hussein Correspondence",
+        "Sykes–Picot Agreement",
+        "Palestinian Authority",
+        "Palestine Investment Conference"
+      ],
+      "removed_keywords": [
+        "state of Palestine",
+        "Israeli capital",
+        "government-in-exile",
+        "Communication Transportation",
+        "formalistic legal arguments"
+      ]
+    },
+    {
+      "previous_revision_id": "371149895",
+      "previous_timestamp": "2010-07-01T05:25:26Z",
+      "current_revision_id": "376747214",
+      "current_timestamp": "2010-08-02T12:21:21Z",
+      "added_keywords": [
+        "a polity",
+        "in Algiers",
+        "state of Palestine",
+        "secret Sykes–Picot Agreement",
+        "Paris Peace Conference",
+        "Middle East &"
+      ],
+      "removed_keywords": [
+        "objective of Palestinian",
+        "Palestinian Declaration of",
+        "current status is",
+        "Western Asia",
+        "British Mandate of"
+      ]
+    },
+    {
+      "previous_revision_id": "376747214",
+      "previous_timestamp": "2010-08-02T12:21:21Z",
+      "current_revision_id": "383301885",
+      "current_timestamp": "2010-09-06T19:13:01Z",
+      "added_keywords": [
+        "Arab League",
+        "Arab Higher Committee",
+        "Jewish community",
+        "1948 Arab-Israeli war",
+        "Palestinian National Authority",
+        "Gaza-Jericho Agreement"
+      ],
+      "removed_keywords": [
+        "Proposed partition",
+        "Palestinian diaspora",
+        "country in exile",
+        "Palestinian Question",
+        "citizens of Palestine",
+        "State of Palestine"
+      ]
+    },
+    {
+      "previous_revision_id": "383301885",
+      "previous_timestamp": "2010-09-06T19:13:01Z",
+      "current_revision_id": "388164890",
+      "current_timestamp": "2010-10-01T21:00:58Z",
+      "added_keywords": [
+        "World Bank",
+        "Palestinian Authority",
+        "Palestinian state",
+        "UN Charter",
+        "Observer"
+      ],
+      "removed_keywords": [
+        "donor dependent",
+        "private-sector growth"
+      ]
+    },
+    {
+      "previous_revision_id": "388164890",
+      "previous_timestamp": "2010-10-01T21:00:58Z",
+      "current_revision_id": "395461336",
+      "current_timestamp": "2010-11-08T01:36:05Z",
+      "added_keywords": [
+        "François",
+        "Federated States of",
+        "প্যালেস্টাইন"
+      ],
+      "removed_keywords": [
+        "Francois",
+        "Francois"
+      ]
+    },
+    {
+      "previous_revision_id": "395461336",
+      "previous_timestamp": "2010-11-08T01:36:05Z",
+      "current_revision_id": "400655748",
+      "current_timestamp": "2010-12-05T12:01:40Z",
+      "added_keywords": [
+        "State of Palestine",
+        "foreign relations",
+        "maintains embassies",
+        "international organizations",
+        "non-state entity",
+        "Outline of Palestine"
+      ],
+      "removed_keywords": [
+        "exact number of",
+        "extending recognition",
+        "more than 100",
+        "formal diplomatic recognition",
+        "special diplomatic arrangements",
+        "international organizations"
+      ]
+    },
+    {
+      "previous_revision_id": "400655748",
+      "previous_timestamp": "2010-12-05T12:01:40Z",
+      "current_revision_id": "406604247",
+      "current_timestamp": "2011-01-08T01:57:28Z",
+      "added_keywords": [
+        "by the PLO",
+        "forces raided",
+        "that Israel",
+        "U.S.",
+        "1949–1956",
+        "General Assembly",
+        "Human rights",
+        "Palestinian state"
+      ],
+      "removed_keywords": [
+        "Defense Forces",
+        "raid into",
+        "carried out operations",
+        "the Israelis",
+        "independent Jordan",
+        "US",
+        "Government of",
+        "Footnotes"
+      ]
+    },
+    {
+      "previous_revision_id": "406604247",
+      "previous_timestamp": "2011-01-08T01:57:28Z",
+      "current_revision_id": "411534779",
+      "current_timestamp": "2011-02-02T07:06:28Z",
+      "added_keywords": [
+        "State of Palestine",
+        "proclaimed in exile",
+        "Israeli occupation",
+        "Palestinian territories",
+        "interim administrative body",
+        "non-state entity",
+        "Executive Committee"
+      ],
+      "removed_keywords": [
+        "polity",
+        "unilaterally declared",
+        "de facto authority",
+        "sole legitimate representative",
+        "change the name",
+        "permanent observer",
+        "current President",
+        "Mahmoud Abbas"
+      ]
+    },
+    {
+      "previous_revision_id": "411534779",
+      "previous_timestamp": "2011-02-02T07:06:28Z",
+      "current_revision_id": "416701319",
+      "current_timestamp": "2011-03-02T07:52:35Z",
+      "added_keywords": [
+        "proclaimed state",
+        "former British Mandate",
+        "military regime",
+        "government in exile",
+        "including Israel",
+        "relevant correspondence"
+      ],
+      "removed_keywords": [
+        "state that",
+        "in exile",
+        "occupation",
+        "quite widely",
+        "government",
+        "don't"
+      ]
+    },
+    {
+      "previous_revision_id": "416701319",
+      "previous_timestamp": "2011-03-02T07:52:35Z",
+      "current_revision_id": "421776538",
+      "current_timestamp": "2011-04-01T06:05:37Z",
+      "added_keywords": [
+        "state that",
+        "in exile",
+        "occupation",
+        "quite widely",
+        "often in",
+        "terms",
+        "don't"
+      ],
+      "removed_keywords": [
+        "proclaimed state",
+        "established de facto",
+        "Israeli control",
+        "said to be",
+        "many",
+        "do not",
+        "including Israel"
+      ]
+    },
+    {
+      "previous_revision_id": "421776538",
+      "previous_timestamp": "2011-04-01T06:05:37Z",
+      "current_revision_id": "426855142",
+      "current_timestamp": "2011-05-01T07:41:57Z",
+      "added_keywords": [
+        "In spite",
+        "Arab League",
+        "Unification",
+        "preserved",
+        "Palestinian state",
+        "National Security Council"
+      ],
+      "removed_keywords": [
+        "Despite",
+        "Egyptian trusteeship",
+        "step of unification",
+        "presrved",
+        "were conquered",
+        "alleged attacks"
+      ]
+    },
+    {
+      "previous_revision_id": "426855142",
+      "previous_timestamp": "2011-05-01T07:41:57Z",
+      "current_revision_id": "431994723",
+      "current_timestamp": "2011-06-01T13:07:49Z",
+      "added_keywords": [
+        "observer status",
+        "Palestinian National Authority",
+        "McMahon–Hussein Correspondence",
+        "economic union"
+      ],
+      "removed_keywords": [
+        "UN Partition Plan",
+        "corpus separatum",
+        "Jewish leaders",
+        "Nahum Goldmann"
+      ]
+    },
+    {
+      "previous_revision_id": "431994723",
+      "previous_timestamp": "2011-06-01T13:07:49Z",
+      "current_revision_id": "437224148",
+      "current_timestamp": "2011-07-01T12:55:20Z",
+      "added_keywords": [
+        "United States Senate",
+        "withdrawal of aid",
+        "West Bank",
+        "Palestinians",
+        "Palestinian statehood",
+        "United Nations"
+      ],
+      "removed_keywords": [
+        "Palestine",
+        "Palestinian state"
+      ]
+    },
+    {
+      "previous_revision_id": "437224148",
+      "previous_timestamp": "2011-07-01T12:55:20Z",
+      "current_revision_id": "442676036",
+      "current_timestamp": "2011-08-02T13:58:52Z",
+      "added_keywords": [
+        "United Nations recognition",
+        "General Assembly",
+        "Palestinian territories",
+        "1967 borders"
+      ],
+      "removed_keywords": [
+        "UN Recognition Vote",
+        "two years",
+        "far-reaching settlement",
+        "to establish"
+      ]
+    },
+    {
+      "previous_revision_id": "442676036",
+      "previous_timestamp": "2011-08-02T13:58:52Z",
+      "current_revision_id": "448295693",
+      "current_timestamp": "2011-09-03T22:44:40Z",
+      "added_keywords": [
+        "specifyingτη",
+        "specifying"
+      ],
+      "removed_keywords": [
+        "specififying",
+        "specifying"
+      ]
+    },
+    {
+      "previous_revision_id": "448295693",
+      "previous_timestamp": "2011-09-03T22:44:40Z",
+      "current_revision_id": "453362443",
+      "current_timestamp": "2011-10-01T12:35:33Z",
+      "added_keywords": [
+        "UN",
+        "World War I",
+        "Six-Day War",
+        "U.S.",
+        "1919 Paris Peace"
+      ],
+      "removed_keywords": [
+        "United Nations",
+        "First World War",
+        "Six Day War",
+        "United States",
+        "quite widely recognised"
+      ]
+    },
+    {
+      "previous_revision_id": "453362443",
+      "previous_timestamp": "2011-10-01T12:35:33Z",
+      "current_revision_id": "458426716",
+      "current_timestamp": "2011-11-01T08:04:18Z",
+      "added_keywords": [
+        "between the Allies",
+        "in the Near",
+        "came to regard",
+        "sought",
+        "UNESCO",
+        "population density"
+      ],
+      "removed_keywords": [
+        "currently",
+        "treated",
+        "is planning",
+        "Planned",
+        "if the Israelis",
+        "État revendiqué"
+      ]
+    },
+    {
+      "previous_revision_id": "458426716",
+      "previous_timestamp": "2011-11-01T08:04:18Z",
+      "current_revision_id": "463527327",
+      "current_timestamp": "2011-12-01T17:36:48Z",
+      "added_keywords": [
+        "membership became effective",
+        "November 23, 2011",
+        "Staten Palestina",
+        "Palestine"
+      ],
+      "removed_keywords": [
+        "Israeli control",
+        "governing authority",
+        "signature",
+        "Charter of UNESCO"
+      ]
+    },
+    {
+      "previous_revision_id": "463527327",
+      "previous_timestamp": "2011-12-01T17:36:48Z",
+      "current_revision_id": "469704146",
+      "current_timestamp": "2012-01-05T12:34:34Z",
+      "added_keywords": [
+        "Gaza Strip",
+        "West Bank",
+        "withdrawal in 2005",
+        "Palestinian flag",
+        "UNESCO headquarters",
+        "Iceland recognized Palestine",
+        "diplomatic relations"
+      ],
+      "removed_keywords": [
+        "remain under",
+        "occupation"
+      ]
+    },
+    {
+      "previous_revision_id": "469704146",
+      "previous_timestamp": "2012-01-05T12:34:34Z",
+      "current_revision_id": "474720455",
+      "current_timestamp": "2012-02-03T07:56:56Z",
+      "added_keywords": [
+        "remained",
+        "Hamas takeover",
+        "politically divided",
+        "Palestinian territories",
+        "Israeli withdrawal",
+        "occupation of Gaza",
+        "subject of contention",
+        "Palestine"
+      ],
+      "removed_keywords": [
+        "remains",
+        "Israel including"
+      ]
+    },
+    {
+      "previous_revision_id": "474720455",
+      "previous_timestamp": "2012-02-03T07:56:56Z",
+      "current_revision_id": "479756360",
+      "current_timestamp": "2012-03-02T02:37:09Z",
+      "added_keywords": [
+        "internationally recognized",
+        "part of Israel",
+        "East Jerusalem",
+        "international community",
+        "Partition Plan",
+        "Arab states",
+        "Palestinian territory",
+        "Palestinian Arabic"
+      ],
+      "removed_keywords": [
+        "gained control over",
+        "1950"
+      ]
+    },
+    {
+      "previous_revision_id": "479756360",
+      "previous_timestamp": "2012-03-02T02:37:09Z",
+      "current_revision_id": "486052245",
+      "current_timestamp": "2012-04-07T09:19:29Z",
+      "added_keywords": [
+        "reconciliation",
+        "978-0-7146-3091-5",
+        "Κράτος της Παλαιστίνης",
+        "Estado iti Palestina",
+        "Палестина Пачхьалкх",
+        "Palestina ta",
+        "Palestene"
+      ],
+      "removed_keywords": [
+        "reconiciation",
+        "978-0-714-63091-5"
+      ]
+    },
+    {
+      "previous_revision_id": "486052245",
+      "previous_timestamp": "2012-04-07T09:19:29Z",
+      "current_revision_id": "491129941",
+      "current_timestamp": "2012-05-07T05:40:16Z",
+      "added_keywords": [
+        "1967 borders",
+        "Israeli control",
+        "UN membership application",
+        "occupied Palestinian territory",
+        "Abbas's Fatah"
+      ],
+      "removed_keywords": [
+        "1947 Partition Plan",
+        "Palestinian territory",
+        "Israeli territory",
+        "Gaza Strip",
+        "West Bank",
+        "East Jerusalem"
+      ]
+    },
+    {
+      "previous_revision_id": "491129941",
+      "previous_timestamp": "2012-05-07T05:40:16Z",
+      "current_revision_id": "496854324",
+      "current_timestamp": "2012-06-10T05:09:22Z",
+      "added_keywords": [],
+      "removed_keywords": []
+    },
+    {
+      "previous_revision_id": "496854324",
+      "previous_timestamp": "2012-06-10T05:09:22Z",
+      "current_revision_id": "500170114",
+      "current_timestamp": "2012-07-01T11:45:55Z",
+      "added_keywords": [
+        "within Israel's boarders",
+        "Palestine",
+        "partition"
+      ],
+      "removed_keywords": [
+        "under Israeli occupation",
+        "Palestine despite Israeli",
+        "Partition"
+      ]
+    },
+    {
+      "previous_revision_id": "500170114",
+      "previous_timestamp": "2012-07-01T11:45:55Z",
+      "current_revision_id": "505243297",
+      "current_timestamp": "2012-08-01T11:15:23Z",
+      "added_keywords": [
+        "Israeli occupation",
+        "Gaza",
+        "no state",
+        "Palestine"
+      ],
+      "removed_keywords": [
+        "Israel's boarders",
+        "Jerusalem",
+        "urgency"
+      ]
+    },
+    {
+      "previous_revision_id": "505243297",
+      "previous_timestamp": "2012-08-01T11:15:23Z",
+      "current_revision_id": "510321015",
+      "current_timestamp": "2012-09-01T19:36:31Z",
+      "added_keywords": [
+        "Jerusalem",
+        "urgency",
+        "Resolution 43/177",
+        "declaration of independence",
+        "General Assembly"
+      ],
+      "removed_keywords": [
+        "Gaza",
+        "There is no",
+        "no state called"
+      ]
+    },
+    {
+      "previous_revision_id": "510321015",
+      "previous_timestamp": "2012-09-01T19:36:31Z",
+      "current_revision_id": "516101794",
+      "current_timestamp": "2012-10-05T06:17:37Z",
+      "added_keywords": [
+        "PLO",
+        "EU supports",
+        "pre-1967 borders",
+        "Jerusalem future capital",
+        "have"
+      ],
+      "removed_keywords": [
+        "Organization",
+        "Legal status",
+        "had",
+        "total population",
+        "5.2 billion people"
+      ]
+    },
+    {
+      "previous_revision_id": "516101794",
+      "previous_timestamp": "2012-10-05T06:17:37Z",
+      "current_revision_id": "521139004",
+      "current_timestamp": "2012-11-03T01:13:17Z",
+      "added_keywords": [
+        "Organization (PLO)'s",
+        "territory it claims",
+        "its capital",
+        "106%",
+        "41.9%",
+        "3%",
+        "Palestīnas Valsts"
+      ],
+      "removed_keywords": [
+        "Organization's (PLO)",
+        "its claimed territory",
+        "capital of Palestine",
+        "106 %",
+        "41.9 %",
+        "3 %",
+        "Palestīnas Valsts"
+      ]
+    },
+    {
+      "previous_revision_id": "521139004",
+      "previous_timestamp": "2012-11-03T01:13:17Z",
+      "current_revision_id": "525785449",
+      "current_timestamp": "2012-12-01T00:38:36Z",
+      "added_keywords": [
+        "held",
+        "from",
+        "entitled",
+        "did",
+        "non-member state",
+        "UN recognition vote",
+        "commenced military action",
+        "unanimous recommendation"
+      ],
+      "removed_keywords": [
+        "has had",
+        "since",
+        "entitles",
+        "does",
+        "started",
+        "began deliberations",
+        "the matter on",
+        "institutions"
+      ]
+    },
+    {
+      "previous_revision_id": "525785449",
+      "previous_timestamp": "2012-12-01T00:38:36Z",
+      "current_revision_id": "530892660",
+      "current_timestamp": "2013-01-02T09:33:04Z",
+      "added_keywords": [
+        "State of Palestine",
+        "occupied by Israel",
+        "non-member observer state",
+        "territorial administration",
+        "All-Palestine Government",
+        "membership application"
+      ],
+      "removed_keywords": [
+        "Israeli occupation",
+        "overwhelming majority",
+        "recognising its sovereignty",
+        "interim administrative body",
+        "occupied territories",
+        "recognition vote"
+      ]
+    },
+    {
+      "previous_revision_id": "530892660",
+      "previous_timestamp": "2013-01-02T09:33:04Z",
+      "current_revision_id": "536527490",
+      "current_timestamp": "2013-02-04T15:03:43Z",
+      "added_keywords": [
+        "2013 change of",
+        "new stamps",
+        "Palestinian embassies",
+        "new constitution",
+        "State of Palestine"
+      ],
+      "removed_keywords": [
+        "unilateral",
+        "government",
+        "Costa Rica",
+        "foreign relations",
+        "non-member state"
+      ]
+    },
+    {
+      "previous_revision_id": "536527490",
+      "previous_timestamp": "2013-02-04T15:03:43Z",
+      "current_revision_id": "542470902",
+      "current_timestamp": "2013-03-06T23:59:13Z",
+      "added_keywords": [
+        "sovereign",
+        "constituting State",
+        "diplomatic missions",
+        "partially recognised State",
+        "claim legal rights",
+        "claimed territory",
+        "International Criminal Court"
+      ],
+      "removed_keywords": [
+        "envisioned to make",
+        "offices",
+        "bearing the title",
+        "will allow Palestine",
+        "Palestinians",
+        "ICC"
+      ]
+    },
+    {
+      "previous_revision_id": "542470902",
+      "previous_timestamp": "2013-03-06T23:59:13Z",
+      "current_revision_id": "549302609",
+      "current_timestamp": "2013-04-08T10:24:20Z",
+      "added_keywords": [
+        "Hamas's legislative victories",
+        "5 absences",
+        "Switzerland",
+        "co-sponsor resolutions",
+        "International Criminal Court"
+      ],
+      "removed_keywords": [
+        "sovereign",
+        "67/19 upgrade",
+        "abstaining",
+        "partially recognised",
+        "Civil Aviation Organization"
+      ]
+    },
+    {
+      "previous_revision_id": "549302609",
+      "previous_timestamp": "2013-04-08T10:24:20Z",
+      "current_revision_id": "553415386",
+      "current_timestamp": "2013-05-03T22:58:27Z",
+      "added_keywords": [
+        "Arab",
+        "Jewish",
+        "Turkey",
+        "Turkish Ambassador",
+        "State of Palestine",
+        "recognize"
+      ],
+      "removed_keywords": [
+        "Jewish",
+        "Arab",
+        "See Also",
+        "control"
+      ]
+    },
+    {
+      "previous_revision_id": "553415386",
+      "previous_timestamp": "2013-05-03T22:58:27Z",
+      "current_revision_id": "557880799",
+      "current_timestamp": "2013-06-01T20:50:19Z",
+      "added_keywords": [
+        "observer state",
+        "official documents",
+        "national institutions",
+        "State of Palestine",
+        "emblem of the"
+      ],
+      "removed_keywords": [
+        "member states",
+        "Palestinian stamps",
+        "official letterhead",
+        "new name"
+      ]
+    },
+    {
+      "previous_revision_id": "557880799",
+      "previous_timestamp": "2013-06-01T20:50:19Z",
+      "current_revision_id": "562632529",
+      "current_timestamp": "2013-07-03T02:17:20Z",
+      "added_keywords": [
+        "1947-1948 War",
+        "Partition of Palestine"
+      ],
+      "removed_keywords": [
+        "Palestine Mandate",
+        "Arabs of Palestine",
+        "self-determination"
+      ]
+    },
+    {
+      "previous_revision_id": "562632529",
+      "previous_timestamp": "2013-07-03T02:17:20Z",
+      "current_revision_id": "566687333",
+      "current_timestamp": "2013-08-01T08:17:05Z",
+      "added_keywords": [
+        "Palestine Liberation Organization",
+        "Foreign Economic Assistance"
+      ],
+      "removed_keywords": [
+        "state",
+        "dollars"
+      ]
+    },
+    {
+      "previous_revision_id": "566687333",
+      "previous_timestamp": "2013-08-01T08:17:05Z",
+      "current_revision_id": "571384791",
+      "current_timestamp": "2013-09-03T15:06:47Z",
+      "added_keywords": [
+        "November 15",
+        "in exile",
+        "Six Day War",
+        "Palestinian Authority",
+        "socio-political administration",
+        "Ancient Greece",
+        "Herodotus"
+      ],
+      "removed_keywords": [
+        "15 November",
+        "1967",
+        "22 November",
+        "General Assembly resolution"
+      ]
+    },
+    {
+      "previous_revision_id": "571384791",
+      "previous_timestamp": "2013-09-03T15:06:47Z",
+      "current_revision_id": "576256448",
+      "current_timestamp": "2013-10-08T07:50:30Z",
+      "added_keywords": [
+        "limited recognition",
+        "proclaimed independence",
+        "non-member observer state",
+        "West Bank",
+        "Gaza Strip",
+        "From 2007"
+      ],
+      "removed_keywords": [
+        "was proclaimed",
+        "Palestinian Declaration of",
+        "significant territorial expansion",
+        "Palestinian territories",
+        "Currently"
+      ]
+    },
+    {
+      "previous_revision_id": "576256448",
+      "previous_timestamp": "2013-10-08T07:50:30Z",
+      "current_revision_id": "579849305",
+      "current_timestamp": "2013-11-02T09:34:16Z",
+      "added_keywords": [
+        "de jure sovereign",
+        "chairman of the",
+        "establishment of a",
+        "state in Eretz-Israel",
+        "Organization (PLO)"
+      ],
+      "removed_keywords": [
+        "limited recognition",
+        "One day before",
+        "Israel",
+        "independence within the",
+        "Partition Plan",
+        "Organization(PLO)"
+      ]
+    },
+    {
+      "previous_revision_id": "579849305",
+      "previous_timestamp": "2013-11-02T09:34:16Z",
+      "current_revision_id": "584157567",
+      "current_timestamp": "2013-12-02T03:28:04Z",
+      "added_keywords": [
+        "declared independence",
+        "government-in-exile",
+        "observer status",
+        "limited areas"
+      ],
+      "removed_keywords": [
+        "de jure sovereign",
+        "National Council",
+        "non-member observer",
+        "1967 borders"
+      ]
+    },
+    {
+      "previous_revision_id": "584157567",
+      "previous_timestamp": "2013-12-02T03:28:04Z",
+      "current_revision_id": "588993603",
+      "current_timestamp": "2014-01-03T16:12:40Z",
+      "added_keywords": [
+        "de jure sovereign",
+        "limited recognition",
+        "did not",
+        "Haj",
+        "Bank including",
+        "negotiation",
+        "state"
+      ],
+      "removed_keywords": [
+        "didn't",
+        "Bank and East",
+        "Hajj",
+        "make clear",
+        "negotiations with Israel",
+        "State"
+      ]
+    },
+    {
+      "previous_revision_id": "588993603",
+      "previous_timestamp": "2014-01-03T16:12:40Z",
+      "current_revision_id": "593543122",
+      "current_timestamp": "2014-02-02T06:12:57Z",
+      "added_keywords": [
+        "facto",
+        "Six-Day",
+        "Military",
+        "Media",
+        "International recognition",
+        "Palestinian Declaration of",
+        "Palestinian National Security"
+      ],
+      "removed_keywords": [
+        "jure",
+        "limited recognition",
+        "Six Day"
+      ]
+    },
+    {
+      "previous_revision_id": "593543122",
+      "previous_timestamp": "2014-02-02T06:12:57Z",
+      "current_revision_id": "597735345",
+      "current_timestamp": "2014-03-01T23:19:01Z",
+      "added_keywords": [
+        "Palestinian territories",
+        "Jerusalem",
+        "Six-Day War",
+        "Palestinian Authority",
+        "Transjordan",
+        "Fayyad",
+        "de facto recognition",
+        "Palestinian government"
+      ],
+      "removed_keywords": [
+        "de facto sovereign",
+        "independence",
+        "Jordan",
+        "held observer status",
+        "but not to",
+        "implicitly recognizing",
+        "Palestinian permanent observer"
+      ]
+    },
+    {
+      "previous_revision_id": "597735345",
+      "previous_timestamp": "2014-03-01T23:19:01Z",
+      "current_revision_id": "602303212",
+      "current_timestamp": "2014-04-01T18:49:09Z",
+      "added_keywords": [
+        "sovereign",
+        "it is",
+        "would",
+        "European Union",
+        "Israeli-occupied territories",
+        "Israeli settlement"
+      ],
+      "removed_keywords": [
+        "it's",
+        "to",
+        "EU's"
+      ]
+    },
+    {
+      "previous_revision_id": "602303212",
+      "previous_timestamp": "2014-04-01T18:49:09Z",
+      "current_revision_id": "607084148",
+      "current_timestamp": "2014-05-04T22:22:45Z",
+      "added_keywords": [
+        "United Nations",
+        "Most of the",
+        "non-member",
+        "maintaining security",
+        "protecting Palestinian citizens",
+        "Palestine receives"
+      ],
+      "removed_keywords": [
+        "Palestine officially the",
+        "Levant",
+        "nonmember",
+        "U.N.",
+        "Tourism",
+        "visitors are Tourism"
+      ]
+    },
+    {
+      "previous_revision_id": "607084148",
+      "previous_timestamp": "2014-05-04T22:22:45Z",
+      "current_revision_id": "611262715",
+      "current_timestamp": "2014-06-02T18:04:58Z",
+      "added_keywords": [
+        "State of Palestine",
+        "Pope Francis",
+        "Multilateral Treaties",
+        "European Union",
+        "Palestinian national football"
+      ],
+      "removed_keywords": [
+        "British Mandate",
+        "sovereign state",
+        "UNESCO conventions",
+        "international visitors",
+        "History of the"
+      ]
+    },
+    {
+      "previous_revision_id": "611262715",
+      "previous_timestamp": "2014-06-02T18:04:58Z",
+      "current_revision_id": "615168791",
+      "current_timestamp": "2014-07-01T15:48:47Z",
+      "added_keywords": [
+        "November 1974",
+        "unity government",
+        "late 1949",
+        "World Bank",
+        "State Department's",
+        "European Union"
+      ],
+      "removed_keywords": [
+        "November",
+        "has",
+        "since",
+        "1950",
+        "Camp David Accords",
+        "Francis 1"
+      ]
+    },
+    {
+      "previous_revision_id": "615168791",
+      "previous_timestamp": "2014-07-01T15:48:47Z",
+      "current_revision_id": "619422648",
+      "current_timestamp": "2014-08-01T13:44:28Z",
+      "added_keywords": [
+        "United Nations",
+        "is equivalent to",
+        "Executive Committee",
+        "Palestinian National Council",
+        "Demographics",
+        "Palestinian citizens",
+        "athletic activities",
+        "Israel"
+      ],
+      "removed_keywords": [
+        "sovereign state",
+        "executive committee",
+        "PNC",
+        "a country",
+        "few",
+        "The Palestinian citizen",
+        "performing",
+        "sports around the"
+      ]
+    },
+    {
+      "previous_revision_id": "619422648",
+      "previous_timestamp": "2014-08-01T13:44:28Z",
+      "current_revision_id": "625037860",
+      "current_timestamp": "2014-09-11T03:47:10Z",
+      "added_keywords": [
+        "de jure sovereign",
+        "Palestinian Legislative Council",
+        "sixteen administrative divisions",
+        "Gaza Strip",
+        "West Bank",
+        "Area C",
+        "East Jerusalem",
+        "PNA Cabinet"
+      ],
+      "removed_keywords": [
+        "United Nations",
+        "following institutions"
+      ]
+    },
+    {
+      "previous_revision_id": "625037860",
+      "previous_timestamp": "2014-09-11T03:47:10Z",
+      "current_revision_id": "627856555",
+      "current_timestamp": "2014-10-01T19:10:55Z",
+      "added_keywords": [
+        "West Bank",
+        "Gaza Strip",
+        "Palestinian Authority",
+        "non-member",
+        "population of 4,420,549",
+        "State of Palestine"
+      ],
+      "removed_keywords": [
+        "Palestinian territories",
+        "socio-political administration",
+        "4,550,368 people",
+        "6,220km²",
+        "de-facto",
+        "observer status"
+      ]
+    },
+    {
+      "previous_revision_id": "627856555",
+      "previous_timestamp": "2014-10-01T19:10:55Z",
+      "current_revision_id": "632295738",
+      "current_timestamp": "2014-11-03T16:23:53Z",
+      "added_keywords": [
+        "recognized as a",
+        "state",
+        "density",
+        "Sweden"
+      ],
+      "removed_keywords": [
+        "granted",
+        "status",
+        "dentistry"
+      ]
+    },
+    {
+      "previous_revision_id": "632295738",
+      "previous_timestamp": "2014-11-03T16:23:53Z",
+      "current_revision_id": "636311063",
+      "current_timestamp": "2014-12-02T13:21:36Z",
+      "added_keywords": [
+        "claims",
+        "full UN Membership",
+        "state's",
+        "territory"
+      ],
+      "removed_keywords": [
+        "claimed sovereignty over",
+        "In 2012",
+        "State of Palestine",
+        "nation's",
+        "territory"
+      ]
+    },
+    {
+      "previous_revision_id": "636311063",
+      "previous_timestamp": "2014-12-02T13:21:36Z",
+      "current_revision_id": "640510996",
+      "current_timestamp": "2015-01-01T14:15:43Z",
+      "added_keywords": [
+        "self-proclaimed state",
+        "national homeland",
+        "United Nations membership",
+        "reaction by Israel",
+        "French parliament",
+        "Palestinian state",
+        "Israeli occupation"
+      ],
+      "removed_keywords": [
+        "de jure sovereign",
+        "full UN Membership",
+        "United Nations",
+        "de facto",
+        "Holy See",
+        "Switzerland",
+        "negative Israel reaction"
+      ]
+    },
+    {
+      "previous_revision_id": "640510996",
+      "previous_timestamp": "2015-01-01T14:15:43Z",
+      "current_revision_id": "645076061",
+      "current_timestamp": "2015-02-01T01:22:42Z",
+      "added_keywords": [
+        "de jure sovereign",
+        "Middle East",
+        "granted",
+        "House of Commons",
+        "five depositaries",
+        "the United Kingdom",
+        "member",
+        "objections"
+      ],
+      "removed_keywords": [
+        "self-proclaimed",
+        "national homeland",
+        "recognized as",
+        "by the UN",
+        "parliament",
+        "four depositaries",
+        "party",
+        "notifications"
+      ]
+    },
+    {
+      "previous_revision_id": "645076061",
+      "previous_timestamp": "2015-02-01T01:22:42Z",
+      "current_revision_id": "650656038",
+      "current_timestamp": "2015-03-09T20:14:49Z",
+      "added_keywords": [
+        "138–9",
+        "(1915–16)",
+        "1947–48",
+        "Development",
+        "(1918–48)"
+      ],
+      "removed_keywords": [
+        "138-9",
+        "(1915–1916)",
+        "1947-1948",
+        "Rise",
+        "(1918–1948)"
+      ]
+    },
+    {
+      "previous_revision_id": "650656038",
+      "previous_timestamp": "2015-03-09T20:14:49Z",
+      "current_revision_id": "654753134",
+      "current_timestamp": "2015-04-03T08:51:57Z",
+      "added_keywords": [],
+      "removed_keywords": []
+    },
+    {
+      "previous_revision_id": "654753134",
+      "previous_timestamp": "2015-04-03T08:51:57Z",
+      "current_revision_id": "660253917",
+      "current_timestamp": "2015-05-01T14:32:15Z",
+      "added_keywords": [
+        "Palestinian embassy",
+        "western European country",
+        "Stockholm",
+        "Sweden"
+      ],
+      "removed_keywords": [
+        "Multilateral treaties",
+        "United States"
+      ]
+    },
+    {
+      "previous_revision_id": "660253917",
+      "previous_timestamp": "2015-05-01T14:32:15Z",
+      "current_revision_id": "665603827",
+      "current_timestamp": "2015-06-05T11:05:32Z",
+      "added_keywords": [
+        "territories of",
+        "compose the State",
+        "Vatican announced",
+        "shifting recognition",
+        "not generally recognized",
+        "Western Europe"
+      ],
+      "removed_keywords": [
+        "State of Palestine",
+        "Pope Francis",
+        "Holy Land",
+        "explicit reference"
+      ]
+    },
+    {
+      "previous_revision_id": "665603827",
+      "previous_timestamp": "2015-06-05T11:05:32Z",
+      "current_revision_id": "670472679",
+      "current_timestamp": "2015-07-08T05:15:30Z",
+      "added_keywords": [
+        "State of Palestine",
+        "Hebrew-speaking",
+        "population",
+        "roughly",
+        "Palestinians",
+        "Israelis",
+        "designated capital",
+        "and"
+      ],
+      "removed_keywords": [
+        "territories",
+        "community",
+        "Jerusalem as its",
+        "but",
+        "rough",
+        "Palestinian",
+        "Israeli",
+        "Tourism"
+      ]
+    },
+    {
+      "previous_revision_id": "670472679",
+      "previous_timestamp": "2015-07-08T05:15:30Z",
+      "current_revision_id": "674921639",
+      "current_timestamp": "2015-08-07T01:10:01Z",
+      "added_keywords": [
+        "Palestine",
+        "officially",
+        "acknowledged",
+        "recognize Palestine"
+      ],
+      "removed_keywords": [
+        "The",
+        "capital",
+        "acknowledged"
+      ]
+    },
+    {
+      "previous_revision_id": "674921639",
+      "previous_timestamp": "2015-08-07T01:10:01Z",
+      "current_revision_id": "678918158",
+      "current_timestamp": "2015-09-01T12:17:09Z",
+      "added_keywords": [
+        "The",
+        "partially recognized"
+      ],
+      "removed_keywords": [
+        "officially the",
+        "Palestine in Ottoman"
+      ]
+    },
+    {
+      "previous_revision_id": "678918158",
+      "previous_timestamp": "2015-09-01T12:17:09Z",
+      "current_revision_id": "683757817",
+      "current_timestamp": "2015-10-02T09:05:35Z",
+      "added_keywords": [
+        "also known as",
+        "Palestinian Authority",
+        "History",
+        "October 1974 summit",
+        "non-state entity",
+        "PLO sovereignty",
+        "International recognition"
+      ],
+      "removed_keywords": [
+        "Background",
+        "recognised",
+        "sole legitimate representative",
+        "moved to Tunisia",
+        "Switzerland",
+        "multilateral treaties",
+        "European Union position"
+      ]
+    },
+    {
+      "previous_revision_id": "683757817",
+      "previous_timestamp": "2015-10-02T09:05:35Z",
+      "current_revision_id": "689095918",
+      "current_timestamp": "2015-11-04T22:27:49Z",
+      "added_keywords": [
+        "State of Palestine",
+        "occupied East Jerusalem",
+        "communications infrastructure",
+        "water shortage",
+        "Israeli occupation",
+        "water pollution",
+        "external financing",
+        "Tourism"
+      ],
+      "removed_keywords": [
+        "de jure sovereign",
+        "Five divisions",
+        "Gaza Strip",
+        "population density",
+        "dependent territories",
+        "urge",
+        "sate"
+      ]
+    },
+    {
+      "previous_revision_id": "689095918",
+      "previous_timestamp": "2015-11-04T22:27:49Z",
+      "current_revision_id": "694053581",
+      "current_timestamp": "2015-12-06T20:44:38Z",
+      "added_keywords": [
+        "EU member state",
+        "former communist bloc",
+        "accession",
+        "Palestinian Christians",
+        "Palestinian Jews"
+      ],
+      "removed_keywords": [
+        "long-term",
+        "country of EU",
+        "joining the bloc"
+      ]
+    }
+  ]
+}

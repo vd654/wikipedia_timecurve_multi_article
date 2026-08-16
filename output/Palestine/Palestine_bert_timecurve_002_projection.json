@@ -1,0 +1,3975 @@
+{
+  "sampling": {
+    "strategy": "monthly",
+    "start": null,
+    "end": null,
+    "min_revision_chars": 500
+  },
+  "analytical_unit": {
+    "unit": "complete sampled revision",
+    "points_per_revision": 1,
+    "internal_sentences_are_points": false,
+    "internal_semantic_chunks_are_points": false
+  },
+  "embedding_normalization": {
+    "verified": true,
+    "minimum_norm": 0.9999999421542067,
+    "maximum_norm": 1.0000000954066617,
+    "tolerance": 1e-05
+  },
+  "model_sanity_check": {
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "purpose": "diagnostic only",
+    "normalization": {
+      "verified": true,
+      "minimum_norm": 0.9999999574352141,
+      "maximum_norm": 1.0000000680601386,
+      "tolerance": 1e-05
+    },
+    "minimum_cosine_distance": 0.1353064827517807,
+    "median_cosine_distance": 0.2489732965729492,
+    "maximum_cosine_distance": 0.3877875195175542,
+    "pairs": [
+      {
+        "left": "The group was described as terrorists.",
+        "right": "The group was described as freedom fighters.",
+        "cosine_distance": 0.3162441132947116
+      },
+      {
+        "left": "The territory is occupied.",
+        "right": "The territory is administered.",
+        "cosine_distance": 0.18170247985118682
+      },
+      {
+        "left": "The army defended the border.",
+        "right": "The army attacked across the border.",
+        "cosine_distance": 0.13863833573739548
+      },
+      {
+        "left": "The protest was violently suppressed.",
+        "right": "Police restored order at the protest.",
+        "cosine_distance": 0.3877875195175542
+      },
+      {
+        "left": "Civilians were killed in the operation.",
+        "right": "The operation resulted in civilian casualties.",
+        "cosine_distance": 0.1353064827517807
+      },
+      {
+        "left": "The policy protects national security.",
+        "right": "The policy restricts civil liberties.",
+        "cosine_distance": 0.3674173477201135
+      }
+    ]
+  },
+  "semantic_distance": {
+    "definition": "section-matched bidirectional closest chunk cosine distances",
+    "aggregation": "ordinary arithmetic mean",
+    "normalization": {
+      "method": "fixed theoretical range",
+      "minimum_distance": 0.0,
+      "maximum_distance": 2.0
+    }
+  },
+  "lexical_distance": {
+    "definition": "Levenshtein distance of modified shared sentence tracks",
+    "aggregation": "ordinary arithmetic mean",
+    "normalization": {
+      "method": "fixed theoretical range",
+      "minimum_distance": 0.0,
+      "maximum_distance": 1.0
+    },
+    "pairs_without_modified_shared_tracks": 1900
+  },
+  "hybrid": {
+    "formula": "beta * normalized semantic + (1-beta) * normalized lexical",
+    "beta": 0.5,
+    "input_to_umap": true,
+    "umap_metric": "precomputed",
+    "beta_sensitivity": [
+      {
+        "beta": 0.3,
+        "cluster_count": 6,
+        "noise_count": 5,
+        "adjusted_rand_vs_selected": 0.663659211362444
+      },
+      {
+        "beta": 0.5,
+        "cluster_count": 7,
+        "noise_count": 2,
+        "adjusted_rand_vs_selected": 1.0
+      },
+      {
+        "beta": 0.7,
+        "cluster_count": 7,
+        "noise_count": 0,
+        "adjusted_rand_vs_selected": 0.754098241948898
+      }
+    ]
+  },
+  "display_umap": {
+    "algorithm": "UMAP",
+    "input": "normalized hybrid distance matrix",
+    "input_metric": "precomputed",
+    "n_components": 2,
+    "n_neighbors": 15,
+    "min_dist": 0.1,
+    "random_state": 42,
+    "quality": {
+      "metric": "trustworthiness",
+      "value": 0.9697641025641026,
+      "n_neighbors": 5
+    }
+  },
+  "clustering": {
+    "algorithm": "HDBSCAN",
+    "input": "visible 2D UMAP coordinates",
+    "min_cluster_size": 7,
+    "min_samples": 3,
+    "discovered_cluster_count": 7,
+    "noise_count": 2
+  },
+  "tracking": {
+    "algorithm": "one-to-one persistent sentence tracking",
+    "track_count": 914,
+    "assignment_counts": {
+      "new": 914,
+      "exact": 28288,
+      "modified": 633,
+      "restored": 45
+    },
+    "parameters": {
+      "match_threshold": 0.62,
+      "levenshtein_weight": 0.45,
+      "cosine_weight": 0.55
+    },
+    "transitions": [
+      {
+        "revision_index": 1,
+        "exact": 5,
+        "modified": 2,
+        "deleted": 0
+      },
+      {
+        "revision_index": 2,
+        "exact": 7,
+        "deleted": 0
+      },
+      {
+        "revision_index": 3,
+        "exact": 6,
+        "modified": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 4,
+        "exact": 7,
+        "new": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 5,
+        "exact": 6,
+        "modified": 2,
+        "new": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 6,
+        "exact": 7,
+        "modified": 2,
+        "deleted": 0
+      },
+      {
+        "revision_index": 7,
+        "exact": 5,
+        "modified": 2,
+        "new": 2,
+        "deleted": 2
+      },
+      {
+        "revision_index": 8,
+        "exact": 9,
+        "deleted": 0
+      },
+      {
+        "revision_index": 9,
+        "exact": 7,
+        "modified": 1,
+        "new": 1,
+        "deleted": 1
+      },
+      {
+        "revision_index": 10,
+        "exact": 4,
+        "restored": 1,
+        "modified": 5,
+        "new": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 11,
+        "exact": 10,
+        "modified": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 12,
+        "exact": 5,
+        "modified": 6,
+        "deleted": 0
+      },
+      {
+        "revision_index": 13,
+        "exact": 9,
+        "modified": 2,
+        "new": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 14,
+        "exact": 10,
+        "restored": 1,
+        "new": 1,
+        "deleted": 2
+      },
+      {
+        "revision_index": 15,
+        "exact": 10,
+        "modified": 1,
+        "deleted": 1
+      },
+      {
+        "revision_index": 16,
+        "exact": 8,
+        "modified": 3,
+        "new": 15,
+        "deleted": 0
+      },
+      {
+        "revision_index": 17,
+        "exact": 17,
+        "modified": 9,
+        "deleted": 0
+      },
+      {
+        "revision_index": 18,
+        "exact": 12,
+        "restored": 2,
+        "modified": 5,
+        "new": 9,
+        "deleted": 9
+      },
+      {
+        "revision_index": 19,
+        "exact": 25,
+        "modified": 3,
+        "deleted": 0
+      },
+      {
+        "revision_index": 20,
+        "exact": 22,
+        "modified": 5,
+        "new": 29,
+        "deleted": 1
+      },
+      {
+        "revision_index": 21,
+        "exact": 25,
+        "restored": 1,
+        "modified": 1,
+        "new": 1,
+        "deleted": 30
+      },
+      {
+        "revision_index": 22,
+        "exact": 25,
+        "modified": 2,
+        "deleted": 1
+      },
+      {
+        "revision_index": 23,
+        "exact": 26,
+        "restored": 1,
+        "deleted": 1
+      },
+      {
+        "revision_index": 24,
+        "exact": 18,
+        "modified": 8,
+        "deleted": 1
+      },
+      {
+        "revision_index": 25,
+        "exact": 18,
+        "restored": 1,
+        "modified": 7,
+        "deleted": 1
+      },
+      {
+        "revision_index": 26,
+        "exact": 22,
+        "modified": 4,
+        "deleted": 0
+      },
+      {
+        "revision_index": 27,
+        "exact": 20,
+        "restored": 1,
+        "modified": 5,
+        "deleted": 1
+      },
+      {
+        "revision_index": 28,
+        "exact": 25,
+        "modified": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 29,
+        "exact": 15,
+        "restored": 2,
+        "modified": 7,
+        "new": 4,
+        "deleted": 4
+      },
+      {
+        "revision_index": 30,
+        "exact": 25,
+        "modified": 3,
+        "deleted": 0
+      },
+      {
+        "revision_index": 31,
+        "exact": 24,
+        "modified": 4,
+        "new": 3,
+        "deleted": 0
+      },
+      {
+        "revision_index": 32,
+        "exact": 25,
+        "modified": 6,
+        "new": 2,
+        "deleted": 0
+      },
+      {
+        "revision_index": 33,
+        "exact": 25,
+        "modified": 8,
+        "deleted": 0
+      },
+      {
+        "revision_index": 34,
+        "exact": 26,
+        "modified": 7,
+        "deleted": 0
+      },
+      {
+        "revision_index": 35,
+        "exact": 19,
+        "restored": 1,
+        "modified": 2,
+        "new": 10,
+        "deleted": 12
+      },
+      {
+        "revision_index": 36,
+        "exact": 27,
+        "restored": 2,
+        "modified": 3,
+        "deleted": 2
+      },
+      {
+        "revision_index": 37,
+        "exact": 29,
+        "modified": 3,
+        "deleted": 0
+      },
+      {
+        "revision_index": 38,
+        "exact": 22,
+        "modified": 8,
+        "new": 4,
+        "deleted": 2
+      },
+      {
+        "revision_index": 39,
+        "exact": 22,
+        "restored": 8,
+        "modified": 2,
+        "deleted": 10
+      },
+      {
+        "revision_index": 40,
+        "exact": 32,
+        "deleted": 0
+      },
+      {
+        "revision_index": 41,
+        "exact": 31,
+        "modified": 1,
+        "new": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 42,
+        "exact": 26,
+        "modified": 4,
+        "deleted": 3
+      },
+      {
+        "revision_index": 43,
+        "exact": 18,
+        "modified": 6,
+        "new": 5,
+        "deleted": 6
+      },
+      {
+        "revision_index": 44,
+        "exact": 27,
+        "modified": 1,
+        "new": 7,
+        "deleted": 1
+      },
+      {
+        "revision_index": 45,
+        "exact": 22,
+        "modified": 8,
+        "deleted": 5
+      },
+      {
+        "revision_index": 46,
+        "exact": 29,
+        "modified": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 47,
+        "exact": 30,
+        "deleted": 0
+      },
+      {
+        "revision_index": 48,
+        "exact": 12,
+        "restored": 1,
+        "modified": 9,
+        "new": 41,
+        "deleted": 9
+      },
+      {
+        "revision_index": 49,
+        "exact": 47,
+        "modified": 8,
+        "new": 25,
+        "deleted": 8
+      },
+      {
+        "revision_index": 50,
+        "exact": 72,
+        "restored": 1,
+        "modified": 6,
+        "new": 1,
+        "deleted": 2
+      },
+      {
+        "revision_index": 51,
+        "exact": 73,
+        "modified": 6,
+        "deleted": 1
+      },
+      {
+        "revision_index": 52,
+        "exact": 68,
+        "modified": 9,
+        "new": 4,
+        "deleted": 2
+      },
+      {
+        "revision_index": 53,
+        "exact": 65,
+        "modified": 10,
+        "new": 127,
+        "deleted": 6
+      },
+      {
+        "revision_index": 54,
+        "exact": 140,
+        "restored": 3,
+        "modified": 22,
+        "new": 82,
+        "deleted": 40
+      },
+      {
+        "revision_index": 55,
+        "exact": 223,
+        "restored": 1,
+        "modified": 19,
+        "new": 48,
+        "deleted": 5
+      },
+      {
+        "revision_index": 56,
+        "exact": 286,
+        "modified": 5,
+        "new": 2,
+        "deleted": 0
+      },
+      {
+        "revision_index": 57,
+        "exact": 287,
+        "restored": 1,
+        "modified": 4,
+        "new": 4,
+        "deleted": 2
+      },
+      {
+        "revision_index": 58,
+        "exact": 280,
+        "modified": 13,
+        "new": 8,
+        "deleted": 3
+      },
+      {
+        "revision_index": 59,
+        "exact": 293,
+        "modified": 5,
+        "new": 103,
+        "deleted": 3
+      },
+      {
+        "revision_index": 60,
+        "exact": 384,
+        "restored": 3,
+        "modified": 8,
+        "new": 6,
+        "deleted": 9
+      },
+      {
+        "revision_index": 61,
+        "exact": 382,
+        "modified": 14,
+        "new": 15,
+        "deleted": 5
+      },
+      {
+        "revision_index": 62,
+        "exact": 410,
+        "modified": 1,
+        "new": 2,
+        "deleted": 0
+      },
+      {
+        "revision_index": 63,
+        "exact": 411,
+        "modified": 2,
+        "deleted": 0
+      },
+      {
+        "revision_index": 64,
+        "exact": 365,
+        "new": 6,
+        "deleted": 48
+      },
+      {
+        "revision_index": 65,
+        "exact": 365,
+        "modified": 6,
+        "deleted": 0
+      },
+      {
+        "revision_index": 66,
+        "exact": 314,
+        "modified": 26,
+        "new": 45,
+        "deleted": 31
+      },
+      {
+        "revision_index": 67,
+        "exact": 379,
+        "modified": 6,
+        "new": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 68,
+        "exact": 381,
+        "restored": 4,
+        "deleted": 5
+      },
+      {
+        "revision_index": 69,
+        "exact": 376,
+        "modified": 5,
+        "new": 7,
+        "deleted": 4
+      },
+      {
+        "revision_index": 70,
+        "exact": 312,
+        "modified": 6,
+        "new": 45,
+        "deleted": 70
+      },
+      {
+        "revision_index": 71,
+        "exact": 363,
+        "new": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 72,
+        "exact": 335,
+        "modified": 3,
+        "new": 19,
+        "deleted": 26
+      },
+      {
+        "revision_index": 73,
+        "exact": 356,
+        "modified": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 74,
+        "exact": 296,
+        "restored": 1,
+        "modified": 54,
+        "new": 12,
+        "deleted": 7
+      },
+      {
+        "revision_index": 75,
+        "exact": 352,
+        "modified": 8,
+        "new": 10,
+        "deleted": 3
+      },
+      {
+        "revision_index": 76,
+        "exact": 368,
+        "modified": 1,
+        "new": 1,
+        "deleted": 1
+      },
+      {
+        "revision_index": 77,
+        "exact": 368,
+        "modified": 2,
+        "new": 2,
+        "deleted": 0
+      },
+      {
+        "revision_index": 78,
+        "exact": 369,
+        "modified": 3,
+        "new": 4,
+        "deleted": 0
+      },
+      {
+        "revision_index": 79,
+        "exact": 368,
+        "modified": 8,
+        "new": 2,
+        "deleted": 0
+      },
+      {
+        "revision_index": 80,
+        "exact": 377,
+        "modified": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 81,
+        "exact": 370,
+        "restored": 2,
+        "modified": 4,
+        "new": 1,
+        "deleted": 4
+      },
+      {
+        "revision_index": 82,
+        "exact": 377,
+        "deleted": 0
+      },
+      {
+        "revision_index": 83,
+        "exact": 373,
+        "modified": 4,
+        "deleted": 0
+      },
+      {
+        "revision_index": 84,
+        "exact": 374,
+        "restored": 1,
+        "modified": 2,
+        "new": 1,
+        "deleted": 1
+      },
+      {
+        "revision_index": 85,
+        "exact": 375,
+        "restored": 2,
+        "new": 1,
+        "deleted": 3
+      },
+      {
+        "revision_index": 86,
+        "exact": 376,
+        "modified": 2,
+        "new": 7,
+        "deleted": 0
+      },
+      {
+        "revision_index": 87,
+        "exact": 380,
+        "modified": 5,
+        "deleted": 0
+      },
+      {
+        "revision_index": 88,
+        "exact": 378,
+        "modified": 4,
+        "new": 4,
+        "deleted": 3
+      },
+      {
+        "revision_index": 89,
+        "exact": 358,
+        "modified": 12,
+        "new": 52,
+        "deleted": 16
+      },
+      {
+        "revision_index": 90,
+        "exact": 404,
+        "modified": 4,
+        "new": 15,
+        "deleted": 14
+      },
+      {
+        "revision_index": 91,
+        "exact": 414,
+        "modified": 9,
+        "new": 5,
+        "deleted": 0
+      },
+      {
+        "revision_index": 92,
+        "exact": 419,
+        "restored": 1,
+        "modified": 8,
+        "new": 9,
+        "deleted": 1
+      },
+      {
+        "revision_index": 93,
+        "exact": 428,
+        "modified": 6,
+        "new": 1,
+        "deleted": 3
+      },
+      {
+        "revision_index": 94,
+        "exact": 432,
+        "modified": 3,
+        "deleted": 0
+      },
+      {
+        "revision_index": 95,
+        "exact": 434,
+        "deleted": 1
+      },
+      {
+        "revision_index": 96,
+        "exact": 432,
+        "modified": 2,
+        "deleted": 0
+      },
+      {
+        "revision_index": 97,
+        "exact": 428,
+        "modified": 5,
+        "new": 1,
+        "deleted": 1
+      },
+      {
+        "revision_index": 98,
+        "exact": 428,
+        "modified": 6,
+        "deleted": 0
+      },
+      {
+        "revision_index": 99,
+        "exact": 431,
+        "modified": 3,
+        "deleted": 0
+      },
+      {
+        "revision_index": 100,
+        "exact": 429,
+        "modified": 4,
+        "new": 3,
+        "deleted": 1
+      },
+      {
+        "revision_index": 101,
+        "exact": 423,
+        "modified": 12,
+        "deleted": 1
+      },
+      {
+        "revision_index": 102,
+        "exact": 428,
+        "restored": 1,
+        "modified": 6,
+        "new": 5,
+        "deleted": 1
+      },
+      {
+        "revision_index": 103,
+        "exact": 429,
+        "modified": 8,
+        "new": 4,
+        "deleted": 3
+      },
+      {
+        "revision_index": 104,
+        "exact": 438,
+        "modified": 3,
+        "deleted": 0
+      },
+      {
+        "revision_index": 105,
+        "exact": 427,
+        "restored": 1,
+        "modified": 11,
+        "new": 1,
+        "deleted": 3
+      },
+      {
+        "revision_index": 106,
+        "exact": 440,
+        "new": 8,
+        "deleted": 0
+      },
+      {
+        "revision_index": 107,
+        "exact": 430,
+        "restored": 1,
+        "modified": 18,
+        "new": 2,
+        "deleted": 0
+      },
+      {
+        "revision_index": 108,
+        "exact": 440,
+        "modified": 11,
+        "new": 4,
+        "deleted": 0
+      },
+      {
+        "revision_index": 109,
+        "exact": 451,
+        "modified": 4,
+        "new": 14,
+        "deleted": 0
+      },
+      {
+        "revision_index": 110,
+        "exact": 460,
+        "modified": 7,
+        "new": 2,
+        "deleted": 2
+      },
+      {
+        "revision_index": 111,
+        "exact": 465,
+        "modified": 3,
+        "new": 6,
+        "deleted": 1
+      },
+      {
+        "revision_index": 112,
+        "exact": 470,
+        "modified": 4,
+        "new": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 113,
+        "exact": 468,
+        "modified": 6,
+        "new": 6,
+        "deleted": 1
+      },
+      {
+        "revision_index": 114,
+        "exact": 467,
+        "modified": 13,
+        "new": 4,
+        "deleted": 0
+      },
+      {
+        "revision_index": 115,
+        "exact": 482,
+        "modified": 2,
+        "deleted": 0
+      },
+      {
+        "revision_index": 116,
+        "exact": 484,
+        "deleted": 0
+      },
+      {
+        "revision_index": 117,
+        "exact": 484,
+        "new": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 118,
+        "exact": 483,
+        "modified": 1,
+        "new": 3,
+        "deleted": 1
+      },
+      {
+        "revision_index": 119,
+        "exact": 481,
+        "modified": 4,
+        "deleted": 2
+      },
+      {
+        "revision_index": 120,
+        "exact": 482,
+        "modified": 3,
+        "new": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 121,
+        "exact": 485,
+        "modified": 1,
+        "deleted": 0
+      },
+      {
+        "revision_index": 122,
+        "exact": 101,
+        "modified": 2,
+        "new": 1,
+        "deleted": 383
+      },
+      {
+        "revision_index": 123,
+        "exact": 93,
+        "modified": 6,
+        "new": 19,
+        "deleted": 5
+      },
+      {
+        "revision_index": 124,
+        "exact": 116,
+        "modified": 2,
+        "new": 4,
+        "deleted": 0
+      }
+    ]
+  },
+  "display_interaction": {
+    "coordinates": "unaltered 2D UMAP coordinates",
+    "zoom": "wheel or trackpad",
+    "pan": "drag"
+  },
+  "points": [
+    {
+      "revision_index": 0,
+      "revision_id": "1006306",
+      "timestamp": "2003-06-06T20:52:21Z",
+      "display_umap": [
+        16.551008224487305,
+        3.298133611679077
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 1,
+      "revision_id": "1246508",
+      "timestamp": "2003-07-05T06:52:52Z",
+      "display_umap": [
+        16.48821258544922,
+        3.4199471473693848
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 2,
+      "revision_id": "1509954",
+      "timestamp": "2003-08-05T21:26:15Z",
+      "display_umap": [
+        16.44780158996582,
+        3.3346352577209473
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 3,
+      "revision_id": "3022706",
+      "timestamp": "2003-10-01T08:00:04Z",
+      "display_umap": [
+        16.349695205688477,
+        3.1801564693450928
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 4,
+      "revision_id": "3022716",
+      "timestamp": "2004-04-02T12:54:00Z",
+      "display_umap": [
+        16.235660552978516,
+        3.148526906967163
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 5,
+      "revision_id": "3523957",
+      "timestamp": "2004-05-06T15:23:15Z",
+      "display_umap": [
+        16.4553279876709,
+        3.688246488571167
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 6,
+      "revision_id": "4040573",
+      "timestamp": "2004-06-02T15:21:31Z",
+      "display_umap": [
+        16.640029907226562,
+        3.4787073135375977
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 7,
+      "revision_id": "5409203",
+      "timestamp": "2004-08-21T06:42:12Z",
+      "display_umap": [
+        16.101654052734375,
+        3.673082113265991
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 8,
+      "revision_id": "5747344",
+      "timestamp": "2004-09-08T20:56:45Z",
+      "display_umap": [
+        15.921655654907227,
+        3.461322546005249
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 9,
+      "revision_id": "6750926",
+      "timestamp": "2004-10-21T13:51:09Z",
+      "display_umap": [
+        15.959633827209473,
+        3.594975709915161
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 10,
+      "revision_id": "7361443",
+      "timestamp": "2004-11-01T15:34:43Z",
+      "display_umap": [
+        15.911479949951172,
+        3.4129583835601807
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 11,
+      "revision_id": "8081738",
+      "timestamp": "2004-12-03T14:22:21Z",
+      "display_umap": [
+        15.641486167907715,
+        3.264023542404175
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 12,
+      "revision_id": "9450773",
+      "timestamp": "2005-01-03T11:12:37Z",
+      "display_umap": [
+        15.730908393859863,
+        3.1998403072357178
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 13,
+      "revision_id": "10090114",
+      "timestamp": "2005-02-09T05:30:48Z",
+      "display_umap": [
+        15.66214656829834,
+        3.431466817855835
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 14,
+      "revision_id": "10685547",
+      "timestamp": "2005-03-02T00:16:18Z",
+      "display_umap": [
+        15.926462173461914,
+        3.0317726135253906
+      ],
+      "cluster_label": 3,
+      "membership_probability": 0.9629216437010474
+    },
+    {
+      "revision_index": 15,
+      "revision_id": "12032269",
+      "timestamp": "2005-04-04T01:47:39Z",
+      "display_umap": [
+        15.555736541748047,
+        3.3090803623199463
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 16,
+      "revision_id": "13257454",
+      "timestamp": "2005-05-01T18:08:41Z",
+      "display_umap": [
+        24.184715270996094,
+        -2.263036012649536
+      ],
+      "cluster_label": 5,
+      "membership_probability": 0.7214476550057223
+    },
+    {
+      "revision_index": 17,
+      "revision_id": "14658195",
+      "timestamp": "2005-06-03T20:59:30Z",
+      "display_umap": [
+        24.149343490600586,
+        -2.225741386413574
+      ],
+      "cluster_label": 5,
+      "membership_probability": 0.6890367572062199
+    },
+    {
+      "revision_index": 18,
+      "revision_id": "18181150",
+      "timestamp": "2005-07-05T09:05:07Z",
+      "display_umap": [
+        24.5485897064209,
+        -2.317288398742676
+      ],
+      "cluster_label": 5,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 19,
+      "revision_id": "20397154",
+      "timestamp": "2005-08-06T08:13:53Z",
+      "display_umap": [
+        24.4110107421875,
+        -2.6330180168151855
+      ],
+      "cluster_label": 5,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 20,
+      "revision_id": "22464865",
+      "timestamp": "2005-09-03T11:25:45Z",
+      "display_umap": [
+        24.014205932617188,
+        -2.4983391761779785
+      ],
+      "cluster_label": 5,
+      "membership_probability": 0.7214476550057223
+    },
+    {
+      "revision_index": 21,
+      "revision_id": "24447568",
+      "timestamp": "2005-10-01T02:04:15Z",
+      "display_umap": [
+        24.613367080688477,
+        -2.5782244205474854
+      ],
+      "cluster_label": 5,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 22,
+      "revision_id": "28033585",
+      "timestamp": "2005-11-11T16:06:23Z",
+      "display_umap": [
+        24.488462448120117,
+        -2.592433214187622
+      ],
+      "cluster_label": 5,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 23,
+      "revision_id": "29944393",
+      "timestamp": "2005-12-02T20:22:45Z",
+      "display_umap": [
+        24.539596557617188,
+        -2.3303449153900146
+      ],
+      "cluster_label": 5,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 24,
+      "revision_id": "33514268",
+      "timestamp": "2006-01-01T21:26:47Z",
+      "display_umap": [
+        24.631383895874023,
+        -2.3824501037597656
+      ],
+      "cluster_label": 5,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 25,
+      "revision_id": "39373358",
+      "timestamp": "2006-02-12T19:11:26Z",
+      "display_umap": [
+        24.5078067779541,
+        -2.37721848487854
+      ],
+      "cluster_label": 5,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 26,
+      "revision_id": "41746863",
+      "timestamp": "2006-03-01T13:17:07Z",
+      "display_umap": [
+        24.252534866333008,
+        -2.4396793842315674
+      ],
+      "cluster_label": 5,
+      "membership_probability": 0.8826184103436359
+    },
+    {
+      "revision_index": 27,
+      "revision_id": "48871935",
+      "timestamp": "2006-04-17T18:24:07Z",
+      "display_umap": [
+        24.104745864868164,
+        -2.6167242527008057
+      ],
+      "cluster_label": 5,
+      "membership_probability": 0.9090357067960155
+    },
+    {
+      "revision_index": 28,
+      "revision_id": "51792233",
+      "timestamp": "2006-05-06T05:18:12Z",
+      "display_umap": [
+        24.314258575439453,
+        -2.6981029510498047
+      ],
+      "cluster_label": 5,
+      "membership_probability": 0.9327347896941952
+    },
+    {
+      "revision_index": 29,
+      "revision_id": "56500407",
+      "timestamp": "2006-06-02T14:31:03Z",
+      "display_umap": [
+        24.09286880493164,
+        -1.6668486595153809
+      ],
+      "cluster_label": 5,
+      "membership_probability": 0.3732047204029136
+    },
+    {
+      "revision_index": 30,
+      "revision_id": "61890206",
+      "timestamp": "2006-07-03T19:02:22Z",
+      "display_umap": [
+        23.99620819091797,
+        -1.4809198379516602
+      ],
+      "cluster_label": -1,
+      "membership_probability": 0.0
+    },
+    {
+      "revision_index": 31,
+      "revision_id": "67044074",
+      "timestamp": "2006-08-01T14:31:13Z",
+      "display_umap": [
+        23.664953231811523,
+        -1.3732719421386719
+      ],
+      "cluster_label": 6,
+      "membership_probability": 0.46015541091975737
+    },
+    {
+      "revision_index": 32,
+      "revision_id": "73427103",
+      "timestamp": "2006-09-02T17:37:04Z",
+      "display_umap": [
+        23.51552963256836,
+        -1.139338731765747
+      ],
+      "cluster_label": 6,
+      "membership_probability": 0.46015541091975737
+    },
+    {
+      "revision_index": 33,
+      "revision_id": "79420103",
+      "timestamp": "2006-10-04T08:25:22Z",
+      "display_umap": [
+        23.294095993041992,
+        -0.8735832571983337
+      ],
+      "cluster_label": -1,
+      "membership_probability": 0.0
+    },
+    {
+      "revision_index": 34,
+      "revision_id": "85320710",
+      "timestamp": "2006-11-02T20:21:53Z",
+      "display_umap": [
+        23.14645767211914,
+        -0.7272393703460693
+      ],
+      "cluster_label": 6,
+      "membership_probability": 0.46015541091975737
+    },
+    {
+      "revision_index": 35,
+      "revision_id": "91337645",
+      "timestamp": "2006-12-01T07:54:38Z",
+      "display_umap": [
+        22.632808685302734,
+        -0.13586309552192688
+      ],
+      "cluster_label": 6,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 36,
+      "revision_id": "97992551",
+      "timestamp": "2007-01-02T19:18:50Z",
+      "display_umap": [
+        22.8221378326416,
+        -0.19534838199615479
+      ],
+      "cluster_label": 6,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 37,
+      "revision_id": "105584633",
+      "timestamp": "2007-02-04T15:55:23Z",
+      "display_umap": [
+        22.58786964416504,
+        -0.11732622981071472
+      ],
+      "cluster_label": 6,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 38,
+      "revision_id": "111773136",
+      "timestamp": "2007-03-01T06:28:47Z",
+      "display_umap": [
+        22.848609924316406,
+        -0.37158825993537903
+      ],
+      "cluster_label": 6,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 39,
+      "revision_id": "119493548",
+      "timestamp": "2007-04-01T14:57:33Z",
+      "display_umap": [
+        22.920480728149414,
+        -0.1719476282596588
+      ],
+      "cluster_label": 6,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 40,
+      "revision_id": "128515890",
+      "timestamp": "2007-05-05T22:31:43Z",
+      "display_umap": [
+        22.851659774780273,
+        -0.10335010290145874
+      ],
+      "cluster_label": 6,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 41,
+      "revision_id": "135145425",
+      "timestamp": "2007-06-01T18:38:19Z",
+      "display_umap": [
+        22.698881149291992,
+        -0.38170096278190613
+      ],
+      "cluster_label": 6,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 42,
+      "revision_id": "141727101",
+      "timestamp": "2007-07-01T03:17:20Z",
+      "display_umap": [
+        22.43238639831543,
+        -0.02327696606516838
+      ],
+      "cluster_label": 6,
+      "membership_probability": 0.5974996601413295
+    },
+    {
+      "revision_index": 43,
+      "revision_id": "149165304",
+      "timestamp": "2007-08-04T16:24:55Z",
+      "display_umap": [
+        15.571427345275879,
+        3.6089742183685303
+      ],
+      "cluster_label": 3,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 44,
+      "revision_id": "155344496",
+      "timestamp": "2007-09-03T04:14:53Z",
+      "display_umap": [
+        16.166913986206055,
+        4.204545497894287
+      ],
+      "cluster_label": 3,
+      "membership_probability": 0.8021698856377545
+    },
+    {
+      "revision_index": 45,
+      "revision_id": "162405865",
+      "timestamp": "2007-10-05T05:52:28Z",
+      "display_umap": [
+        16.252382278442383,
+        4.189960956573486
+      ],
+      "cluster_label": 3,
+      "membership_probability": 0.8021698856377545
+    },
+    {
+      "revision_index": 46,
+      "revision_id": "168838825",
+      "timestamp": "2007-11-02T23:45:10Z",
+      "display_umap": [
+        15.99112319946289,
+        4.330540657043457
+      ],
+      "cluster_label": 3,
+      "membership_probability": 0.8021698856377545
+    },
+    {
+      "revision_index": 47,
+      "revision_id": "301093554",
+      "timestamp": "2009-07-09T00:07:50Z",
+      "display_umap": [
+        16.146913528442383,
+        4.112056732177734
+      ],
+      "cluster_label": 3,
+      "membership_probability": 0.8021698856377545
+    },
+    {
+      "revision_index": 48,
+      "revision_id": "305984622",
+      "timestamp": "2009-08-04T09:57:03Z",
+      "display_umap": [
+        14.702936172485352,
+        4.267422676086426
+      ],
+      "cluster_label": 3,
+      "membership_probability": 0.3300307679944086
+    },
+    {
+      "revision_index": 49,
+      "revision_id": "311262289",
+      "timestamp": "2009-09-01T11:59:11Z",
+      "display_umap": [
+        14.713038444519043,
+        4.252161979675293
+      ],
+      "cluster_label": 3,
+      "membership_probability": 0.3300307679944086
+    },
+    {
+      "revision_index": 50,
+      "revision_id": "317369277",
+      "timestamp": "2009-10-01T22:49:15Z",
+      "display_umap": [
+        14.709932327270508,
+        4.262630939483643
+      ],
+      "cluster_label": 3,
+      "membership_probability": 0.3300307679944086
+    },
+    {
+      "revision_index": 51,
+      "revision_id": "324015901",
+      "timestamp": "2009-11-05T02:47:41Z",
+      "display_umap": [
+        14.613408088684082,
+        4.3522629737854
+      ],
+      "cluster_label": 3,
+      "membership_probability": 0.3300307679944086
+    },
+    {
+      "revision_index": 52,
+      "revision_id": "329343908",
+      "timestamp": "2009-12-02T23:58:48Z",
+      "display_umap": [
+        14.530874252319336,
+        4.437063217163086
+      ],
+      "cluster_label": 3,
+      "membership_probability": 0.3300307679944086
+    },
+    {
+      "revision_index": 53,
+      "revision_id": "335228965",
+      "timestamp": "2010-01-01T03:24:53Z",
+      "display_umap": [
+        12.434723854064941,
+        6.888920307159424
+      ],
+      "cluster_label": 4,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 54,
+      "revision_id": "341271886",
+      "timestamp": "2010-02-01T13:42:00Z",
+      "display_umap": [
+        12.386367797851562,
+        6.9395060539245605
+      ],
+      "cluster_label": 4,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 55,
+      "revision_id": "347286355",
+      "timestamp": "2010-03-02T12:54:05Z",
+      "display_umap": [
+        12.224111557006836,
+        7.265683174133301
+      ],
+      "cluster_label": 4,
+      "membership_probability": 0.8649260567578282
+    },
+    {
+      "revision_index": 56,
+      "revision_id": "355018009",
+      "timestamp": "2010-04-09T20:57:13Z",
+      "display_umap": [
+        12.096756935119629,
+        7.1901679039001465
+      ],
+      "cluster_label": 4,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 57,
+      "revision_id": "359396902",
+      "timestamp": "2010-05-01T06:35:13Z",
+      "display_umap": [
+        12.23803424835205,
+        6.996790885925293
+      ],
+      "cluster_label": 4,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 58,
+      "revision_id": "365576041",
+      "timestamp": "2010-06-02T04:48:20Z",
+      "display_umap": [
+        12.326288223266602,
+        6.983978271484375
+      ],
+      "cluster_label": 4,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 59,
+      "revision_id": "371149895",
+      "timestamp": "2010-07-01T05:25:26Z",
+      "display_umap": [
+        11.921467781066895,
+        7.381089687347412
+      ],
+      "cluster_label": 4,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 60,
+      "revision_id": "376747214",
+      "timestamp": "2010-08-02T12:21:21Z",
+      "display_umap": [
+        11.714899063110352,
+        7.407388687133789
+      ],
+      "cluster_label": 4,
+      "membership_probability": 0.701774717177651
+    },
+    {
+      "revision_index": 61,
+      "revision_id": "383301885",
+      "timestamp": "2010-09-06T19:13:01Z",
+      "display_umap": [
+        12.025123596191406,
+        7.6963725090026855
+      ],
+      "cluster_label": 4,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 62,
+      "revision_id": "388164890",
+      "timestamp": "2010-10-01T21:00:58Z",
+      "display_umap": [
+        11.897960662841797,
+        7.7637104988098145
+      ],
+      "cluster_label": 4,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 63,
+      "revision_id": "395461336",
+      "timestamp": "2010-11-08T01:36:05Z",
+      "display_umap": [
+        11.898408889770508,
+        7.593985557556152
+      ],
+      "cluster_label": 4,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 64,
+      "revision_id": "400655748",
+      "timestamp": "2010-12-05T12:01:40Z",
+      "display_umap": [
+        11.910055160522461,
+        7.794364929199219
+      ],
+      "cluster_label": 4,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 65,
+      "revision_id": "406604247",
+      "timestamp": "2011-01-08T01:57:28Z",
+      "display_umap": [
+        11.699505805969238,
+        7.949403762817383
+      ],
+      "cluster_label": 4,
+      "membership_probability": 0.9912540659325518
+    },
+    {
+      "revision_index": 66,
+      "revision_id": "411534779",
+      "timestamp": "2011-02-02T07:06:28Z",
+      "display_umap": [
+        11.55585765838623,
+        7.930799961090088
+      ],
+      "cluster_label": 4,
+      "membership_probability": 0.9912540659325518
+    },
+    {
+      "revision_index": 67,
+      "revision_id": "416701319",
+      "timestamp": "2011-03-02T07:52:35Z",
+      "display_umap": [
+        12.04096794128418,
+        7.830016136169434
+      ],
+      "cluster_label": 4,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 68,
+      "revision_id": "421776538",
+      "timestamp": "2011-04-01T06:05:37Z",
+      "display_umap": [
+        11.612480163574219,
+        7.817385673522949
+      ],
+      "cluster_label": 4,
+      "membership_probability": 0.9912540659325518
+    },
+    {
+      "revision_index": 69,
+      "revision_id": "426855142",
+      "timestamp": "2011-05-01T07:41:57Z",
+      "display_umap": [
+        11.534869194030762,
+        7.7298688888549805
+      ],
+      "cluster_label": 4,
+      "membership_probability": 0.9445216587636821
+    },
+    {
+      "revision_index": 70,
+      "revision_id": "431994723",
+      "timestamp": "2011-06-01T13:07:49Z",
+      "display_umap": [
+        10.58948040008545,
+        -6.398469924926758
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.7652062740393479
+    },
+    {
+      "revision_index": 71,
+      "revision_id": "437224148",
+      "timestamp": "2011-07-01T12:55:20Z",
+      "display_umap": [
+        10.555960655212402,
+        -6.281961441040039
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.6892779737251375
+    },
+    {
+      "revision_index": 72,
+      "revision_id": "442676036",
+      "timestamp": "2011-08-02T13:58:52Z",
+      "display_umap": [
+        10.233183860778809,
+        -6.817146301269531
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.7374758511824705
+    },
+    {
+      "revision_index": 73,
+      "revision_id": "448295693",
+      "timestamp": "2011-09-03T22:44:40Z",
+      "display_umap": [
+        10.445302963256836,
+        -6.545118808746338
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.7652062740393479
+    },
+    {
+      "revision_index": 74,
+      "revision_id": "453362443",
+      "timestamp": "2011-10-01T12:35:33Z",
+      "display_umap": [
+        10.201446533203125,
+        -6.458909034729004
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.7652062740393479
+    },
+    {
+      "revision_index": 75,
+      "revision_id": "458426716",
+      "timestamp": "2011-11-01T08:04:18Z",
+      "display_umap": [
+        10.124605178833008,
+        -6.610043525695801
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.7652062740393479
+    },
+    {
+      "revision_index": 76,
+      "revision_id": "463527327",
+      "timestamp": "2011-12-01T17:36:48Z",
+      "display_umap": [
+        10.352882385253906,
+        -6.69101619720459
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.7652062740393479
+    },
+    {
+      "revision_index": 77,
+      "revision_id": "469704146",
+      "timestamp": "2012-01-05T12:34:34Z",
+      "display_umap": [
+        10.316023826599121,
+        -6.515419006347656
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.7652062740393479
+    },
+    {
+      "revision_index": 78,
+      "revision_id": "474720455",
+      "timestamp": "2012-02-03T07:56:56Z",
+      "display_umap": [
+        10.882548332214355,
+        -6.469503879547119
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.8399640123672929
+    },
+    {
+      "revision_index": 79,
+      "revision_id": "479756360",
+      "timestamp": "2012-03-02T02:37:09Z",
+      "display_umap": [
+        10.876965522766113,
+        -6.870704174041748
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.7079069863887506
+    },
+    {
+      "revision_index": 80,
+      "revision_id": "486052245",
+      "timestamp": "2012-04-07T09:19:29Z",
+      "display_umap": [
+        10.803231239318848,
+        -6.821052074432373
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.6555323775587587
+    },
+    {
+      "revision_index": 81,
+      "revision_id": "491129941",
+      "timestamp": "2012-05-07T05:40:16Z",
+      "display_umap": [
+        11.089183807373047,
+        -6.840590953826904
+      ],
+      "cluster_label": 2,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 82,
+      "revision_id": "496854324",
+      "timestamp": "2012-06-10T05:09:22Z",
+      "display_umap": [
+        11.323590278625488,
+        -6.598941802978516
+      ],
+      "cluster_label": 2,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 83,
+      "revision_id": "500170114",
+      "timestamp": "2012-07-01T11:45:55Z",
+      "display_umap": [
+        11.058382987976074,
+        -6.3618083000183105
+      ],
+      "cluster_label": 2,
+      "membership_probability": 0.8435107892752532
+    },
+    {
+      "revision_index": 84,
+      "revision_id": "505243297",
+      "timestamp": "2012-08-01T11:15:23Z",
+      "display_umap": [
+        11.101944923400879,
+        -6.634832382202148
+      ],
+      "cluster_label": 2,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 85,
+      "revision_id": "510321015",
+      "timestamp": "2012-09-01T19:36:31Z",
+      "display_umap": [
+        11.316311836242676,
+        -6.45295524597168
+      ],
+      "cluster_label": 2,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 86,
+      "revision_id": "516101794",
+      "timestamp": "2012-10-05T06:17:37Z",
+      "display_umap": [
+        11.117077827453613,
+        -6.439007759094238
+      ],
+      "cluster_label": 2,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 87,
+      "revision_id": "521139004",
+      "timestamp": "2012-11-03T01:13:17Z",
+      "display_umap": [
+        11.206246376037598,
+        -6.7806549072265625
+      ],
+      "cluster_label": 2,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 88,
+      "revision_id": "525785449",
+      "timestamp": "2012-12-01T00:38:36Z",
+      "display_umap": [
+        11.382793426513672,
+        -6.673921585083008
+      ],
+      "cluster_label": 2,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 89,
+      "revision_id": "530892660",
+      "timestamp": "2013-01-02T09:33:04Z",
+      "display_umap": [
+        -3.089313507080078,
+        13.353249549865723
+      ],
+      "cluster_label": 1,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 90,
+      "revision_id": "536527490",
+      "timestamp": "2013-02-04T15:03:43Z",
+      "display_umap": [
+        -3.2488861083984375,
+        13.48834228515625
+      ],
+      "cluster_label": 1,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 91,
+      "revision_id": "542470902",
+      "timestamp": "2013-03-06T23:59:13Z",
+      "display_umap": [
+        -3.4295549392700195,
+        13.3798246383667
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.738029887637095
+    },
+    {
+      "revision_index": 92,
+      "revision_id": "549302609",
+      "timestamp": "2013-04-08T10:24:20Z",
+      "display_umap": [
+        -3.2812905311584473,
+        13.213861465454102
+      ],
+      "cluster_label": 1,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 93,
+      "revision_id": "553415386",
+      "timestamp": "2013-05-03T22:58:27Z",
+      "display_umap": [
+        -3.1083614826202393,
+        13.301149368286133
+      ],
+      "cluster_label": 1,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 94,
+      "revision_id": "557880799",
+      "timestamp": "2013-06-01T20:50:19Z",
+      "display_umap": [
+        -3.065446138381958,
+        13.201844215393066
+      ],
+      "cluster_label": 1,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 95,
+      "revision_id": "562632529",
+      "timestamp": "2013-07-03T02:17:20Z",
+      "display_umap": [
+        -2.9002645015716553,
+        13.17363452911377
+      ],
+      "cluster_label": 1,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 96,
+      "revision_id": "566687333",
+      "timestamp": "2013-08-01T08:17:05Z",
+      "display_umap": [
+        -3.298524856567383,
+        13.056787490844727
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.7882083368964174
+    },
+    {
+      "revision_index": 97,
+      "revision_id": "571384791",
+      "timestamp": "2013-09-03T15:06:47Z",
+      "display_umap": [
+        -2.7515342235565186,
+        13.191219329833984
+      ],
+      "cluster_label": 1,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 98,
+      "revision_id": "576256448",
+      "timestamp": "2013-10-08T07:50:30Z",
+      "display_umap": [
+        -2.5911409854888916,
+        13.105484962463379
+      ],
+      "cluster_label": 1,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 99,
+      "revision_id": "579849305",
+      "timestamp": "2013-11-02T09:34:16Z",
+      "display_umap": [
+        -2.297504186630249,
+        12.782968521118164
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.9030059830363463
+    },
+    {
+      "revision_index": 100,
+      "revision_id": "584157567",
+      "timestamp": "2013-12-02T03:28:04Z",
+      "display_umap": [
+        -2.115200996398926,
+        13.257048606872559
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.9657117689246909
+    },
+    {
+      "revision_index": 101,
+      "revision_id": "588993603",
+      "timestamp": "2014-01-03T16:12:40Z",
+      "display_umap": [
+        -2.2647626399993896,
+        12.95042610168457
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.9611010486622941
+    },
+    {
+      "revision_index": 102,
+      "revision_id": "593543122",
+      "timestamp": "2014-02-02T06:12:57Z",
+      "display_umap": [
+        -2.2975306510925293,
+        13.202239036560059
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.9657117689246909
+    },
+    {
+      "revision_index": 103,
+      "revision_id": "597735345",
+      "timestamp": "2014-03-01T23:19:01Z",
+      "display_umap": [
+        -2.2621195316314697,
+        13.510616302490234
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.7862603715331027
+    },
+    {
+      "revision_index": 104,
+      "revision_id": "602303212",
+      "timestamp": "2014-04-01T18:49:09Z",
+      "display_umap": [
+        -2.2414960861206055,
+        13.4486722946167
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.9657117689246909
+    },
+    {
+      "revision_index": 105,
+      "revision_id": "607084148",
+      "timestamp": "2014-05-04T22:22:45Z",
+      "display_umap": [
+        -2.6308982372283936,
+        13.130850791931152
+      ],
+      "cluster_label": 1,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 106,
+      "revision_id": "611262715",
+      "timestamp": "2014-06-02T18:04:58Z",
+      "display_umap": [
+        -2.534374237060547,
+        13.003238677978516
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.9565267932079181
+    },
+    {
+      "revision_index": 107,
+      "revision_id": "615168791",
+      "timestamp": "2014-07-01T15:48:47Z",
+      "display_umap": [
+        -2.4262924194335938,
+        13.234366416931152
+      ],
+      "cluster_label": 1,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 108,
+      "revision_id": "619422648",
+      "timestamp": "2014-08-01T13:44:28Z",
+      "display_umap": [
+        -1.8891626596450806,
+        13.242098808288574
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.5975584801526431
+    },
+    {
+      "revision_index": 109,
+      "revision_id": "625037860",
+      "timestamp": "2014-09-11T03:47:10Z",
+      "display_umap": [
+        -1.9440531730651855,
+        13.108991622924805
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.8625134593221081
+    },
+    {
+      "revision_index": 110,
+      "revision_id": "627856555",
+      "timestamp": "2014-10-01T19:10:55Z",
+      "display_umap": [
+        -2.1063122749328613,
+        12.877174377441406
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.8625134593221081
+    },
+    {
+      "revision_index": 111,
+      "revision_id": "632295738",
+      "timestamp": "2014-11-03T16:23:53Z",
+      "display_umap": [
+        -2.458250045776367,
+        12.565693855285645
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.5914496053821575
+    },
+    {
+      "revision_index": 112,
+      "revision_id": "636311063",
+      "timestamp": "2014-12-02T13:21:36Z",
+      "display_umap": [
+        -2.8390021324157715,
+        12.406624794006348
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.3701018820958527
+    },
+    {
+      "revision_index": 113,
+      "revision_id": "640510996",
+      "timestamp": "2015-01-01T14:15:43Z",
+      "display_umap": [
+        -2.7769570350646973,
+        12.564455032348633
+      ],
+      "cluster_label": 1,
+      "membership_probability": 0.48677709912409817
+    },
+    {
+      "revision_index": 114,
+      "revision_id": "645076061",
+      "timestamp": "2015-02-01T01:22:42Z",
+      "display_umap": [
+        -3.4582512378692627,
+        9.610937118530273
+      ],
+      "cluster_label": 0,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 115,
+      "revision_id": "650656038",
+      "timestamp": "2015-03-09T20:14:49Z",
+      "display_umap": [
+        -3.38747501373291,
+        9.538802146911621
+      ],
+      "cluster_label": 0,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 116,
+      "revision_id": "654753134",
+      "timestamp": "2015-04-03T08:51:57Z",
+      "display_umap": [
+        -3.352572202682495,
+        9.502741813659668
+      ],
+      "cluster_label": 0,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 117,
+      "revision_id": "660253917",
+      "timestamp": "2015-05-01T14:32:15Z",
+      "display_umap": [
+        -3.1806516647338867,
+        9.329854965209961
+      ],
+      "cluster_label": 0,
+      "membership_probability": 0.84770868679633
+    },
+    {
+      "revision_index": 118,
+      "revision_id": "665603827",
+      "timestamp": "2015-06-05T11:05:32Z",
+      "display_umap": [
+        -3.414231777191162,
+        9.587722778320312
+      ],
+      "cluster_label": 0,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 119,
+      "revision_id": "670472679",
+      "timestamp": "2015-07-08T05:15:30Z",
+      "display_umap": [
+        -3.5345354080200195,
+        9.684033393859863
+      ],
+      "cluster_label": 0,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 120,
+      "revision_id": "674921639",
+      "timestamp": "2015-08-07T01:10:01Z",
+      "display_umap": [
+        -3.2433717250823975,
+        9.403569221496582
+      ],
+      "cluster_label": 0,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 121,
+      "revision_id": "678918158",
+      "timestamp": "2015-09-01T12:17:09Z",
+      "display_umap": [
+        -3.2489054203033447,
+        9.408191680908203
+      ],
+      "cluster_label": 0,
+      "membership_probability": 1.0
+    },
+    {
+      "revision_index": 122,
+      "revision_id": "683757817",
+      "timestamp": "2015-10-02T09:05:35Z",
+      "display_umap": [
+        23.25184440612793,
+        -1.6831505298614502
+      ],
+      "cluster_label": 6,
+      "membership_probability": 0.46015541091975737
+    },
+    {
+      "revision_index": 123,
+      "revision_id": "689095918",
+      "timestamp": "2015-11-04T22:27:49Z",
+      "display_umap": [
+        23.371381759643555,
+        -1.7995809316635132
+      ],
+      "cluster_label": 6,
+      "membership_probability": 0.46015541091975737
+    },
+    {
+      "revision_index": 124,
+      "revision_id": "694053581",
+      "timestamp": "2015-12-06T20:44:38Z",
+      "display_umap": [
+        23.52135467529297,
+        -1.8936256170272827
+      ],
+      "cluster_label": 6,
+      "membership_probability": 0.46015541091975737
+    }
+  ],
+  "drift_records": [
+    {
+      "revision_index_a": 0,
+      "revision_index_b": 1,
+      "revision_id_a": "1006306",
+      "revision_id_b": "1246508",
+      "timestamp_a": "2003-06-06T20:52:21Z",
+      "timestamp_b": "2003-07-05T06:52:52Z",
+      "semantic_distance_normalized": 0.0032813281268728733,
+      "lexical_distance_normalized": 0.016109986504723346,
+      "semantic_contribution": 0.0016406640634364367,
+      "lexical_contribution": 0.008054993252361673,
+      "hybrid_distance": 0.00969565731579811
+    },
+    {
+      "revision_index_a": 1,
+      "revision_index_b": 2,
+      "revision_id_a": "1246508",
+      "revision_id_b": "1509954",
+      "timestamp_a": "2003-07-05T06:52:52Z",
+      "timestamp_b": "2003-08-05T21:26:15Z",
+      "semantic_distance_normalized": 4.336694864326418e-09,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 2.168347432163209e-09,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 2.168347432163209e-09
+    },
+    {
+      "revision_index_a": 2,
+      "revision_index_b": 3,
+      "revision_id_a": "1509954",
+      "revision_id_b": "3022706",
+      "timestamp_a": "2003-08-05T21:26:15Z",
+      "timestamp_b": "2003-10-01T08:00:04Z",
+      "semantic_distance_normalized": 0.0017945748715698373,
+      "lexical_distance_normalized": 0.3389830508474576,
+      "semantic_contribution": 0.0008972874357849187,
+      "lexical_contribution": 0.1694915254237288,
+      "hybrid_distance": 0.17038881285951374
+    },
+    {
+      "revision_index_a": 3,
+      "revision_index_b": 4,
+      "revision_id_a": "3022706",
+      "revision_id_b": "3022716",
+      "timestamp_a": "2003-10-01T08:00:04Z",
+      "timestamp_b": "2004-04-02T12:54:00Z",
+      "semantic_distance_normalized": 0.011243057193604689,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 0.005621528596802344,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 0.005621528596802344
+    },
+    {
+      "revision_index_a": 4,
+      "revision_index_b": 5,
+      "revision_id_a": "3022716",
+      "revision_id_b": "3523957",
+      "timestamp_a": "2004-04-02T12:54:00Z",
+      "timestamp_b": "2004-05-06T15:23:15Z",
+      "semantic_distance_normalized": 0.04846351513074796,
+      "lexical_distance_normalized": 0.38618555530320237,
+      "semantic_contribution": 0.02423175756537398,
+      "lexical_contribution": 0.19309277765160118,
+      "hybrid_distance": 0.21732453521697517
+    },
+    {
+      "revision_index_a": 5,
+      "revision_index_b": 6,
+      "revision_id_a": "3523957",
+      "revision_id_b": "4040573",
+      "timestamp_a": "2004-05-06T15:23:15Z",
+      "timestamp_b": "2004-06-02T15:21:31Z",
+      "semantic_distance_normalized": 0.001974850873494194,
+      "lexical_distance_normalized": 0.16265382557517388,
+      "semantic_contribution": 0.000987425436747097,
+      "lexical_contribution": 0.08132691278758694,
+      "hybrid_distance": 0.08231433822433404
+    },
+    {
+      "revision_index_a": 6,
+      "revision_index_b": 7,
+      "revision_id_a": "4040573",
+      "revision_id_b": "5409203",
+      "timestamp_a": "2004-06-02T15:21:31Z",
+      "timestamp_b": "2004-08-21T06:42:12Z",
+      "semantic_distance_normalized": 0.027063872604514816,
+      "lexical_distance_normalized": 0.3873349339735894,
+      "semantic_contribution": 0.013531936302257408,
+      "lexical_contribution": 0.1936674669867947,
+      "hybrid_distance": 0.20719940328905212
+    },
+    {
+      "revision_index_a": 7,
+      "revision_index_b": 8,
+      "revision_id_a": "5409203",
+      "revision_id_b": "5747344",
+      "timestamp_a": "2004-08-21T06:42:12Z",
+      "timestamp_b": "2004-09-08T20:56:45Z",
+      "semantic_distance_normalized": 6.999001896564512e-09,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 3.499500948282256e-09,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 3.499500948282256e-09
+    },
+    {
+      "revision_index_a": 8,
+      "revision_index_b": 9,
+      "revision_id_a": "5747344",
+      "revision_id_b": "6750926",
+      "timestamp_a": "2004-09-08T20:56:45Z",
+      "timestamp_b": "2004-10-21T13:51:09Z",
+      "semantic_distance_normalized": 0.07038315806121061,
+      "lexical_distance_normalized": 0.168,
+      "semantic_contribution": 0.035191579030605304,
+      "lexical_contribution": 0.084,
+      "hybrid_distance": 0.11919157903060532
+    },
+    {
+      "revision_index_a": 9,
+      "revision_index_b": 10,
+      "revision_id_a": "6750926",
+      "revision_id_b": "7361443",
+      "timestamp_a": "2004-10-21T13:51:09Z",
+      "timestamp_b": "2004-11-01T15:34:43Z",
+      "semantic_distance_normalized": 0.03111568305776935,
+      "lexical_distance_normalized": 0.3136106298944609,
+      "semantic_contribution": 0.015557841528884675,
+      "lexical_contribution": 0.15680531494723046,
+      "hybrid_distance": 0.17236315647611514
+    },
+    {
+      "revision_index_a": 10,
+      "revision_index_b": 11,
+      "revision_id_a": "7361443",
+      "revision_id_b": "8081738",
+      "timestamp_a": "2004-11-01T15:34:43Z",
+      "timestamp_b": "2004-12-03T14:22:21Z",
+      "semantic_distance_normalized": 0.015301076076923695,
+      "lexical_distance_normalized": 0.20967741935483872,
+      "semantic_contribution": 0.0076505380384618476,
+      "lexical_contribution": 0.10483870967741936,
+      "hybrid_distance": 0.1124892477158812
+    },
+    {
+      "revision_index_a": 11,
+      "revision_index_b": 12,
+      "revision_id_a": "8081738",
+      "revision_id_b": "9450773",
+      "timestamp_a": "2004-12-03T14:22:21Z",
+      "timestamp_b": "2005-01-03T11:12:37Z",
+      "semantic_distance_normalized": 0.00340978388208113,
+      "lexical_distance_normalized": 0.14219570442027318,
+      "semantic_contribution": 0.001704891941040565,
+      "lexical_contribution": 0.07109785221013659,
+      "hybrid_distance": 0.07280274415117716
+    },
+    {
+      "revision_index_a": 12,
+      "revision_index_b": 13,
+      "revision_id_a": "9450773",
+      "revision_id_b": "10090114",
+      "timestamp_a": "2005-01-03T11:12:37Z",
+      "timestamp_b": "2005-02-09T05:30:48Z",
+      "semantic_distance_normalized": 0.02993793500415746,
+      "lexical_distance_normalized": 0.2599097331240188,
+      "semantic_contribution": 0.01496896750207873,
+      "lexical_contribution": 0.1299548665620094,
+      "hybrid_distance": 0.14492383406408815
+    },
+    {
+      "revision_index_a": 13,
+      "revision_index_b": 14,
+      "revision_id_a": "10090114",
+      "revision_id_b": "10685547",
+      "timestamp_a": "2005-02-09T05:30:48Z",
+      "timestamp_b": "2005-03-02T00:16:18Z",
+      "semantic_distance_normalized": 0.02890657194064879,
+      "lexical_distance_normalized": 0.5102040816326531,
+      "semantic_contribution": 0.014453285970324395,
+      "lexical_contribution": 0.25510204081632654,
+      "hybrid_distance": 0.26955532678665095
+    },
+    {
+      "revision_index_a": 14,
+      "revision_index_b": 15,
+      "revision_id_a": "10685547",
+      "revision_id_b": "12032269",
+      "timestamp_a": "2005-03-02T00:16:18Z",
+      "timestamp_b": "2005-04-04T01:47:39Z",
+      "semantic_distance_normalized": 0.011301195650499954,
+      "lexical_distance_normalized": 0.1694915254237288,
+      "semantic_contribution": 0.005650597825249977,
+      "lexical_contribution": 0.0847457627118644,
+      "hybrid_distance": 0.09039636053711438
+    },
+    {
+      "revision_index_a": 15,
+      "revision_index_b": 16,
+      "revision_id_a": "12032269",
+      "revision_id_b": "13257454",
+      "timestamp_a": "2005-04-04T01:47:39Z",
+      "timestamp_b": "2005-05-01T18:08:41Z",
+      "semantic_distance_normalized": 0.3035141325215445,
+      "lexical_distance_normalized": 0.10272134549901484,
+      "semantic_contribution": 0.15175706626077226,
+      "lexical_contribution": 0.05136067274950742,
+      "hybrid_distance": 0.20311773901027969
+    },
+    {
+      "revision_index_a": 16,
+      "revision_index_b": 17,
+      "revision_id_a": "13257454",
+      "revision_id_b": "14658195",
+      "timestamp_a": "2005-05-01T18:08:41Z",
+      "timestamp_b": "2005-06-03T20:59:30Z",
+      "semantic_distance_normalized": 0.008487941800397511,
+      "lexical_distance_normalized": 0.12381067610496108,
+      "semantic_contribution": 0.0042439709001987555,
+      "lexical_contribution": 0.06190533805248054,
+      "hybrid_distance": 0.06614930895267929
+    },
+    {
+      "revision_index_a": 17,
+      "revision_index_b": 18,
+      "revision_id_a": "14658195",
+      "revision_id_b": "18181150",
+      "timestamp_a": "2005-06-03T20:59:30Z",
+      "timestamp_b": "2005-07-05T09:05:07Z",
+      "semantic_distance_normalized": 0.02311715975865714,
+      "lexical_distance_normalized": 0.1935539404208198,
+      "semantic_contribution": 0.01155857987932857,
+      "lexical_contribution": 0.0967769702104099,
+      "hybrid_distance": 0.10833555008973847
+    },
+    {
+      "revision_index_a": 18,
+      "revision_index_b": 19,
+      "revision_id_a": "18181150",
+      "revision_id_b": "20397154",
+      "timestamp_a": "2005-07-05T09:05:07Z",
+      "timestamp_b": "2005-08-06T08:13:53Z",
+      "semantic_distance_normalized": 0.0018582675107278223,
+      "lexical_distance_normalized": 0.16238328610582056,
+      "semantic_contribution": 0.0009291337553639111,
+      "lexical_contribution": 0.08119164305291028,
+      "hybrid_distance": 0.08212077680827419
+    },
+    {
+      "revision_index_a": 19,
+      "revision_index_b": 20,
+      "revision_id_a": "20397154",
+      "revision_id_b": "22464865",
+      "timestamp_a": "2005-08-06T08:13:53Z",
+      "timestamp_b": "2005-09-03T11:25:45Z",
+      "semantic_distance_normalized": 0.03738030211383047,
+      "lexical_distance_normalized": 0.17213904357760906,
+      "semantic_contribution": 0.018690151056915235,
+      "lexical_contribution": 0.08606952178880453,
+      "hybrid_distance": 0.10475967284571977
+    },
+    {
+      "revision_index_a": 20,
+      "revision_index_b": 21,
+      "revision_id_a": "22464865",
+      "revision_id_b": "24447568",
+      "timestamp_a": "2005-09-03T11:25:45Z",
+      "timestamp_b": "2005-10-01T02:04:15Z",
+      "semantic_distance_normalized": 0.038973126802930344,
+      "lexical_distance_normalized": 0.23963332102866985,
+      "semantic_contribution": 0.019486563401465172,
+      "lexical_contribution": 0.11981666051433493,
+      "hybrid_distance": 0.1393032239158001
+    },
+    {
+      "revision_index_a": 21,
+      "revision_index_b": 22,
+      "revision_id_a": "24447568",
+      "revision_id_b": "28033585",
+      "timestamp_a": "2005-10-01T02:04:15Z",
+      "timestamp_b": "2005-11-11T16:06:23Z",
+      "semantic_distance_normalized": 0.004302704384044582,
+      "lexical_distance_normalized": 0.09569799474662054,
+      "semantic_contribution": 0.002151352192022291,
+      "lexical_contribution": 0.04784899737331027,
+      "hybrid_distance": 0.05000034956533256
+    },
+    {
+      "revision_index_a": 22,
+      "revision_index_b": 23,
+      "revision_id_a": "28033585",
+      "revision_id_b": "29944393",
+      "timestamp_a": "2005-11-11T16:06:23Z",
+      "timestamp_b": "2005-12-02T20:22:45Z",
+      "semantic_distance_normalized": 0.00014635149129495954,
+      "lexical_distance_normalized": 0.04263565891472868,
+      "semantic_contribution": 7.317574564747977e-05,
+      "lexical_contribution": 0.02131782945736434,
+      "hybrid_distance": 0.02139100520301182
+    },
+    {
+      "revision_index_a": 23,
+      "revision_index_b": 24,
+      "revision_id_a": "29944393",
+      "revision_id_b": "33514268",
+      "timestamp_a": "2005-12-02T20:22:45Z",
+      "timestamp_b": "2006-01-01T21:26:47Z",
+      "semantic_distance_normalized": 0.02406687117959508,
+      "lexical_distance_normalized": 0.03738034454832163,
+      "semantic_contribution": 0.01203343558979754,
+      "lexical_contribution": 0.018690172274160814,
+      "hybrid_distance": 0.030723607863958353
+    },
+    {
+      "revision_index_a": 24,
+      "revision_index_b": 25,
+      "revision_id_a": "33514268",
+      "revision_id_b": "39373358",
+      "timestamp_a": "2006-01-01T21:26:47Z",
+      "timestamp_b": "2006-02-12T19:11:26Z",
+      "semantic_distance_normalized": 0.011270220887880178,
+      "lexical_distance_normalized": 0.1461873206897649,
+      "semantic_contribution": 0.005635110443940089,
+      "lexical_contribution": 0.07309366034488245,
+      "hybrid_distance": 0.07872877078882254
+    },
+    {
+      "revision_index_a": 25,
+      "revision_index_b": 26,
+      "revision_id_a": "39373358",
+      "revision_id_b": "41746863",
+      "timestamp_a": "2006-02-12T19:11:26Z",
+      "timestamp_b": "2006-03-01T13:17:07Z",
+      "semantic_distance_normalized": 0.0014623331366414815,
+      "lexical_distance_normalized": 0.09986213061372162,
+      "semantic_contribution": 0.0007311665683207407,
+      "lexical_contribution": 0.04993106530686081,
+      "hybrid_distance": 0.050662231875181554
+    },
+    {
+      "revision_index_a": 26,
+      "revision_index_b": 27,
+      "revision_id_a": "41746863",
+      "revision_id_b": "48871935",
+      "timestamp_a": "2006-03-01T13:17:07Z",
+      "timestamp_b": "2006-04-17T18:24:07Z",
+      "semantic_distance_normalized": 0.012736831606062626,
+      "lexical_distance_normalized": 0.2578187868642378,
+      "semantic_contribution": 0.006368415803031313,
+      "lexical_contribution": 0.1289093934321189,
+      "hybrid_distance": 0.13527780923515023
+    },
+    {
+      "revision_index_a": 27,
+      "revision_index_b": 28,
+      "revision_id_a": "48871935",
+      "revision_id_b": "51792233",
+      "timestamp_a": "2006-04-17T18:24:07Z",
+      "timestamp_b": "2006-05-06T05:18:12Z",
+      "semantic_distance_normalized": 3.4508086034196195e-05,
+      "lexical_distance_normalized": 0.03619909502262444,
+      "semantic_contribution": 1.7254043017098097e-05,
+      "lexical_contribution": 0.01809954751131222,
+      "hybrid_distance": 0.018116801554329317
+    },
+    {
+      "revision_index_a": 28,
+      "revision_index_b": 29,
+      "revision_id_a": "51792233",
+      "revision_id_b": "56500407",
+      "timestamp_a": "2006-05-06T05:18:12Z",
+      "timestamp_b": "2006-06-02T14:31:03Z",
+      "semantic_distance_normalized": 0.06694645445832505,
+      "lexical_distance_normalized": 0.20948464685724089,
+      "semantic_contribution": 0.033473227229162524,
+      "lexical_contribution": 0.10474232342862044,
+      "hybrid_distance": 0.13821555065778296
+    },
+    {
+      "revision_index_a": 29,
+      "revision_index_b": 30,
+      "revision_id_a": "56500407",
+      "revision_id_b": "61890206",
+      "timestamp_a": "2006-06-02T14:31:03Z",
+      "timestamp_b": "2006-07-03T19:02:22Z",
+      "semantic_distance_normalized": 0.0006007991595736312,
+      "lexical_distance_normalized": 0.08410151939563704,
+      "semantic_contribution": 0.0003003995797868156,
+      "lexical_contribution": 0.04205075969781852,
+      "hybrid_distance": 0.042351159277605334
+    },
+    {
+      "revision_index_a": 30,
+      "revision_index_b": 31,
+      "revision_id_a": "61890206",
+      "revision_id_b": "67044074",
+      "timestamp_a": "2006-07-03T19:02:22Z",
+      "timestamp_b": "2006-08-01T14:31:13Z",
+      "semantic_distance_normalized": 0.009202479640702635,
+      "lexical_distance_normalized": 0.23189137651624878,
+      "semantic_contribution": 0.004601239820351317,
+      "lexical_contribution": 0.11594568825812439,
+      "hybrid_distance": 0.12054692807847571
+    },
+    {
+      "revision_index_a": 31,
+      "revision_index_b": 32,
+      "revision_id_a": "67044074",
+      "revision_id_b": "73427103",
+      "timestamp_a": "2006-08-01T14:31:13Z",
+      "timestamp_b": "2006-09-02T17:37:04Z",
+      "semantic_distance_normalized": 0.020753811490691904,
+      "lexical_distance_normalized": 0.16488408489030412,
+      "semantic_contribution": 0.010376905745345952,
+      "lexical_contribution": 0.08244204244515206,
+      "hybrid_distance": 0.09281894819049802
+    },
+    {
+      "revision_index_a": 32,
+      "revision_index_b": 33,
+      "revision_id_a": "73427103",
+      "revision_id_b": "79420103",
+      "timestamp_a": "2006-09-02T17:37:04Z",
+      "timestamp_b": "2006-10-04T08:25:22Z",
+      "semantic_distance_normalized": 0.03084608348164003,
+      "lexical_distance_normalized": 0.15788846185499522,
+      "semantic_contribution": 0.015423041740820015,
+      "lexical_contribution": 0.07894423092749761,
+      "hybrid_distance": 0.09436727266831763
+    },
+    {
+      "revision_index_a": 33,
+      "revision_index_b": 34,
+      "revision_id_a": "79420103",
+      "revision_id_b": "85320710",
+      "timestamp_a": "2006-10-04T08:25:22Z",
+      "timestamp_b": "2006-11-02T20:21:53Z",
+      "semantic_distance_normalized": 0.002167884155670763,
+      "lexical_distance_normalized": 0.10102962334481967,
+      "semantic_contribution": 0.0010839420778353814,
+      "lexical_contribution": 0.050514811672409836,
+      "hybrid_distance": 0.05159875375024522
+    },
+    {
+      "revision_index_a": 34,
+      "revision_index_b": 35,
+      "revision_id_a": "85320710",
+      "revision_id_b": "91337645",
+      "timestamp_a": "2006-11-02T20:21:53Z",
+      "timestamp_b": "2006-12-01T07:54:38Z",
+      "semantic_distance_normalized": 0.135385280357788,
+      "lexical_distance_normalized": 0.07471108180833842,
+      "semantic_contribution": 0.067692640178894,
+      "lexical_contribution": 0.03735554090416921,
+      "hybrid_distance": 0.10504818108306321
+    },
+    {
+      "revision_index_a": 35,
+      "revision_index_b": 36,
+      "revision_id_a": "91337645",
+      "revision_id_b": "97992551",
+      "timestamp_a": "2006-12-01T07:54:38Z",
+      "timestamp_b": "2007-01-02T19:18:50Z",
+      "semantic_distance_normalized": 0.016526418746646808,
+      "lexical_distance_normalized": 0.09316059959969164,
+      "semantic_contribution": 0.008263209373323404,
+      "lexical_contribution": 0.04658029979984582,
+      "hybrid_distance": 0.05484350917316923
+    },
+    {
+      "revision_index_a": 36,
+      "revision_index_b": 37,
+      "revision_id_a": "97992551",
+      "revision_id_b": "105584633",
+      "timestamp_a": "2007-01-02T19:18:50Z",
+      "timestamp_b": "2007-02-04T15:55:23Z",
+      "semantic_distance_normalized": 0.0006733069264128413,
+      "lexical_distance_normalized": 0.0320943734453206,
+      "semantic_contribution": 0.00033665346320642067,
+      "lexical_contribution": 0.0160471867226603,
+      "hybrid_distance": 0.01638384018586672
+    },
+    {
+      "revision_index_a": 37,
+      "revision_index_b": 38,
+      "revision_id_a": "105584633",
+      "revision_id_b": "111773136",
+      "timestamp_a": "2007-02-04T15:55:23Z",
+      "timestamp_b": "2007-03-01T06:28:47Z",
+      "semantic_distance_normalized": 0.00948417985799751,
+      "lexical_distance_normalized": 0.18426177994098591,
+      "semantic_contribution": 0.004742089928998755,
+      "lexical_contribution": 0.09213088997049296,
+      "hybrid_distance": 0.09687297989949172
+    },
+    {
+      "revision_index_a": 38,
+      "revision_index_b": 39,
+      "revision_id_a": "111773136",
+      "revision_id_b": "119493548",
+      "timestamp_a": "2007-03-01T06:28:47Z",
+      "timestamp_b": "2007-04-01T14:57:33Z",
+      "semantic_distance_normalized": 0.009336490238694555,
+      "lexical_distance_normalized": 0.1797460161117881,
+      "semantic_contribution": 0.004668245119347277,
+      "lexical_contribution": 0.08987300805589404,
+      "hybrid_distance": 0.09454125317524133
+    },
+    {
+      "revision_index_a": 39,
+      "revision_index_b": 40,
+      "revision_id_a": "119493548",
+      "revision_id_b": "128515890",
+      "timestamp_a": "2007-04-01T14:57:33Z",
+      "timestamp_b": "2007-05-05T22:31:43Z",
+      "semantic_distance_normalized": 4.434694406568313e-09,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 2.2173472032841564e-09,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 2.2173472032841564e-09
+    },
+    {
+      "revision_index_a": 40,
+      "revision_index_b": 41,
+      "revision_id_a": "128515890",
+      "revision_id_b": "135145425",
+      "timestamp_a": "2007-05-05T22:31:43Z",
+      "timestamp_b": "2007-06-01T18:38:19Z",
+      "semantic_distance_normalized": 0.0025576463594471333,
+      "lexical_distance_normalized": 0.2764227642276423,
+      "semantic_contribution": 0.0012788231797235667,
+      "lexical_contribution": 0.13821138211382114,
+      "hybrid_distance": 0.1394902052935447
+    },
+    {
+      "revision_index_a": 41,
+      "revision_index_b": 42,
+      "revision_id_a": "135145425",
+      "revision_id_b": "141727101",
+      "timestamp_a": "2007-06-01T18:38:19Z",
+      "timestamp_b": "2007-07-01T03:17:20Z",
+      "semantic_distance_normalized": 0.030629030898786654,
+      "lexical_distance_normalized": 0.2350712896986041,
+      "semantic_contribution": 0.015314515449393327,
+      "lexical_contribution": 0.11753564484930205,
+      "hybrid_distance": 0.13285016029869537
+    },
+    {
+      "revision_index_a": 42,
+      "revision_index_b": 43,
+      "revision_id_a": "141727101",
+      "revision_id_b": "149165304",
+      "timestamp_a": "2007-07-01T03:17:20Z",
+      "timestamp_b": "2007-08-04T16:24:55Z",
+      "semantic_distance_normalized": 0.032326731111104734,
+      "lexical_distance_normalized": 0.3681572101977347,
+      "semantic_contribution": 0.016163365555552367,
+      "lexical_contribution": 0.18407860509886734,
+      "hybrid_distance": 0.2002419706544197
+    },
+    {
+      "revision_index_a": 43,
+      "revision_index_b": 44,
+      "revision_id_a": "149165304",
+      "revision_id_b": "155344496",
+      "timestamp_a": "2007-08-04T16:24:55Z",
+      "timestamp_b": "2007-09-03T04:14:53Z",
+      "semantic_distance_normalized": 0.14626436419693495,
+      "lexical_distance_normalized": 0.413265306122449,
+      "semantic_contribution": 0.07313218209846747,
+      "lexical_contribution": 0.2066326530612245,
+      "hybrid_distance": 0.27976483515969197
+    },
+    {
+      "revision_index_a": 44,
+      "revision_index_b": 45,
+      "revision_id_a": "155344496",
+      "revision_id_b": "162405865",
+      "timestamp_a": "2007-09-03T04:14:53Z",
+      "timestamp_b": "2007-10-05T05:52:28Z",
+      "semantic_distance_normalized": 0.026299520001927125,
+      "lexical_distance_normalized": 0.2231193794125145,
+      "semantic_contribution": 0.013149760000963562,
+      "lexical_contribution": 0.11155968970625725,
+      "hybrid_distance": 0.12470944970722081
+    },
+    {
+      "revision_index_a": 45,
+      "revision_index_b": 46,
+      "revision_id_a": "162405865",
+      "revision_id_b": "168838825",
+      "timestamp_a": "2007-10-05T05:52:28Z",
+      "timestamp_b": "2007-11-02T23:45:10Z",
+      "semantic_distance_normalized": 0.00012563996462206886,
+      "lexical_distance_normalized": 0.009302325581395349,
+      "semantic_contribution": 6.281998231103443e-05,
+      "lexical_contribution": 0.004651162790697674,
+      "hybrid_distance": 0.0047139827730087085
+    },
+    {
+      "revision_index_a": 46,
+      "revision_index_b": 47,
+      "revision_id_a": "168838825",
+      "revision_id_b": "301093554",
+      "timestamp_a": "2007-11-02T23:45:10Z",
+      "timestamp_b": "2009-07-09T00:07:50Z",
+      "semantic_distance_normalized": 3.4119442456533497e-09,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 1.7059721228266749e-09,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 1.7059721228266749e-09
+    },
+    {
+      "revision_index_a": 47,
+      "revision_index_b": 48,
+      "revision_id_a": "301093554",
+      "revision_id_b": "305984622",
+      "timestamp_a": "2009-07-09T00:07:50Z",
+      "timestamp_b": "2009-08-04T09:57:03Z",
+      "semantic_distance_normalized": 0.189259080436385,
+      "lexical_distance_normalized": 0.423933862562386,
+      "semantic_contribution": 0.0946295402181925,
+      "lexical_contribution": 0.211966931281193,
+      "hybrid_distance": 0.3065964714993855
+    },
+    {
+      "revision_index_a": 48,
+      "revision_index_b": 49,
+      "revision_id_a": "305984622",
+      "revision_id_b": "311262289",
+      "timestamp_a": "2009-08-04T09:57:03Z",
+      "timestamp_b": "2009-09-01T11:59:11Z",
+      "semantic_distance_normalized": 0.10506689168613668,
+      "lexical_distance_normalized": 0.285420427829759,
+      "semantic_contribution": 0.05253344584306834,
+      "lexical_contribution": 0.1427102139148795,
+      "hybrid_distance": 0.19524365975794786
+    },
+    {
+      "revision_index_a": 49,
+      "revision_index_b": 50,
+      "revision_id_a": "311262289",
+      "revision_id_b": "317369277",
+      "timestamp_a": "2009-09-01T11:59:11Z",
+      "timestamp_b": "2009-10-01T22:49:15Z",
+      "semantic_distance_normalized": 0.010999899143831125,
+      "lexical_distance_normalized": 0.09972472445830999,
+      "semantic_contribution": 0.005499949571915562,
+      "lexical_contribution": 0.049862362229154994,
+      "hybrid_distance": 0.055362311801070554
+    },
+    {
+      "revision_index_a": 50,
+      "revision_index_b": 51,
+      "revision_id_a": "317369277",
+      "revision_id_b": "324015901",
+      "timestamp_a": "2009-10-01T22:49:15Z",
+      "timestamp_b": "2009-11-05T02:47:41Z",
+      "semantic_distance_normalized": 0.02336621704608299,
+      "lexical_distance_normalized": 0.11217980165514259,
+      "semantic_contribution": 0.011683108523041495,
+      "lexical_contribution": 0.056089900827571294,
+      "hybrid_distance": 0.06777300935061278
+    },
+    {
+      "revision_index_a": 51,
+      "revision_index_b": 52,
+      "revision_id_a": "324015901",
+      "revision_id_b": "329343908",
+      "timestamp_a": "2009-11-05T02:47:41Z",
+      "timestamp_b": "2009-12-02T23:58:48Z",
+      "semantic_distance_normalized": 0.01559701667900525,
+      "lexical_distance_normalized": 0.12534119855750173,
+      "semantic_contribution": 0.007798508339502625,
+      "lexical_contribution": 0.06267059927875086,
+      "hybrid_distance": 0.0704691076182535
+    },
+    {
+      "revision_index_a": 52,
+      "revision_index_b": 53,
+      "revision_id_a": "329343908",
+      "revision_id_b": "335228965",
+      "timestamp_a": "2009-12-02T23:58:48Z",
+      "timestamp_b": "2010-01-01T03:24:53Z",
+      "semantic_distance_normalized": 0.19870509119249863,
+      "lexical_distance_normalized": 0.18915136380241954,
+      "semantic_contribution": 0.09935254559624931,
+      "lexical_contribution": 0.09457568190120977,
+      "hybrid_distance": 0.19392822749745908
+    },
+    {
+      "revision_index_a": 53,
+      "revision_index_b": 54,
+      "revision_id_a": "335228965",
+      "revision_id_b": "341271886",
+      "timestamp_a": "2010-01-01T03:24:53Z",
+      "timestamp_b": "2010-02-01T13:42:00Z",
+      "semantic_distance_normalized": 0.10061641509347556,
+      "lexical_distance_normalized": 0.13786026295552853,
+      "semantic_contribution": 0.05030820754673778,
+      "lexical_contribution": 0.06893013147776426,
+      "hybrid_distance": 0.11923833902450204
+    },
+    {
+      "revision_index_a": 54,
+      "revision_index_b": 55,
+      "revision_id_a": "341271886",
+      "revision_id_b": "347286355",
+      "timestamp_a": "2010-02-01T13:42:00Z",
+      "timestamp_b": "2010-03-02T12:54:05Z",
+      "semantic_distance_normalized": 0.05177338651455738,
+      "lexical_distance_normalized": 0.2838913362357363,
+      "semantic_contribution": 0.02588669325727869,
+      "lexical_contribution": 0.14194566811786816,
+      "hybrid_distance": 0.16783236137514684
+    },
+    {
+      "revision_index_a": 55,
+      "revision_index_b": 56,
+      "revision_id_a": "347286355",
+      "revision_id_b": "355018009",
+      "timestamp_a": "2010-03-02T12:54:05Z",
+      "timestamp_b": "2010-04-09T20:57:13Z",
+      "semantic_distance_normalized": 0.00290377711544539,
+      "lexical_distance_normalized": 0.037287456453033364,
+      "semantic_contribution": 0.001451888557722695,
+      "lexical_contribution": 0.018643728226516682,
+      "hybrid_distance": 0.02009561678423938
+    },
+    {
+      "revision_index_a": 56,
+      "revision_index_b": 57,
+      "revision_id_a": "355018009",
+      "revision_id_b": "359396902",
+      "timestamp_a": "2010-04-09T20:57:13Z",
+      "timestamp_b": "2010-05-01T06:35:13Z",
+      "semantic_distance_normalized": 0.001006189723156446,
+      "lexical_distance_normalized": 0.2129674539897967,
+      "semantic_contribution": 0.000503094861578223,
+      "lexical_contribution": 0.10648372699489835,
+      "hybrid_distance": 0.10698682185647657
+    },
+    {
+      "revision_index_a": 57,
+      "revision_index_b": 58,
+      "revision_id_a": "359396902",
+      "revision_id_b": "365576041",
+      "timestamp_a": "2010-05-01T06:35:13Z",
+      "timestamp_b": "2010-06-02T04:48:20Z",
+      "semantic_distance_normalized": 0.003586051443587782,
+      "lexical_distance_normalized": 0.17648756664448834,
+      "semantic_contribution": 0.001793025721793891,
+      "lexical_contribution": 0.08824378332224417,
+      "hybrid_distance": 0.09003680904403806
+    },
+    {
+      "revision_index_a": 58,
+      "revision_index_b": 59,
+      "revision_id_a": "365576041",
+      "revision_id_b": "371149895",
+      "timestamp_a": "2010-06-02T04:48:20Z",
+      "timestamp_b": "2010-07-01T05:25:26Z",
+      "semantic_distance_normalized": 0.07284567726502227,
+      "lexical_distance_normalized": 0.28921689939133544,
+      "semantic_contribution": 0.03642283863251113,
+      "lexical_contribution": 0.14460844969566772,
+      "hybrid_distance": 0.18103128832817886
+    },
+    {
+      "revision_index_a": 59,
+      "revision_index_b": 60,
+      "revision_id_a": "371149895",
+      "revision_id_b": "376747214",
+      "timestamp_a": "2010-07-01T05:25:26Z",
+      "timestamp_b": "2010-08-02T12:21:21Z",
+      "semantic_distance_normalized": 0.010333954049666902,
+      "lexical_distance_normalized": 0.2651678908078791,
+      "semantic_contribution": 0.005166977024833451,
+      "lexical_contribution": 0.13258394540393956,
+      "hybrid_distance": 0.13775092242877301
+    },
+    {
+      "revision_index_a": 60,
+      "revision_index_b": 61,
+      "revision_id_a": "376747214",
+      "revision_id_b": "383301885",
+      "timestamp_a": "2010-08-02T12:21:21Z",
+      "timestamp_b": "2010-09-06T19:13:01Z",
+      "semantic_distance_normalized": 0.022533918713866185,
+      "lexical_distance_normalized": 0.2021592572973912,
+      "semantic_contribution": 0.011266959356933092,
+      "lexical_contribution": 0.1010796286486956,
+      "hybrid_distance": 0.11234658800562869
+    },
+    {
+      "revision_index_a": 61,
+      "revision_index_b": 62,
+      "revision_id_a": "383301885",
+      "revision_id_b": "388164890",
+      "timestamp_a": "2010-09-06T19:13:01Z",
+      "timestamp_b": "2010-10-01T21:00:58Z",
+      "semantic_distance_normalized": 0.00047333769253911286,
+      "lexical_distance_normalized": 0.008130081300813009,
+      "semantic_contribution": 0.00023666884626955643,
+      "lexical_contribution": 0.0040650406504065045,
+      "hybrid_distance": 0.004301709496676061
+    },
+    {
+      "revision_index_a": 62,
+      "revision_index_b": 63,
+      "revision_id_a": "388164890",
+      "revision_id_b": "395461336",
+      "timestamp_a": "2010-10-01T21:00:58Z",
+      "timestamp_b": "2010-11-08T01:36:05Z",
+      "semantic_distance_normalized": 1.527806397839814e-05,
+      "lexical_distance_normalized": 0.06998302650476564,
+      "semantic_contribution": 7.63903198919907e-06,
+      "lexical_contribution": 0.03499151325238282,
+      "hybrid_distance": 0.03499915228437202
+    },
+    {
+      "revision_index_a": 63,
+      "revision_index_b": 64,
+      "revision_id_a": "395461336",
+      "revision_id_b": "400655748",
+      "timestamp_a": "2010-11-08T01:36:05Z",
+      "timestamp_b": "2010-12-05T12:01:40Z",
+      "semantic_distance_normalized": 0.06216103822175097,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 0.031080519110875483,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 0.031080519110875483
+    },
+    {
+      "revision_index_a": 64,
+      "revision_index_b": 65,
+      "revision_id_a": "400655748",
+      "revision_id_b": "406604247",
+      "timestamp_a": "2010-12-05T12:01:40Z",
+      "timestamp_b": "2011-01-08T01:57:28Z",
+      "semantic_distance_normalized": 0.0006798676250597634,
+      "lexical_distance_normalized": 0.15247667786629357,
+      "semantic_contribution": 0.0003399338125298817,
+      "lexical_contribution": 0.07623833893314678,
+      "hybrid_distance": 0.07657827274567666
+    },
+    {
+      "revision_index_a": 65,
+      "revision_index_b": 66,
+      "revision_id_a": "406604247",
+      "revision_id_b": "411534779",
+      "timestamp_a": "2011-01-08T01:57:28Z",
+      "timestamp_b": "2011-02-02T07:06:28Z",
+      "semantic_distance_normalized": 0.05818526605121439,
+      "lexical_distance_normalized": 0.10544910717767425,
+      "semantic_contribution": 0.029092633025607197,
+      "lexical_contribution": 0.052724553588837125,
+      "hybrid_distance": 0.08181718661444431
+    },
+    {
+      "revision_index_a": 66,
+      "revision_index_b": 67,
+      "revision_id_a": "411534779",
+      "revision_id_b": "416701319",
+      "timestamp_a": "2011-02-02T07:06:28Z",
+      "timestamp_b": "2011-03-02T07:52:35Z",
+      "semantic_distance_normalized": 0.0023373226936520383,
+      "lexical_distance_normalized": 0.2738068886750203,
+      "semantic_contribution": 0.0011686613468260192,
+      "lexical_contribution": 0.13690344433751014,
+      "hybrid_distance": 0.13807210568433617
+    },
+    {
+      "revision_index_a": 67,
+      "revision_index_b": 68,
+      "revision_id_a": "416701319",
+      "revision_id_b": "421776538",
+      "timestamp_a": "2011-03-02T07:52:35Z",
+      "timestamp_b": "2011-04-01T06:05:37Z",
+      "semantic_distance_normalized": 0.0017732678660123877,
+      "lexical_distance_normalized": 0.40462491303956866,
+      "semantic_contribution": 0.0008866339330061938,
+      "lexical_contribution": 0.20231245651978433,
+      "hybrid_distance": 0.20319909045279053
+    },
+    {
+      "revision_index_a": 68,
+      "revision_index_b": 69,
+      "revision_id_a": "421776538",
+      "revision_id_b": "426855142",
+      "timestamp_a": "2011-04-01T06:05:37Z",
+      "timestamp_b": "2011-05-01T07:41:57Z",
+      "semantic_distance_normalized": 0.01907521919224012,
+      "lexical_distance_normalized": 0.18536495413303655,
+      "semantic_contribution": 0.00953760959612006,
+      "lexical_contribution": 0.09268247706651828,
+      "hybrid_distance": 0.10222008666263833
+    },
+    {
+      "revision_index_a": 69,
+      "revision_index_b": 70,
+      "revision_id_a": "426855142",
+      "revision_id_b": "431994723",
+      "timestamp_a": "2011-05-01T07:41:57Z",
+      "timestamp_b": "2011-06-01T13:07:49Z",
+      "semantic_distance_normalized": 0.2658979021639225,
+      "lexical_distance_normalized": 0.08931119802983367,
+      "semantic_contribution": 0.13294895108196125,
+      "lexical_contribution": 0.044655599014916836,
+      "hybrid_distance": 0.1776045500968781
+    },
+    {
+      "revision_index_a": 70,
+      "revision_index_b": 71,
+      "revision_id_a": "431994723",
+      "revision_id_b": "437224148",
+      "timestamp_a": "2011-06-01T13:07:49Z",
+      "timestamp_b": "2011-07-01T12:55:20Z",
+      "semantic_distance_normalized": 0.000811201285294126,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 0.000405600642647063,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 0.000405600642647063
+    },
+    {
+      "revision_index_a": 71,
+      "revision_index_b": 72,
+      "revision_id_a": "437224148",
+      "revision_id_b": "442676036",
+      "timestamp_a": "2011-07-01T12:55:20Z",
+      "timestamp_b": "2011-08-02T13:58:52Z",
+      "semantic_distance_normalized": 0.0359707147718962,
+      "lexical_distance_normalized": 0.08270915814232684,
+      "semantic_contribution": 0.0179853573859481,
+      "lexical_contribution": 0.04135457907116342,
+      "hybrid_distance": 0.05933993645711152
+    },
+    {
+      "revision_index_a": 72,
+      "revision_index_b": 73,
+      "revision_id_a": "442676036",
+      "revision_id_b": "448295693",
+      "timestamp_a": "2011-08-02T13:58:52Z",
+      "timestamp_b": "2011-09-03T22:44:40Z",
+      "semantic_distance_normalized": 5.507494630567391e-06,
+      "lexical_distance_normalized": 0.012048192771084338,
+      "semantic_contribution": 2.7537473152836957e-06,
+      "lexical_contribution": 0.006024096385542169,
+      "hybrid_distance": 0.006026850132857453
+    },
+    {
+      "revision_index_a": 73,
+      "revision_index_b": 74,
+      "revision_id_a": "448295693",
+      "revision_id_b": "453362443",
+      "timestamp_a": "2011-09-03T22:44:40Z",
+      "timestamp_b": "2011-10-01T12:35:33Z",
+      "semantic_distance_normalized": 0.0285900446011598,
+      "lexical_distance_normalized": 0.07474242055939674,
+      "semantic_contribution": 0.0142950223005799,
+      "lexical_contribution": 0.03737121027969837,
+      "hybrid_distance": 0.05166623258027827
+    },
+    {
+      "revision_index_a": 74,
+      "revision_index_b": 75,
+      "revision_id_a": "453362443",
+      "revision_id_b": "458426716",
+      "timestamp_a": "2011-10-01T12:35:33Z",
+      "timestamp_b": "2011-11-01T08:04:18Z",
+      "semantic_distance_normalized": 0.038092253557230595,
+      "lexical_distance_normalized": 0.1090757535083855,
+      "semantic_contribution": 0.019046126778615297,
+      "lexical_contribution": 0.05453787675419275,
+      "hybrid_distance": 0.07358400353280804
+    },
+    {
+      "revision_index_a": 75,
+      "revision_index_b": 76,
+      "revision_id_a": "458426716",
+      "revision_id_b": "463527327",
+      "timestamp_a": "2011-11-01T08:04:18Z",
+      "timestamp_b": "2011-12-01T17:36:48Z",
+      "semantic_distance_normalized": 0.0001252017491943129,
+      "lexical_distance_normalized": 0.20833333333333334,
+      "semantic_contribution": 6.260087459715645e-05,
+      "lexical_contribution": 0.10416666666666667,
+      "hybrid_distance": 0.10422926754126383
+    },
+    {
+      "revision_index_a": 76,
+      "revision_index_b": 77,
+      "revision_id_a": "463527327",
+      "revision_id_b": "469704146",
+      "timestamp_a": "2011-12-01T17:36:48Z",
+      "timestamp_b": "2012-01-05T12:34:34Z",
+      "semantic_distance_normalized": 0.0017601035683522108,
+      "lexical_distance_normalized": 0.27224604663629054,
+      "semantic_contribution": 0.0008800517841761054,
+      "lexical_contribution": 0.13612302331814527,
+      "hybrid_distance": 0.13700307510232138
+    },
+    {
+      "revision_index_a": 77,
+      "revision_index_b": 78,
+      "revision_id_a": "469704146",
+      "revision_id_b": "474720455",
+      "timestamp_a": "2012-01-05T12:34:34Z",
+      "timestamp_b": "2012-02-03T07:56:56Z",
+      "semantic_distance_normalized": 0.0034662104427750774,
+      "lexical_distance_normalized": 0.18811730828465742,
+      "semantic_contribution": 0.0017331052213875387,
+      "lexical_contribution": 0.09405865414232871,
+      "hybrid_distance": 0.09579175936371624
+    },
+    {
+      "revision_index_a": 78,
+      "revision_index_b": 79,
+      "revision_id_a": "474720455",
+      "revision_id_b": "479756360",
+      "timestamp_a": "2012-02-03T07:56:56Z",
+      "timestamp_b": "2012-03-02T02:37:09Z",
+      "semantic_distance_normalized": 0.00286451339607539,
+      "lexical_distance_normalized": 0.33911819316311165,
+      "semantic_contribution": 0.001432256698037695,
+      "lexical_contribution": 0.16955909658155582,
+      "hybrid_distance": 0.17099135327959353
+    },
+    {
+      "revision_index_a": 79,
+      "revision_index_b": 80,
+      "revision_id_a": "479756360",
+      "revision_id_b": "486052245",
+      "timestamp_a": "2012-03-02T02:37:09Z",
+      "timestamp_b": "2012-04-07T09:19:29Z",
+      "semantic_distance_normalized": 6.898636985841185e-05,
+      "lexical_distance_normalized": 0.01639344262295082,
+      "semantic_contribution": 3.4493184929205924e-05,
+      "lexical_contribution": 0.00819672131147541,
+      "hybrid_distance": 0.008231214496404616
+    },
+    {
+      "revision_index_a": 80,
+      "revision_index_b": 81,
+      "revision_id_a": "486052245",
+      "revision_id_b": "491129941",
+      "timestamp_a": "2012-04-07T09:19:29Z",
+      "timestamp_b": "2012-05-07T05:40:16Z",
+      "semantic_distance_normalized": 0.0025976805123799026,
+      "lexical_distance_normalized": 0.2708437835541841,
+      "semantic_contribution": 0.0012988402561899513,
+      "lexical_contribution": 0.13542189177709205,
+      "hybrid_distance": 0.136720732033282
+    },
+    {
+      "revision_index_a": 81,
+      "revision_index_b": 82,
+      "revision_id_a": "491129941",
+      "revision_id_b": "496854324",
+      "timestamp_a": "2012-05-07T05:40:16Z",
+      "timestamp_b": "2012-06-10T05:09:22Z",
+      "semantic_distance_normalized": 1.9817640476797274e-09,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 9.908820238398637e-10,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 9.908820238398637e-10
+    },
+    {
+      "revision_index_a": 82,
+      "revision_index_b": 83,
+      "revision_id_a": "496854324",
+      "revision_id_b": "500170114",
+      "timestamp_a": "2012-06-10T05:09:22Z",
+      "timestamp_b": "2012-07-01T11:45:55Z",
+      "semantic_distance_normalized": 2.3147512087932456e-05,
+      "lexical_distance_normalized": 0.10704642814231033,
+      "semantic_contribution": 1.1573756043966228e-05,
+      "lexical_contribution": 0.053523214071155165,
+      "hybrid_distance": 0.05353478782719913
+    },
+    {
+      "revision_index_a": 83,
+      "revision_index_b": 84,
+      "revision_id_a": "500170114",
+      "revision_id_b": "505243297",
+      "timestamp_a": "2012-07-01T11:45:55Z",
+      "timestamp_b": "2012-08-01T11:15:23Z",
+      "semantic_distance_normalized": 0.0001745578729999453,
+      "lexical_distance_normalized": 0.06167810131489563,
+      "semantic_contribution": 8.727893649997265e-05,
+      "lexical_contribution": 0.030839050657447815,
+      "hybrid_distance": 0.030926329593947786
+    },
+    {
+      "revision_index_a": 84,
+      "revision_index_b": 85,
+      "revision_id_a": "505243297",
+      "revision_id_b": "510321015",
+      "timestamp_a": "2012-08-01T11:15:23Z",
+      "timestamp_b": "2012-09-01T19:36:31Z",
+      "semantic_distance_normalized": 0.0011711902276267808,
+      "lexical_distance_normalized": 0.032114467408585055,
+      "semantic_contribution": 0.0005855951138133904,
+      "lexical_contribution": 0.016057233704292528,
+      "hybrid_distance": 0.016642828818105918
+    },
+    {
+      "revision_index_a": 85,
+      "revision_index_b": 86,
+      "revision_id_a": "510321015",
+      "revision_id_b": "516101794",
+      "timestamp_a": "2012-09-01T19:36:31Z",
+      "timestamp_b": "2012-10-05T06:17:37Z",
+      "semantic_distance_normalized": 0.003605018166224454,
+      "lexical_distance_normalized": 0.03919664118310565,
+      "semantic_contribution": 0.001802509083112227,
+      "lexical_contribution": 0.019598320591552826,
+      "hybrid_distance": 0.021400829674665053
+    },
+    {
+      "revision_index_a": 86,
+      "revision_index_b": 87,
+      "revision_id_a": "516101794",
+      "revision_id_b": "521139004",
+      "timestamp_a": "2012-10-05T06:17:37Z",
+      "timestamp_b": "2012-11-03T01:13:17Z",
+      "semantic_distance_normalized": 1.3065023514292092e-05,
+      "lexical_distance_normalized": 0.061019501769852394,
+      "semantic_contribution": 6.532511757146046e-06,
+      "lexical_contribution": 0.030509750884926197,
+      "hybrid_distance": 0.030516283396683344
+    },
+    {
+      "revision_index_a": 87,
+      "revision_index_b": 88,
+      "revision_id_a": "521139004",
+      "revision_id_b": "525785449",
+      "timestamp_a": "2012-11-03T01:13:17Z",
+      "timestamp_b": "2012-12-01T00:38:36Z",
+      "semantic_distance_normalized": 0.01175255132632914,
+      "lexical_distance_normalized": 0.17193302100514926,
+      "semantic_contribution": 0.00587627566316457,
+      "lexical_contribution": 0.08596651050257463,
+      "hybrid_distance": 0.0918427861657392
+    },
+    {
+      "revision_index_a": 88,
+      "revision_index_b": 89,
+      "revision_id_a": "525785449",
+      "revision_id_b": "530892660",
+      "timestamp_a": "2012-12-01T00:38:36Z",
+      "timestamp_b": "2013-01-02T09:33:04Z",
+      "semantic_distance_normalized": 0.12286110795574011,
+      "lexical_distance_normalized": 0.22486404451358208,
+      "semantic_contribution": 0.061430553977870055,
+      "lexical_contribution": 0.11243202225679104,
+      "hybrid_distance": 0.1738625762346611
+    },
+    {
+      "revision_index_a": 89,
+      "revision_index_b": 90,
+      "revision_id_a": "530892660",
+      "revision_id_b": "536527490",
+      "timestamp_a": "2013-01-02T09:33:04Z",
+      "timestamp_b": "2013-02-04T15:03:43Z",
+      "semantic_distance_normalized": 0.021307677851522735,
+      "lexical_distance_normalized": 0.281545451340093,
+      "semantic_contribution": 0.010653838925761367,
+      "lexical_contribution": 0.1407727256700465,
+      "hybrid_distance": 0.15142656459580786
+    },
+    {
+      "revision_index_a": 90,
+      "revision_index_b": 91,
+      "revision_id_a": "536527490",
+      "revision_id_b": "542470902",
+      "timestamp_a": "2013-02-04T15:03:43Z",
+      "timestamp_b": "2013-03-06T23:59:13Z",
+      "semantic_distance_normalized": 0.0027335687904500305,
+      "lexical_distance_normalized": 0.13616275364534933,
+      "semantic_contribution": 0.0013667843952250153,
+      "lexical_contribution": 0.06808137682267466,
+      "hybrid_distance": 0.06944816121789968
+    },
+    {
+      "revision_index_a": 91,
+      "revision_index_b": 92,
+      "revision_id_a": "542470902",
+      "revision_id_b": "549302609",
+      "timestamp_a": "2013-03-06T23:59:13Z",
+      "timestamp_b": "2013-04-08T10:24:20Z",
+      "semantic_distance_normalized": 0.003331021792196649,
+      "lexical_distance_normalized": 0.1794990333465229,
+      "semantic_contribution": 0.0016655108960983245,
+      "lexical_contribution": 0.08974951667326145,
+      "hybrid_distance": 0.09141502756935978
+    },
+    {
+      "revision_index_a": 92,
+      "revision_index_b": 93,
+      "revision_id_a": "549302609",
+      "revision_id_b": "553415386",
+      "timestamp_a": "2013-04-08T10:24:20Z",
+      "timestamp_b": "2013-05-03T22:58:27Z",
+      "semantic_distance_normalized": 0.0012937635660002682,
+      "lexical_distance_normalized": 0.2056246013888251,
+      "semantic_contribution": 0.0006468817830001341,
+      "lexical_contribution": 0.10281230069441255,
+      "hybrid_distance": 0.10345918247741269
+    },
+    {
+      "revision_index_a": 93,
+      "revision_index_b": 94,
+      "revision_id_a": "553415386",
+      "revision_id_b": "557880799",
+      "timestamp_a": "2013-05-03T22:58:27Z",
+      "timestamp_b": "2013-06-01T20:50:19Z",
+      "semantic_distance_normalized": 0.004407797094625829,
+      "lexical_distance_normalized": 0.1745842704361628,
+      "semantic_contribution": 0.0022038985473129143,
+      "lexical_contribution": 0.0872921352180814,
+      "hybrid_distance": 0.0894960337653943
+    },
+    {
+      "revision_index_a": 94,
+      "revision_index_b": 95,
+      "revision_id_a": "557880799",
+      "revision_id_b": "562632529",
+      "timestamp_a": "2013-06-01T20:50:19Z",
+      "timestamp_b": "2013-07-03T02:17:20Z",
+      "semantic_distance_normalized": 0.00092742417520334,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 0.00046371208760167,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 0.00046371208760167
+    },
+    {
+      "revision_index_a": 95,
+      "revision_index_b": 96,
+      "revision_id_a": "562632529",
+      "revision_id_b": "566687333",
+      "timestamp_a": "2013-07-03T02:17:20Z",
+      "timestamp_b": "2013-08-01T08:17:05Z",
+      "semantic_distance_normalized": 4.360807671862793e-05,
+      "lexical_distance_normalized": 0.04898606772770093,
+      "semantic_contribution": 2.1804038359313965e-05,
+      "lexical_contribution": 0.024493033863850464,
+      "hybrid_distance": 0.024514837902209777
+    },
+    {
+      "revision_index_a": 96,
+      "revision_index_b": 97,
+      "revision_id_a": "566687333",
+      "revision_id_b": "571384791",
+      "timestamp_a": "2013-08-01T08:17:05Z",
+      "timestamp_b": "2013-09-03T15:06:47Z",
+      "semantic_distance_normalized": 0.0020722958855025567,
+      "lexical_distance_normalized": 0.19994623823685886,
+      "semantic_contribution": 0.0010361479427512784,
+      "lexical_contribution": 0.09997311911842943,
+      "hybrid_distance": 0.10100926706118071
+    },
+    {
+      "revision_index_a": 97,
+      "revision_index_b": 98,
+      "revision_id_a": "571384791",
+      "revision_id_b": "576256448",
+      "timestamp_a": "2013-09-03T15:06:47Z",
+      "timestamp_b": "2013-10-08T07:50:30Z",
+      "semantic_distance_normalized": 0.00024380513218969944,
+      "lexical_distance_normalized": 0.20098915940767967,
+      "semantic_contribution": 0.00012190256609484972,
+      "lexical_contribution": 0.10049457970383983,
+      "hybrid_distance": 0.10061648226993468
+    },
+    {
+      "revision_index_a": 98,
+      "revision_index_b": 99,
+      "revision_id_a": "576256448",
+      "revision_id_b": "579849305",
+      "timestamp_a": "2013-10-08T07:50:30Z",
+      "timestamp_b": "2013-11-02T09:34:16Z",
+      "semantic_distance_normalized": 0.0002108931389156453,
+      "lexical_distance_normalized": 0.2282200809101952,
+      "semantic_contribution": 0.00010544656945782265,
+      "lexical_contribution": 0.1141100404550976,
+      "hybrid_distance": 0.11421548702455542
+    },
+    {
+      "revision_index_a": 99,
+      "revision_index_b": 100,
+      "revision_id_a": "579849305",
+      "revision_id_b": "584157567",
+      "timestamp_a": "2013-11-02T09:34:16Z",
+      "timestamp_b": "2013-12-02T03:28:04Z",
+      "semantic_distance_normalized": 0.0011535600951015819,
+      "lexical_distance_normalized": 0.30784808037863304,
+      "semantic_contribution": 0.0005767800475507909,
+      "lexical_contribution": 0.15392404018931652,
+      "hybrid_distance": 0.15450082023686731
+    },
+    {
+      "revision_index_a": 100,
+      "revision_index_b": 101,
+      "revision_id_a": "584157567",
+      "revision_id_b": "588993603",
+      "timestamp_a": "2013-12-02T03:28:04Z",
+      "timestamp_b": "2014-01-03T16:12:40Z",
+      "semantic_distance_normalized": 0.002080579308883268,
+      "lexical_distance_normalized": 0.12726099882862194,
+      "semantic_contribution": 0.001040289654441634,
+      "lexical_contribution": 0.06363049941431097,
+      "hybrid_distance": 0.06467078906875261
+    },
+    {
+      "revision_index_a": 101,
+      "revision_index_b": 102,
+      "revision_id_a": "588993603",
+      "revision_id_b": "593543122",
+      "timestamp_a": "2014-01-03T16:12:40Z",
+      "timestamp_b": "2014-02-02T06:12:57Z",
+      "semantic_distance_normalized": 0.005541178903562971,
+      "lexical_distance_normalized": 0.04654310041030569,
+      "semantic_contribution": 0.0027705894517814854,
+      "lexical_contribution": 0.023271550205152845,
+      "hybrid_distance": 0.02604213965693433
+    },
+    {
+      "revision_index_a": 102,
+      "revision_index_b": 103,
+      "revision_id_a": "593543122",
+      "revision_id_b": "597735345",
+      "timestamp_a": "2014-02-02T06:12:57Z",
+      "timestamp_b": "2014-03-01T23:19:01Z",
+      "semantic_distance_normalized": 0.01954306177622019,
+      "lexical_distance_normalized": 0.10875531882286016,
+      "semantic_contribution": 0.009771530888110095,
+      "lexical_contribution": 0.05437765941143008,
+      "hybrid_distance": 0.06414919029954018
+    },
+    {
+      "revision_index_a": 103,
+      "revision_index_b": 104,
+      "revision_id_a": "597735345",
+      "revision_id_b": "602303212",
+      "timestamp_a": "2014-03-01T23:19:01Z",
+      "timestamp_b": "2014-04-01T18:49:09Z",
+      "semantic_distance_normalized": 0.005404038217302637,
+      "lexical_distance_normalized": 0.056819434601149695,
+      "semantic_contribution": 0.0027020191086513184,
+      "lexical_contribution": 0.028409717300574847,
+      "hybrid_distance": 0.031111736409226164
+    },
+    {
+      "revision_index_a": 104,
+      "revision_index_b": 105,
+      "revision_id_a": "602303212",
+      "revision_id_b": "607084148",
+      "timestamp_a": "2014-04-01T18:49:09Z",
+      "timestamp_b": "2014-05-04T22:22:45Z",
+      "semantic_distance_normalized": 0.0003578186261715276,
+      "lexical_distance_normalized": 0.20442126518017112,
+      "semantic_contribution": 0.0001789093130857638,
+      "lexical_contribution": 0.10221063259008556,
+      "hybrid_distance": 0.10238954190317133
+    },
+    {
+      "revision_index_a": 105,
+      "revision_index_b": 106,
+      "revision_id_a": "607084148",
+      "revision_id_b": "611262715",
+      "timestamp_a": "2014-05-04T22:22:45Z",
+      "timestamp_b": "2014-06-02T18:04:58Z",
+      "semantic_distance_normalized": 0.006890806643774753,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 0.0034454033218873767,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 0.0034454033218873767
+    },
+    {
+      "revision_index_a": 106,
+      "revision_index_b": 107,
+      "revision_id_a": "611262715",
+      "revision_id_b": "615168791",
+      "timestamp_a": "2014-06-02T18:04:58Z",
+      "timestamp_b": "2014-07-01T15:48:47Z",
+      "semantic_distance_normalized": 0.010134448325422098,
+      "lexical_distance_normalized": 0.15863596985636638,
+      "semantic_contribution": 0.005067224162711049,
+      "lexical_contribution": 0.07931798492818319,
+      "hybrid_distance": 0.08438520909089424
+    },
+    {
+      "revision_index_a": 107,
+      "revision_index_b": 108,
+      "revision_id_a": "615168791",
+      "revision_id_b": "619422648",
+      "timestamp_a": "2014-07-01T15:48:47Z",
+      "timestamp_b": "2014-08-01T13:44:28Z",
+      "semantic_distance_normalized": 0.008054251023815075,
+      "lexical_distance_normalized": 0.20012993400684298,
+      "semantic_contribution": 0.0040271255119075375,
+      "lexical_contribution": 0.10006496700342149,
+      "hybrid_distance": 0.10409209251532903
+    },
+    {
+      "revision_index_a": 108,
+      "revision_index_b": 109,
+      "revision_id_a": "619422648",
+      "revision_id_b": "625037860",
+      "timestamp_a": "2014-08-01T13:44:28Z",
+      "timestamp_b": "2014-09-11T03:47:10Z",
+      "semantic_distance_normalized": 0.003691977516898073,
+      "lexical_distance_normalized": 0.1688546310079858,
+      "semantic_contribution": 0.0018459887584490364,
+      "lexical_contribution": 0.0844273155039929,
+      "hybrid_distance": 0.08627330426244194
+    },
+    {
+      "revision_index_a": 109,
+      "revision_index_b": 110,
+      "revision_id_a": "625037860",
+      "revision_id_b": "627856555",
+      "timestamp_a": "2014-09-11T03:47:10Z",
+      "timestamp_b": "2014-10-01T19:10:55Z",
+      "semantic_distance_normalized": 0.0007924193545534712,
+      "lexical_distance_normalized": 0.34409266212113154,
+      "semantic_contribution": 0.0003962096772767356,
+      "lexical_contribution": 0.17204633106056577,
+      "hybrid_distance": 0.17244254073784251
+    },
+    {
+      "revision_index_a": 110,
+      "revision_index_b": 111,
+      "revision_id_a": "627856555",
+      "revision_id_b": "632295738",
+      "timestamp_a": "2014-10-01T19:10:55Z",
+      "timestamp_b": "2014-11-03T16:23:53Z",
+      "semantic_distance_normalized": 0.004764739389446013,
+      "lexical_distance_normalized": 0.19899562802788606,
+      "semantic_contribution": 0.0023823696947230066,
+      "lexical_contribution": 0.09949781401394303,
+      "hybrid_distance": 0.10188018370866604
+    },
+    {
+      "revision_index_a": 111,
+      "revision_index_b": 112,
+      "revision_id_a": "632295738",
+      "revision_id_b": "636311063",
+      "timestamp_a": "2014-11-03T16:23:53Z",
+      "timestamp_b": "2014-12-02T13:21:36Z",
+      "semantic_distance_normalized": 3.9893680085999485e-05,
+      "lexical_distance_normalized": 0.2537470271845272,
+      "semantic_contribution": 1.9946840042999742e-05,
+      "lexical_contribution": 0.1268735135922636,
+      "hybrid_distance": 0.1268934604323066
+    },
+    {
+      "revision_index_a": 112,
+      "revision_index_b": 113,
+      "revision_id_a": "636311063",
+      "revision_id_b": "640510996",
+      "timestamp_a": "2014-12-02T13:21:36Z",
+      "timestamp_b": "2015-01-01T14:15:43Z",
+      "semantic_distance_normalized": 0.004244294422493803,
+      "lexical_distance_normalized": 0.14583422796055112,
+      "semantic_contribution": 0.0021221472112469015,
+      "lexical_contribution": 0.07291711398027556,
+      "hybrid_distance": 0.07503926119152246
+    },
+    {
+      "revision_index_a": 113,
+      "revision_index_b": 114,
+      "revision_id_a": "640510996",
+      "revision_id_b": "645076061",
+      "timestamp_a": "2015-01-01T14:15:43Z",
+      "timestamp_b": "2015-02-01T01:22:42Z",
+      "semantic_distance_normalized": 0.01655677796449429,
+      "lexical_distance_normalized": 0.277141351273517,
+      "semantic_contribution": 0.008278388982247146,
+      "lexical_contribution": 0.1385706756367585,
+      "hybrid_distance": 0.14684906461900565
+    },
+    {
+      "revision_index_a": 114,
+      "revision_index_b": 115,
+      "revision_id_a": "645076061",
+      "revision_id_b": "650656038",
+      "timestamp_a": "2015-02-01T01:22:42Z",
+      "timestamp_b": "2015-03-09T20:14:49Z",
+      "semantic_distance_normalized": 0.019805542862439046,
+      "lexical_distance_normalized": 0.004508296387750903,
+      "semantic_contribution": 0.009902771431219523,
+      "lexical_contribution": 0.0022541481938754514,
+      "hybrid_distance": 0.012156919625094974
+    },
+    {
+      "revision_index_a": 115,
+      "revision_index_b": 116,
+      "revision_id_a": "650656038",
+      "revision_id_b": "654753134",
+      "timestamp_a": "2015-03-09T20:14:49Z",
+      "timestamp_b": "2015-04-03T08:51:57Z",
+      "semantic_distance_normalized": 2.611834193916362e-09,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 1.305917096958181e-09,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 1.305917096958181e-09
+    },
+    {
+      "revision_index_a": 116,
+      "revision_index_b": 117,
+      "revision_id_a": "654753134",
+      "revision_id_b": "660253917",
+      "timestamp_a": "2015-04-03T08:51:57Z",
+      "timestamp_b": "2015-05-01T14:32:15Z",
+      "semantic_distance_normalized": 0.001106659862642325,
+      "lexical_distance_normalized": 0.0,
+      "semantic_contribution": 0.0005533299313211625,
+      "lexical_contribution": 0.0,
+      "hybrid_distance": 0.0005533299313211625
+    },
+    {
+      "revision_index_a": 117,
+      "revision_index_b": 118,
+      "revision_id_a": "660253917",
+      "revision_id_b": "665603827",
+      "timestamp_a": "2015-05-01T14:32:15Z",
+      "timestamp_b": "2015-06-05T11:05:32Z",
+      "semantic_distance_normalized": 0.0011467207075604511,
+      "lexical_distance_normalized": 0.24757281553398058,
+      "semantic_contribution": 0.0005733603537802256,
+      "lexical_contribution": 0.12378640776699029,
+      "hybrid_distance": 0.12435976812077051
+    },
+    {
+      "revision_index_a": 118,
+      "revision_index_b": 119,
+      "revision_id_a": "665603827",
+      "revision_id_b": "670472679",
+      "timestamp_a": "2015-06-05T11:05:32Z",
+      "timestamp_b": "2015-07-08T05:15:30Z",
+      "semantic_distance_normalized": 0.0025633319954844734,
+      "lexical_distance_normalized": 0.12693015835580987,
+      "semantic_contribution": 0.0012816659977422367,
+      "lexical_contribution": 0.06346507917790493,
+      "hybrid_distance": 0.06474674517564717
+    },
+    {
+      "revision_index_a": 119,
+      "revision_index_b": 120,
+      "revision_id_a": "670472679",
+      "revision_id_b": "674921639",
+      "timestamp_a": "2015-07-08T05:15:30Z",
+      "timestamp_b": "2015-08-07T01:10:01Z",
+      "semantic_distance_normalized": 0.0001800091070568377,
+      "lexical_distance_normalized": 0.08051374396714374,
+      "semantic_contribution": 9.000455352841885e-05,
+      "lexical_contribution": 0.04025687198357187,
+      "hybrid_distance": 0.04034687653710029
+    },
+    {
+      "revision_index_a": 120,
+      "revision_index_b": 121,
+      "revision_id_a": "674921639",
+      "revision_id_b": "678918158",
+      "timestamp_a": "2015-08-07T01:10:01Z",
+      "timestamp_b": "2015-09-01T12:17:09Z",
+      "semantic_distance_normalized": 1.8122309602822685e-05,
+      "lexical_distance_normalized": 0.41237113402061853,
+      "semantic_contribution": 9.061154801411342e-06,
+      "lexical_contribution": 0.20618556701030927,
+      "hybrid_distance": 0.20619462816511067
+    },
+    {
+      "revision_index_a": 121,
+      "revision_index_b": 122,
+      "revision_id_a": "678918158",
+      "revision_id_b": "683757817",
+      "timestamp_a": "2015-09-01T12:17:09Z",
+      "timestamp_b": "2015-10-02T09:05:35Z",
+      "semantic_distance_normalized": 0.41780024289569195,
+      "lexical_distance_normalized": 0.19040697674418605,
+      "semantic_contribution": 0.20890012144784598,
+      "lexical_contribution": 0.09520348837209303,
+      "hybrid_distance": 0.304103609819939
+    },
+    {
+      "revision_index_a": 122,
+      "revision_index_b": 123,
+      "revision_id_a": "683757817",
+      "revision_id_b": "689095918",
+      "timestamp_a": "2015-10-02T09:05:35Z",
+      "timestamp_b": "2015-11-04T22:27:49Z",
+      "semantic_distance_normalized": 0.07479864886011937,
+      "lexical_distance_normalized": 0.10813908140146362,
+      "semantic_contribution": 0.03739932443005969,
+      "lexical_contribution": 0.05406954070073181,
+      "hybrid_distance": 0.0914688651307915
+    },
+    {
+      "revision_index_a": 123,
+      "revision_index_b": 124,
+      "revision_id_a": "689095918",
+      "revision_id_b": "694053581",
+      "timestamp_a": "2015-11-04T22:27:49Z",
+      "timestamp_b": "2015-12-06T20:44:38Z",
+      "semantic_distance_normalized": 0.009145771463429578,
+      "lexical_distance_normalized": 0.1524210807918673,
+      "semantic_contribution": 0.004572885731714789,
+      "lexical_contribution": 0.07621054039593365,
+      "hybrid_distance": 0.08078342612764844
+    }
+  ]
+}
