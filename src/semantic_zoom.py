@@ -33,19 +33,38 @@ from revision_keywords import (
 
 
 MODEL = "gpt-5.6-terra"
-SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-08-16-v033"
+SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-08-19-v049"
+
+# Line width is an event code, not a semantic-distance scale. A normal edge is
+# thin, exact SHA1 reverts receive a strong increment, and repeatedly traversed
+# undirected MDS segments receive another increment for every extra traversal.
+TRAJECTORY_WIDTH_SIGNAL = (
+    "min(5, 1.15 + (datum.has_exact_revert ? 1.35 : 0) "
+    "+ 0.85*max(datum.overlap_count-1, 0))"
+)
+TRAJECTORY_WIDTH_ENCODING = {
+    "normal_edge_px": 1.15,
+    "exact_sha1_revert_increment_px": 1.35,
+    "additional_same_geometry_increment_px": 0.85,
+    "maximum_px": 5.0,
+    "overlap_definition": (
+        "same undirected MDS endpoints rounded to 12 decimal places"
+    ),
+    "semantic_jump_controls_width": False,
+}
 LABEL_SYSTEM_PROMPT = """You create concise map labels for a semantic revision trajectory.
-Use only the supplied revision-keyword evidence. Never add outside knowledge.
-The final visualization is a three-layer level-of-detail pyramid: abstract
-cluster topics, narrower chronological sections, and detailed consecutive
-revision differences. You are labeling the first two layers; the detailed
-revision differences already exist as grounded leaf labels.
+Use only the supplied direct-diff edge labels and their grounded evidence. Never add
+outside knowledge.
+The final visualization is a five-level pyramid: article, macro topic, cluster,
+chronological section, and consecutive revision edge. You are labeling cluster
+and section nodes; macro topics are generated in a separate parent pass and the
+detailed revision edges already exist as grounded leaf labels.
 Each label is an umbrella concept for its node, not a generic label such as
 'changes', 'revision', 'miscellaneous', or a numbered level. Prefer two to five
 words. Preserve meaningful names, institutions, places, events, and policies."""
 
 MACRO_LABEL_SYSTEM_PROMPT = """You create concise overview labels for a semantic map.
-Use only the supplied child cluster labels and grounded revision keywords. Never add
+Use only the supplied child cluster labels and grounded direct-diff evidence. Never add
 outside knowledge. Each node combines several spatially adjacent HDBSCAN clusters and
 needs one broad umbrella concept that makes the map understandable before the user
 zooms into the individual clusters. Prefer two to five words. Preserve meaningful
@@ -120,13 +139,13 @@ def validate_sources(projection: dict, keywords: dict) -> tuple[list[dict], list
     if not isinstance(points, list) or len(points) < 2:
         raise ValueError("Projektionsdatei enthält weniger als zwei Punkte.")
     if not isinstance(pairs, list) or len(pairs) != len(points) - 1:
-        raise ValueError("Keyword-Datei muss genau ein Paar pro Trajektorienkante enthalten.")
+        raise ValueError("Diff-Label-Datei muss genau ein Paar pro Trajektorienkante enthalten.")
     for index, pair in enumerate(pairs):
         if (
             str(pair.get("previous_revision_id")) != str(points[index]["revision_id"])
             or str(pair.get("current_revision_id")) != str(points[index + 1]["revision_id"])
         ):
-            raise ValueError(f"Keyword-Paar {index + 1} passt nicht zur Projektion.")
+            raise ValueError(f"Diff-Label-Paar {index + 1} passt nicht zur Projektion.")
     return points, pairs
 
 
@@ -268,7 +287,10 @@ def build_hierarchy(
         current = points[index + 1]
         x = (float(previous["mds"][0]) + float(current["mds"][0])) / 2
         y = (float(previous["mds"][1]) + float(current["mds"][1])) / 2
+        direct_label = edge_phrase([pair.get("edge_label", "")])
         terms = top_terms([
+            [direct_label] if direct_label else [],
+            pair.get("evidence", []),
             pair.get("focus_keywords", []),
             pair.get("added_keywords", []),
             pair.get("removed_keywords", []),
@@ -278,7 +300,7 @@ def build_hierarchy(
         # A trajectory edge carries exactly one intact grounded phrase. A
         # phrase may contain up to four words (for example "UN General
         # Assembly"), but separate candidates are never combined.
-        label = edge_phrase(terms)
+        label = direct_label or edge_phrase(terms)
         if not label:
             label = (
                 "No cleaned-text change"
@@ -291,8 +313,13 @@ def build_hierarchy(
             "x": x,
             "y": y,
             "label": label,
-            "short_label": fallback_label(terms, "Textänderung"),
+            "short_label": label,
             "terms": terms,
+            "evidence": pair.get("evidence", []),
+            "change_type": pair.get("change_type", "legacy_keyword_fallback"),
+            "label_confidence": pair.get("confidence"),
+            "conflict_description": pair.get("conflict_description", ""),
+            "label_source": "direct_diff_llm" if direct_label else "legacy_keyword_fallback",
             "count_text": count_text,
             "added_words": added,
             "removed_words": removed,
@@ -547,7 +574,7 @@ def generate_labels(
                 "node_id": node["node_id"],
                 "kind": node["level"],
                 "revision_count": node.get("revision_count"),
-                "grounded_keywords": node["terms"],
+                "grounded_child_evidence": node["terms"],
                 "child_cluster_labels": node.get("child_labels", []),
             }
             for node in batch
@@ -859,10 +886,22 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             "cluster_probability": float(point.get("cluster_probability", 0.0)),
             "semantic_jump": float(point["semantic_jump_from_previous"]),
             "interval_revert_count": int(point.get("interval_revert_count", 0)),
+            "interval_exact_sha1_revert_count": int(
+                point.get("interval_exact_sha1_revert_count", 0)
+            ),
+            "interval_partial_text_revert_count": int(
+                point.get("interval_partial_text_revert_count", 0)
+            ),
             "interval_mutual_revert_count": int(
                 point.get("interval_mutual_revert_count", 0)
             ),
             "gandica_c": float(point.get("cumulative_gandica_c", 0.0)),
+            "confirmed_edit_war_event_count": int(
+                point.get("interval_confirmed_edit_war_event_count", 0)
+            ),
+            "confirmed_edit_war_sessions": point.get(
+                "interval_confirmed_edit_war_sessions", []
+            ),
             "labelled_section_point": int(point["revision_index"])
             in labelled_section_point_indices,
         }
@@ -879,12 +918,27 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             "x2": b["x"],
             "y2": b["y"],
             "label": edge["label"],
+            "change_type": edge.get("change_type", "legacy_keyword_fallback"),
+            "evidence_text": " · ".join(edge.get("evidence", [])),
+            "label_confidence": edge.get("label_confidence"),
+            "label_source": edge.get("label_source"),
             "previous_revision_id": edge["previous_revision_id"],
             "current_revision_id": edge["current_revision_id"],
             "semantic_jump": semantic_jump,
             "revert_count": b["interval_revert_count"],
+            "exact_revert_count": b["interval_exact_sha1_revert_count"],
+            "partial_revert_count": b["interval_partial_text_revert_count"],
+            "has_exact_revert": b["interval_exact_sha1_revert_count"] > 0,
             "mutual_revert_count": b["interval_mutual_revert_count"],
             "gandica_c": b["gandica_c"],
+            "is_edit_war": b["confirmed_edit_war_event_count"] > 0,
+            "edit_war_event_count": b["confirmed_edit_war_event_count"],
+            "edit_war_pairs_text": " · ".join(
+                " ↔ ".join(session.get("pair", []))
+                for session in b["confirmed_edit_war_sessions"]
+                if session.get("pair")
+            ),
+            "edit_war_description": edge.get("conflict_description", ""),
             "cluster_id": b["cluster_id"],
             "in_section": str(edge.get("parent_id", "")).startswith("section-"),
             "same_cluster": (
@@ -892,10 +946,25 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             ),
         })
 
+    def undirected_geometry_key(edge_row: dict) -> tuple:
+        """Group visually identical A→B and B→A projected segments."""
+        return tuple(sorted((
+            (round(float(edge_row["x"]), 12), round(float(edge_row["y"]), 12)),
+            (round(float(edge_row["x2"]), 12), round(float(edge_row["y2"]), 12)),
+        )))
+
+    geometry_counts = Counter(
+        undirected_geometry_key(edge_row) for edge_row in edge_rows
+    )
+    for edge_row in edge_rows:
+        edge_row["overlap_count"] = geometry_counts[
+            undirected_geometry_key(edge_row)
+        ]
+
     # Several revisions can traverse exactly the same projected segment, often
-    # in opposite directions. They remain separate trajectory edges and retain
-    # their tooltips, but only the earliest target revision contributes a label
-    # candidate. The undirected key treats A→B and B→A as the same geometry.
+    # in opposite directions. They remain separate trajectory edges, but only
+    # the earliest target revision contributes a label candidate. The
+    # undirected key treats A→B and B→A as the same geometry.
     overlapping_edge_label_winners: dict[
         tuple[tuple[float, float], tuple[float, float]], tuple[str, int, str]
     ] = {}
@@ -927,9 +996,6 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
     cluster_ids = sorted({row["cluster_id"] for row in point_rows})
     hull_rows = cluster_hull_rows(point_rows)
     macro_rows = macro_hull_rows(point_rows)
-    section_rows, section_corridor_rows, section_region_point_rows = (
-        section_region_rows(point_rows, hierarchy["sections"])
-    )
     detail_labels = [
         node for node in (
             hierarchy.get("macros", []) + hierarchy["clusters"]
@@ -1069,6 +1135,12 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 {"type": "filter", "expr": "datum.labelled_section_point"},
             ]},
             {"name": "edges", "values": edge_rows},
+            {"name": "exactRevertEdges", "source": "edges", "transform": [
+                {"type": "filter", "expr": "datum.has_exact_revert"},
+            ]},
+            {"name": "editWarEdges", "source": "edges", "transform": [
+                {"type": "filter", "expr": "datum.is_edit_war"},
+            ]},
             {"name": "intraClusterEdges", "source": "edges", "transform": [
                 {"type": "filter", "expr": "datum.same_cluster"},
             ]},
@@ -1076,9 +1148,6 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             {"name": "labels", "values": label_rows},
             {"name": "macroHulls", "values": macro_rows},
             {"name": "clusterHulls", "values": hull_rows},
-            {"name": "sectionHulls", "values": section_rows},
-            {"name": "sectionCorridors", "values": section_corridor_rows},
-            {"name": "sectionRegionPoints", "values": section_region_point_rows},
             {"name": "visibleMacroLabels", "source": "labels", "transform": [
                 {"type": "filter", "expr": "!zooming && !down && datum.level==='macro' && macroOpacity>0.03"},
                 {"type": "filter", "expr": "datum.x >= min(xdom[0], xdom[1]) && datum.x <= max(xdom[0], xdom[1]) && datum.y >= min(ydom[0], ydom[1]) && datum.y <= max(ydom[0], ydom[1])"},
@@ -1103,7 +1172,6 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             {"name": "xscale", "zero": False, "domain": {"signal": "xdom"}, "range": "width"},
             {"name": "yscale", "zero": False, "domain": {"signal": "ydom"}, "range": "height"},
             {"name": "clusterColor", "type": "ordinal", "domain": cluster_ids, "range": [cluster_colour(cluster_id) for cluster_id in cluster_ids]},
-            {"name": "jumpWidth", "type": "sqrt", "domain": {"data": "edges", "field": "semantic_jump"}, "range": [0.7, 4.2], "zero": True},
         ],
         "marks": [
             {
@@ -1143,52 +1211,27 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 }],
             },
             {
-                "name": "sectionRegions", "type": "group",
-                "from": {"facet": {"name": "sectionHull", "data": "sectionHulls", "groupby": "section_id"}},
-                "marks": [{
-                    "type": "line", "from": {"data": "sectionHull"},
-                    "encode": {"update": {
-                        "x": {"scale": "xscale", "field": "x"},
-                        "y": {"scale": "yscale", "field": "y"},
-                        "order": {"field": "order"},
-                        "interpolate": {"value": "linear"},
-                        "fill": {"scale": "clusterColor", "field": "cluster_id"},
-                        "fillOpacity": {"signal": "0.10 * sectionOpacity"},
-                        "stroke": {"scale": "clusterColor", "field": "cluster_id"},
-                        "strokeOpacity": {"signal": "0.52 * sectionOpacity"},
-                        "strokeWidth": {"value": 1.4},
-                    }}
-                }],
-            },
-            {
-                "name": "sectionRegionCorridors", "type": "rule",
+                "name": "editWarHalo",
+                "type": "rule",
                 "interactive": False,
-                "from": {"data": "sectionCorridors"},
+                "from": {"data": "editWarEdges"},
                 "encode": {"update": {
                     "x": {"scale": "xscale", "field": "x"},
                     "y": {"scale": "yscale", "field": "y"},
                     "x2": {"scale": "xscale", "field": "x2"},
                     "y2": {"scale": "yscale", "field": "y2"},
-                    "stroke": {"scale": "clusterColor", "field": "cluster_id"},
-                    "strokeOpacity": {"signal": "0.10 * sectionOpacity"},
-                    "strokeWidth": {"value": 18},
+                    "stroke": {"value": "#1f9d55"},
+                    "strokeOpacity": {
+                        "signal": "semanticLayer==='root' ? 0 : 0.24"
+                    },
+                    "strokeWidth": {
+                        "signal": (
+                            "min(13, 7.5 + (datum.has_exact_revert ? 1.35 : 0) "
+                            "+ 0.85*max(datum.overlap_count-1, 0))"
+                        )
+                    },
                     "strokeCap": {"value": "round"},
-                }}
-            },
-            {
-                "name": "sectionRegionPointCaps", "type": "symbol",
-                "interactive": False,
-                "from": {"data": "sectionRegionPoints"},
-                "encode": {"update": {
-                    "x": {"scale": "xscale", "field": "x"},
-                    "y": {"scale": "yscale", "field": "y"},
-                    "size": {"value": 255},
-                    "fill": {"scale": "clusterColor", "field": "cluster_id"},
-                    "fillOpacity": {"signal": "0.10 * sectionOpacity"},
-                    "stroke": {"scale": "clusterColor", "field": "cluster_id"},
-                    "strokeOpacity": {"signal": "0.42 * sectionOpacity"},
-                    "strokeWidth": {"value": 1.2},
-                }}
+                }},
             },
             {
                 "name": "trajectory",
@@ -1200,9 +1243,8 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                     "x2": {"scale": "xscale", "field": "x2"},
                     "y2": {"scale": "yscale", "field": "y2"},
                     "stroke": {"value": "#72806f"},
-                    "strokeOpacity": {"signal": "semanticLayer==='macro' ? 0.08 : semanticLayer==='cluster' ? 0.10 : semanticLayer==='section' ? (datum.in_section ? 0.34 : 0) : 0.28 + 0.2*min(zoomLevel/4,1)"},
-                    "strokeWidth": {"scale": "jumpWidth", "field": "semantic_jump"},
-                    "tooltip": {"signal": "{'Änderung': datum.label, 'Von Revision': datum.previous_revision_id, 'Zu Revision': datum.current_revision_id, 'Semantischer Sprung': format(datum.semantic_jump, '.4f')}"},
+                    "strokeOpacity": {"signal": "semanticLayer==='macro' ? 0.08 : semanticLayer==='cluster' ? 0.10 : semanticLayer==='section' ? 0.34 : 0.28 + 0.2*min(zoomLevel/4,1)"},
+                    "strokeWidth": {"signal": TRAJECTORY_WIDTH_SIGNAL},
                 }}
             },
             {
@@ -1215,13 +1257,30 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                     "y2": {"scale": "yscale", "field": "y2"},
                     "stroke": {"scale": "clusterColor", "field": "cluster_id"},
                     "strokeOpacity": {"signal": "0.64 * clusterOpacity"},
-                    "strokeWidth": {"scale": "jumpWidth", "field": "semantic_jump"},
+                    "strokeWidth": {"signal": TRAJECTORY_WIDTH_SIGNAL},
                 }}
+            },
+            {
+                "name": "exactRevertTrajectory",
+                "type": "rule",
+                "from": {"data": "exactRevertEdges"},
+                "zindex": 2,
+                "encode": {"update": {
+                    "x": {"scale": "xscale", "field": "x"},
+                    "y": {"scale": "yscale", "field": "y"},
+                    "x2": {"scale": "xscale", "field": "x2"},
+                    "y2": {"scale": "yscale", "field": "y2"},
+                    "stroke": {"value": "#d64545"},
+                    "strokeOpacity": {
+                        "signal": "semanticLayer==='root' ? 0 : 0.92"
+                    },
+                    "strokeWidth": {"signal": TRAJECTORY_WIDTH_SIGNAL},
+                }},
             },
             {
                 "name": "revisionPoints", "type": "symbol", "from": {"data": "points"},
                 "encode": {"enter": {
-                    "tooltip": {"signal": "{'Revision': datum.revision_id, 'Zeit': datum.timestamp, 'Autor': datum.author, 'Wörter': datum.words, 'HDBSCAN': datum.cluster_label, 'Cluster-Wahrscheinlichkeit': format(datum.cluster_probability, '.3f')}"}
+                    "tooltip": {"signal": "{'Revision-ID': datum.revision_id, 'Zeit': datum.timestamp, 'Autor': datum.author, 'Cluster': datum.cluster_label}"}
                 }, "update": {
                     "x": {"scale": "xscale", "field": "x"}, "y": {"scale": "yscale", "field": "y"},
                     "size": {"value": 64},
@@ -1237,11 +1296,11 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 "encode": {"update": {
                     "x": {"scale": "xscale", "field": "x"},
                     "y": {"scale": "yscale", "field": "y"},
-                    "size": {"value": 64},
-                    "fill": {"scale": "clusterColor", "field": "cluster_id"},
-                    "fillOpacity": {"signal": "0.86 * sectionOpacity"},
-                    "stroke": {"value": "#fbfaf7"},
-                    "strokeWidth": {"value": 0.8},
+                    "size": {"value": 170},
+                    "fillOpacity": {"value": 0},
+                    "stroke": {"scale": "clusterColor", "field": "cluster_id"},
+                    "strokeOpacity": {"signal": "0.92 * sectionOpacity"},
+                    "strokeWidth": {"value": 2},
                 }}
             },
             {
@@ -1346,6 +1405,7 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             {
                 "name": "edgeLabels", "type": "text",
                 "key": "datum.node_id",
+                "zindex": 7,
                 "from": {"data": "edgeLabelAnchors"},
                 "transform": [
                     {"type": "label", "anchor": ["middle"], "offset": [0], "padding": 5, "avoidBaseMark": False, "avoidMarks": ["revisionPoints", "macroLabels", "semanticLabels"], "sort": {"field": "datum.placementOrder"}, "size": {"signal": "[width, height]"}},
@@ -1357,6 +1417,26 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                     "fontSize": {"value": 11}, "fontWeight": {"value": 700},
                     "limit": {"value": 280},
                     "fill": {"value": "#4f5750"},
+                }}
+            },
+            {
+                "name": "edgeLabelHalos", "type": "text",
+                "key": "datum.datum.node_id",
+                "zindex": 6,
+                "from": {"data": "edgeLabels"},
+                "encode": {"update": {
+                    "text": {"field": "text"},
+                    "x": {"field": "x"}, "y": {"field": "y"},
+                    "align": {"field": "align"},
+                    "baseline": {"field": "baseline"},
+                    "opacity": {"field": "opacity"},
+                    "fillOpacity": {"value": 0},
+                    "stroke": {"value": "#fbfaf7"},
+                    "strokeWidth": {"value": 4},
+                    "strokeOpacity": {"value": 0.96},
+                    "font": {"field": "font"},
+                    "fontSize": {"field": "fontSize"},
+                    "fontWeight": {"field": "fontWeight"},
                 }}
             },
             {
@@ -1379,6 +1459,21 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
 
 def render_html(article: str, spec: dict) -> str:
     encoded = json.dumps(spec, ensure_ascii=False, separators=(",", ":"))
+    cluster_scale = next(
+        scale for scale in spec.get("scales", [])
+        if scale.get("name") == "clusterColor"
+    )
+    cluster_legend = "".join(
+        (
+            '<li><span class="legend-dot" style="--legend-color:'
+            f'{html.escape(str(colour))}"></span><span>'
+            f'{"Noise" if int(cluster_id) == -1 else f"Cluster {int(cluster_id) + 1}"}'
+            "</span></li>"
+        )
+        for cluster_id, colour in zip(
+            cluster_scale.get("domain", []), cluster_scale.get("range", [])
+        )
+    )
     return f"""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1387,13 +1482,43 @@ def render_html(article: str, spec: dict) -> str:
 <script src="https://cdn.jsdelivr.net/npm/vega-tooltip@0.35.2/build/vega-tooltip.min.js"></script>
 <style>
 html,body{{height:100%;margin:0;background:#fbfaf7;color:#151915;font-family:Inter,Arial,sans-serif}}
-#app{{height:100%;display:flex;flex-direction:column;overflow:hidden}}
+#app{{width:min(100%,1200px);height:min(100%,720px);margin:0 auto;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box}}
 #topbar{{padding:14px 20px 8px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}}
 #topbar h1{{font-size:20px;line-height:1.2;font-weight:700;margin:0}}
+#content{{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 250px;border-top:1px solid #e2e5df}}
 #vis{{flex:1;min-width:0;min-height:0}}canvas{{cursor:grab}}canvas:active{{cursor:grabbing}}
+#legend{{min-width:0;overflow:auto;border-left:1px solid #d9ddd6;padding:16px 16px 22px;background:#f7f6f2;box-sizing:border-box}}
+#legend h2{{font-size:17px;margin:0 0 15px}}
+#legend h3{{font-size:12px;line-height:1.2;letter-spacing:.06em;text-transform:uppercase;color:#687068;margin:18px 0 9px}}
+.legend-list{{list-style:none;margin:0;padding:0;display:grid;gap:8px}}
+.cluster-list{{grid-template-columns:1fr 1fr;column-gap:8px}}
+.legend-list li{{min-width:0;display:flex;align-items:center;gap:8px;font-size:12px;line-height:1.25}}
+.legend-dot{{--legend-color:#72806f;width:11px;height:11px;box-sizing:border-box;border-radius:50%;background:var(--legend-color);border:1px solid #fbfaf7;box-shadow:0 0 0 1px color-mix(in srgb,var(--legend-color) 75%,#777);flex:none}}
+.legend-ring{{width:14px;height:14px;box-sizing:border-box;border:2px solid #72806f;border-radius:50%;background:transparent;flex:none}}
+.legend-line{{width:30px;height:0;border-top:1.15px solid #72806f;flex:none}}
+.legend-line.thick{{border-top-width:3.35px}}
+.legend-line.exact-revert{{border-top:2.5px solid #d64545}}
+.legend-line.edit-war{{border-top:1.5px solid #72806f;box-shadow:0 0 0 4px rgba(31,157,85,.24)}}
+@media(max-width:760px){{#content{{grid-template-columns:minmax(0,1fr) 205px}}#legend{{padding:12px 10px}}.cluster-list{{grid-template-columns:1fr}}}}
 </style></head><body><main id="app">
-<header id="topbar"><h1>Semantische Revisions-Timecurve – {html.escape(article)}</h1></header>
+<header id="topbar"><h1>Meaningful Projection Space</h1></header>
+<div id="content">
 <div id="vis" role="img" aria-label="Interaktive semantische Revisions-Timecurve"></div>
+<aside id="legend" aria-label="Legende der Visualisierung">
+<h2>Legende</h2>
+<h3>Darstellung</h3>
+<ul class="legend-list">
+<li><span class="legend-dot"></span><span>Revisionspunkt</span></li>
+<li><span class="legend-ring"></span><span>Punkt eines zeitlichen Abschnitts</span></li>
+<li><span class="legend-line"></span><span>Normale Trajektorienkante</span></li>
+<li><span class="legend-line thick"></span><span>Mehrfach belegter Weg</span></li>
+<li><span class="legend-line exact-revert"></span><span>Exakter Revert</span></li>
+<li><span class="legend-line edit-war"></span><span>Edit War</span></li>
+</ul>
+<h3>Cluster</h3>
+<ul class="legend-list cluster-list">{cluster_legend}</ul>
+</aside>
+</div>
 </main>
 <script>
 const spec={encoded};
@@ -1479,7 +1604,15 @@ def source_sha256(paths: Iterable[Path]) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build semantic-zoom hierarchy and Vega timecurve.")
     parser.add_argument("--projection", type=Path, required=True)
-    parser.add_argument("--keywords", type=Path, required=True)
+    parser.add_argument(
+        "--diff-labels",
+        "--keywords",
+        dest="diff_labels",
+        metavar="DIFF_LABELS",
+        type=Path,
+        required=True,
+        help="Offline direct-diff label JSON (--keywords remains a compatibility alias)",
+    )
     parser.add_argument("--article", required=True)
     parser.add_argument("--xml", type=Path)
     parser.add_argument("--model", default=MODEL)
@@ -1493,7 +1626,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     projection_path = args.projection.expanduser().resolve()
-    keywords_path = args.keywords.expanduser().resolve()
+    keywords_path = args.diff_labels.expanduser().resolve()
     projection = json.loads(projection_path.read_text(encoding="utf-8"))
     keywords = json.loads(keywords_path.read_text(encoding="utf-8"))
     points, pairs = validate_sources(projection, keywords)
@@ -1510,7 +1643,7 @@ def main() -> int:
     if not revert_analysis or not all(
         "interval_mutual_revert_count" in point for point in points
     ):
-        full_history = load_revert_history(xml_path)
+        full_history = load_revert_history(xml_path, include_text_changes=True)
         conflict_history, sampled_for_conflict = history_window_for_points(
             full_history, points
         )
@@ -1580,10 +1713,13 @@ def main() -> int:
     payload = {
         "article": args.article,
         "projection": str(projection_path),
+        "revision_diff_labels": str(keywords_path),
         "revision_keywords": str(keywords_path),
         "model": None if args.no_llm else args.model,
         "labels_generated_offline": True,
         "interactive_llm_calls": False,
+        "edge_label_strategy": "stored direct-diff label, one phrase of at most four words",
+        "trajectory_width_encoding": TRAJECTORY_WIDTH_ENCODING,
         "edit_wars": revert_analysis,
         "pipeline_snapshot_id": SEMANTIC_ZOOM_SNAPSHOT_ID,
         "source_sha256": source_sha256([Path(__file__), projection_path, keywords_path]),

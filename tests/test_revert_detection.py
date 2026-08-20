@@ -7,15 +7,17 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from revert_detection import (  # noqa: E402
     analyze_reverts,
+    build_change_signature,
     detect_edit_war_sessions,
+    detect_partial_text_reverts,
     detect_sha1_reverts,
     gandica_c_measure,
     yasseri_m_measure,
 )
 
 
-def revision(index, sha1, user, probable_bot=False):
-    return {
+def revision(index, sha1, user, probable_bot=False, comment=""):
+    row = {
         "revision_id": str(100 + index),
         "timestamp": f"2020-01-01T00:0{index}:00Z",
         "sha1": sha1,
@@ -23,6 +25,9 @@ def revision(index, sha1, user, probable_bot=False):
         "probable_bot": probable_bot,
         "history_index": index,
     }
+    if comment:
+        row["comment"] = comment
+    return row
 
 
 def test_mutual_sha1_reverts_drive_gandica_c_and_not_single_reverts():
@@ -57,7 +62,10 @@ def test_conflict_is_marked_when_the_revert_pair_becomes_mutual():
     analysis = analyze_reverts(history, history)
     statistics = analysis["point_statistics"]
     assert statistics[2]["interval_mutual_revert_count"] == 0
+    assert statistics[2]["interval_exact_sha1_revert_count"] == 1
+    assert statistics[2]["interval_partial_text_revert_count"] == 0
     assert statistics[3]["interval_mutual_revert_count"] == 1
+    assert statistics[3]["interval_exact_sha1_revert_count"] == 1
     assert statistics[3]["interval_edit_war_pairs"] == [["Alice", "Bob"]]
     assert statistics[3]["cumulative_gandica_c"] == 4.0
 
@@ -97,6 +105,37 @@ def test_edit_war_session_requires_three_events_and_both_directions():
         point["interval_confirmed_edit_war_event_count"]
         for point in analysis["point_statistics"]
     ) == 3
+
+
+def test_inverse_passage_diffs_detect_partial_reverts_and_form_a_session():
+    states = [
+        "The article describes limited territorial recognition by international institutions.",
+        "The article describes full sovereign recognition by international institutions.",
+        "The article describes limited territorial recognition by international institutions.",
+        "The article describes full sovereign recognition by international institutions.",
+        "The article describes limited territorial recognition by international institutions.",
+    ]
+    users = ["Initial", "Alice", "Bob", "Alice", "Bob"]
+    history = []
+    for index, (text, user) in enumerate(zip(states, users)):
+        row = revision(index, f"unique-{index}", user)
+        row["change_signature"] = (
+            build_change_signature(states[index - 1], text)
+            if index else {"units": []}
+        )
+        history.append(row)
+
+    events = detect_partial_text_reverts(history)
+    analysis = analyze_reverts(history, history)
+
+    assert len(events) == 3
+    assert all(event["revert_kind"] == "partial_text" for event in events)
+    assert all(event["reversal_score"] >= 0.72 for event in events)
+    assert analysis["partial_text_revert_count"] == 3
+    assert analysis["confirmed_edit_war_session_count"] == 1
+    session = analysis["edit_war_sessions"][0]
+    assert session["revert_kinds"] == ["partial_text"]
+    assert session["conflict_passages"]
 
 
 def test_edit_war_session_uses_time_or_revision_proximity():

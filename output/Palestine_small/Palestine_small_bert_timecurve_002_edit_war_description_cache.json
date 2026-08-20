@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "entries": {},
+  "edit_war_session_entries": {
+    "5b3a492d219ad46fc05ba82d9d0605e932fa7f01d4d14eb131fe530175b80d03": {
+      "session_id": "edit-war-1",
+      "description": {
+        "conflict_label": "Palestine UN Membership",
+        "conflict_description": "The text changed claims and supporting wording about Palestine's statehood and eligibility for United Nations membership.",
+        "evidence": [
+          "application for recognition of a Palestinian state",
+          "membership in the UN",
+          "not an essential requisite of United Nations membership",
+          "resolution upgrading Palestine to \"non-member observer state\"",
+          "requirements set forth in"
+        ],
+        "confidence": 0.9
+      }
+    },
+    "2eef388b53543014dd0a211277b1ab448723cdcb088b400ccc67e0fd9e618786": {
+      "session_id": "edit-war-2",
+      "description": {
+        "conflict_label": "Palestinian statehood",
+        "conflict_description": "The wording disputed whether Palestine is described as a sovereign, partially recognized state and its relationship to the Palestinian National Authority.",
+        "evidence": [
+          "partially recognized",
+          "a sovereign state",
+          "the Palestinian National Authority",
+          "of states with limited recognition partially recognized"
+        ],
+        "confidence": 0.83
+      }
+    },
+    "d27c3f05536cf5470de0d16a26913e39413278ba9151899616710ecf90e60111": {
+      "session_id": "edit-war-3",
+      "description": {
+        "conflict_label": "Palestinian sovereignty",
+        "conflict_description": "The disputed wording concerned whether Palestine was described as a sovereign state and as representing the Palestinian people.",
+        "evidence": [
+          "sovereignty. cite",
+          "to represent the Palestinian people. cite",
+          "sovereign",
+          "state"
+        ],
+        "confidence": 0.86
+      }
+    },
+    "7017bc927e9a201d6eb0caeaf84eaade3ded3c236ede400f9ae7008a04a27633": {
+      "session_id": "edit-war-4",
+      "description": {
+        "conflict_label": "Palestinian statehood",
+        "conflict_description": "The wording changed over describing it as a sovereign or partially recognized state and as the successor to the Palestinian National Authority.",
+        "evidence": [
+          "a sovereign state",
+          "states with limited recognition partially recognized",
+          "the successor to the Palestinian National Authority",
+          "modern state"
+        ],
+        "confidence": 0.85
+      }
+    },
+    "ed80c5447e7406ab9867260ae2d65083b98f0c115b360b1ed55b17e655af23a4": {
+      "session_id": "edit-war-5",
+      "description": {
+        "conflict_label": "Sovereign",
+        "conflict_description": "The disputed wording was the word “sovereign.”",
+        "evidence": [
+          "sovereign"
+        ],
+        "confidence": 0.36
+      }
+    },
+    "bd193ac66523c41a4e8c4413fd42b9bff5936d6495d7937b23833a40c2542f98": {
+      "session_id": "edit-war-6",
+      "description": {
+        "conflict_label": "Jerusalem capital wording",
+        "conflict_description": "The dispute concerned whether Jerusalem was labeled as the proclaimed capital and Ramallah as the administrative capital.",
+        "evidence": [
+          "Jerusalem(East)",
+          "small (proclaimed)",
+          "Ramallah",
+          "small (administrative)"
+        ],
+        "confidence": 0.92
+      }
+    }
+  }
+}
