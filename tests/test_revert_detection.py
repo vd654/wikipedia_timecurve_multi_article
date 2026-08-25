@@ -136,6 +136,23 @@ def test_inverse_passage_diffs_detect_partial_reverts_and_form_a_session():
     session = analysis["edit_war_sessions"][0]
     assert session["revert_kinds"] == ["partial_text"]
     assert session["conflict_passages"]
+    assert session["conflict_sentences"]
+    assert any(
+        "international institutions" in sentence
+        for sentence in session["conflict_sentences"]
+    )
+
+
+def test_change_signature_keeps_both_affected_sentences_for_an_insertion():
+    signature = build_change_signature(
+        "Before. Palestine had status. After.",
+        "Before. Palestine had observer status. After.",
+    )
+
+    assert len(signature["units"]) == 1
+    unit = signature["units"][0]
+    assert unit["previous_sentence"] == "Palestine had status."
+    assert unit["current_sentence"] == "Palestine had observer status."
 
 
 def test_edit_war_session_uses_time_or_revision_proximity():

@@ -16,6 +16,56 @@ DROP_TAGS = {
     "source", "code", "pre", "imagemap", "mapframe", "maplink", "chem", "graph",
 }
 MEDIA_NAMESPACES = {"file", "image", "category"}
+SENTENCE_ABBREVIATIONS = {
+    "dr.", "e.g.", "etc.", "i.e.", "jr.", "mr.", "mrs.", "ms.",
+    "prof.", "sr.", "st.", "vs.",
+}
+
+
+def ends_sentence(word: str) -> bool:
+    """Recognize a conservative prose sentence boundary in a word token."""
+    token = word.rstrip("\"'”’)]}")
+    if token.endswith(("!", "?")):
+        return True
+    if not token.endswith("."):
+        return False
+    folded = token.casefold()
+    if folded in SENTENCE_ABBREVIATIONS:
+        return False
+    if re.fullmatch(r"(?:[^\W\d_]\.){2,}", token, flags=re.UNICODE):
+        return False
+    if re.fullmatch(r"[^\W\d_]\.", token, flags=re.UNICODE):
+        return False
+    return True
+
+
+def affected_sentence_window(
+    words: list[str], start: int, end: int
+) -> tuple[int, int]:
+    """Return the complete sentence range containing one non-empty word span."""
+    if not (0 <= start < end <= len(words)):
+        raise ValueError(
+            f"Ungültiger Änderungsbereich für Satzkontext: {(start, end)}"
+        )
+    sentence_start = start
+    while sentence_start > 0 and not ends_sentence(words[sentence_start - 1]):
+        sentence_start -= 1
+    sentence_end = end
+    while sentence_end < len(words) and not ends_sentence(words[sentence_end - 1]):
+        sentence_end += 1
+    return sentence_start, sentence_end
+
+
+def sentence_window_at_position(
+    words: list[str], position: int
+) -> tuple[int, int] | None:
+    """Return the sentence adjacent to a zero-width insertion/deletion point."""
+    if not words:
+        return None
+    if not 0 <= position <= len(words):
+        raise ValueError(f"Ungültige Satzposition: {position}")
+    anchor = min(position, len(words) - 1)
+    return affected_sentence_window(words, anchor, anchor + 1)
 
 
 def _remove_tables(text: str) -> str:

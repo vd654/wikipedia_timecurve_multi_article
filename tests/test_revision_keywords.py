@@ -11,6 +11,24 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 import revision_keywords
 
 
+def sample_difference_lod(edge_label="UN observer status"):
+    labels = [
+        "International affairs",
+        "Diplomatic status",
+        "UN observer status",
+        "Observer wording change",
+        edge_label,
+    ]
+    return [
+        revision_keywords.DifferenceLODLabel(
+            level=level,
+            label=label,
+            description=f"Level {level} description for {label}.",
+        )
+        for level, label in enumerate(labels, start=1)
+    ]
+
+
 class BuildDiffTests(unittest.TestCase):
     def test_complete_diff_has_no_truncation_marker(self):
         result = revision_keywords.build_diff(
@@ -96,6 +114,72 @@ class BuildDiffTests(unittest.TestCase):
     def test_limit_must_leave_room_for_a_marker(self):
         with self.assertRaisesRegex(ValueError, "Kürzungsmarker"):
             revision_keywords.build_diff("alpha", "beta", max_chars=1)
+
+
+class AffectedSentenceContextTests(unittest.TestCase):
+    def test_replacement_includes_complete_previous_and_current_sentences(self):
+        previous = (
+            "Unrelated introduction. The General Assembly formally said that "
+            "Palestine was not recognized as a member state by this organization "
+            "in 2011. Unrelated ending."
+        )
+        current = (
+            "Unrelated introduction. The General Assembly formally said that "
+            "Palestine was recognized as a non-member observer state by this "
+            "organization in 2012. Unrelated ending."
+        )
+
+        result = revision_keywords.build_diff(
+            previous, current, max_chars=10_000, context=3
+        )
+
+        self.assertIn(
+            "PREVIOUS AFFECTED SENTENCE 1: The General Assembly formally said",
+            result.text,
+        )
+        self.assertIn(
+            "CURRENT AFFECTED SENTENCE 1: The General Assembly formally said",
+            result.text,
+        )
+        self.assertNotIn(
+            "PREVIOUS AFFECTED SENTENCE 1: Unrelated introduction", result.text
+        )
+        self.assertIn("[[ not ]]", result.text)
+        self.assertIn("[[ non-member observer ]]", result.text)
+
+    def test_pure_insertion_includes_previous_counterpart_sentence(self):
+        result = revision_keywords.build_diff(
+            "Before. Palestine had status. After.",
+            "Before. Palestine had observer status. After.",
+            max_chars=10_000,
+            context=2,
+        )
+
+        self.assertIn(
+            "PREVIOUS AFFECTED SENTENCE 1: Palestine had status.", result.text
+        )
+        self.assertIn("ADDED 1: Palestine had [[ observer ]] status.", result.text)
+
+    def test_pure_deletion_includes_current_counterpart_sentence(self):
+        result = revision_keywords.build_diff(
+            "Before. Palestine had temporary observer status. After.",
+            "Before. Palestine had observer status. After.",
+            max_chars=10_000,
+            context=2,
+        )
+
+        self.assertIn("REMOVED 1: Palestine had [[ temporary ]]", result.text)
+        self.assertIn(
+            "CURRENT AFFECTED SENTENCE 1: Palestine had observer status.",
+            result.text,
+        )
+
+    def test_initialism_does_not_split_affected_sentence(self):
+        words = "The U.N. granted observer status. Another sentence.".split()
+
+        start, end = revision_keywords.affected_sentence_window(words, 3, 4)
+
+        self.assertEqual(" ".join(words[start:end]), "The U.N. granted observer status.")
 
 
 class AnalyzeTests(unittest.TestCase):
@@ -185,7 +269,7 @@ class AnalyzeTests(unittest.TestCase):
         second_request.assert_not_called()
         self.assertEqual(first, second)
 
-    def test_confirmed_session_description_is_shared_without_per_edge_llm_call(self):
+    def test_confirmed_session_keeps_shared_label_but_analyzes_full_pair_context(self):
         revision_rows = [
             {"revision_id": "1", "timestamp": "t1", "sha1": "sha-a", "text": "alpha beta"},
             {"revision_id": "2", "timestamp": "t2", "sha1": "sha-b", "text": "alpha gamma"},
@@ -202,9 +286,22 @@ class AnalyzeTests(unittest.TestCase):
             "editor_pairs": [["Alice", "Bob"]],
             "session_ids": ["edit-war-1"],
         }]
+        pair_analysis = {
+            "edge_label": "Temporary pair label",
+            "change_type": "replacement",
+            "evidence": ["gamma"],
+            "confidence": 0.8,
+            "added_keywords": ["gamma"],
+            "removed_keywords": ["beta"],
+            "focus_keywords": ["gamma", "beta", "status", "wording", "claim"],
+        }
         with (
             patch.object(revision_keywords, "iter_revisions", return_value=iter(revision_rows)),
-            patch.object(revision_keywords, "request_keywords") as edge_request,
+            patch.object(
+                revision_keywords,
+                "request_keywords",
+                return_value=pair_analysis,
+            ) as edge_request,
         ):
             results = revision_keywords.analyze(
                 Path("unused.xml"), ["1", "2"], unittest.mock.Mock(),
@@ -213,36 +310,90 @@ class AnalyzeTests(unittest.TestCase):
                 edit_war_descriptions={"edit-war-1": description},
             )
 
-        edge_request.assert_not_called()
+        edge_request.assert_called_once()
+        self.assertEqual(
+            edge_request.call_args.kwargs["previous_text"], "alpha beta"
+        )
+        self.assertEqual(
+            edge_request.call_args.kwargs["current_text"], "alpha gamma"
+        )
         self.assertEqual(results[0]["edge_label"], "Observer-state wording")
+        self.assertEqual(results[0]["added_keywords"], ["gamma"])
         self.assertEqual(
             results[0]["conflict_description"],
             "The wording of observer status was restored.",
         )
 
+    def test_session_aggregation_uses_outputs_of_full_revision_comparisons(self):
+        revert_analysis = {
+            "edit_war_sessions": [{"session_id": "edit-war-1"}]
+        }
+        results = [{
+            "previous_revision_id": "1",
+            "current_revision_id": "2",
+            "edge_label": "Observer status",
+            "change_type": "replacement",
+            "evidence": ["observer status"],
+            "added_keywords": ["non-member state"],
+            "removed_keywords": ["observer entity"],
+            "focus_keywords": ["observer status"],
+            "confidence": 0.8,
+            "edit_war_context": {"session_ids": ["edit-war-1"]},
+        }]
+
+        revision_keywords.attach_full_context_edge_analyses(
+            revert_analysis, results
+        )
+        analyses = revert_analysis["edit_war_sessions"][0][
+            "full_context_edge_analyses"
+        ]
+        self.assertEqual(analyses[0]["edge_label"], "Observer status")
+        self.assertNotIn("diff", analyses[0])
+        revision_keywords.apply_edit_war_descriptions(results, {
+            "edit-war-1": {
+                "conflict_label": "Observer-state wording",
+                "conflict_description": "Observer wording was repeatedly restored.",
+                "evidence": ["observer status"],
+                "confidence": 0.91,
+            }
+        })
+        self.assertEqual(results[0]["edge_label"], "Observer-state wording")
+
 
 class PromptTests(unittest.TestCase):
-    def test_prompt_warns_that_visible_diff_may_be_incomplete(self):
+    def test_prompt_contains_no_separate_diff_or_sentence_window(self):
         prompt = revision_keywords.build_user_prompt(
-            "[DIFF TRUNCATED]", diff_truncated=True
+            "Previous complete article.", "Current complete article."
         )
 
-        self.assertIn("is truncated", prompt)
-        self.assertIn("Use only the visible passages", prompt)
-        self.assertIn("never\nassume that they represent every change", prompt)
-
-    def test_complete_prompt_has_no_truncation_warning(self):
-        prompt = revision_keywords.build_user_prompt("ADDED 1: [[ fact ]]")
-
-        self.assertNotIn("truncated", prompt)
-        self.assertNotIn("visible passages", prompt)
+        self.assertNotIn("[[", prompt)
+        self.assertNotIn("AFFECTED SENTENCE", prompt)
+        self.assertNotIn("GROUNDED REVISION DIFF", prompt)
+        self.assertNotIn("DIFF TRUNCATED", prompt)
 
     def test_prompt_requires_one_atomic_edge_label_and_grounded_evidence(self):
-        prompt = revision_keywords.build_user_prompt("ADDED 1: [[ observer state ]]")
+        prompt = revision_keywords.build_user_prompt(
+            "Previous article.", "Current article with observer state."
+        )
 
         self.assertIn("exactly one edge_label", prompt)
         self.assertIn("1 to 4 words", prompt)
-        self.assertIn("copied from inside [[ double brackets ]]", prompt)
+        self.assertIn("copied verbatim from either\ncomplete revision", prompt)
+        self.assertIn("exactly 5 entries", prompt)
+        self.assertIn("extremely abstract to extremely detailed", prompt)
+        self.assertIn("Level 5 label must be exactly identical to edge_label", prompt)
+
+    def test_prompt_contains_both_complete_cleaned_revisions(self):
+        prompt = revision_keywords.build_user_prompt(
+            "Complete previous article with old status.",
+            "Complete current article with new status.",
+        )
+
+        self.assertIn("<previous_revision>", prompt)
+        self.assertIn("Complete previous article with old status.", prompt)
+        self.assertIn("<current_revision>", prompt)
+        self.assertIn("Complete current article with new status.", prompt)
+        self.assertIn("Compare the full texts yourself", prompt)
 
     def test_prompt_receives_definition_and_authoritative_edit_war_context(self):
         context = {
@@ -253,12 +404,14 @@ class PromptTests(unittest.TestCase):
         }
 
         prompt = revision_keywords.build_user_prompt(
-            "ADDED 1: [[ observer state ]]", edit_war_context=context
+            "Previous complete article.",
+            "Current complete article with observer state.",
+            edit_war_context=context,
         )
 
         self.assertIn(revision_keywords.EDIT_WAR_DEFINITION, prompt)
         self.assertIn('"is_edit_war": true', prompt)
-        self.assertIn("not from the text diff", prompt)
+        self.assertIn("comes from the revision history", prompt)
         self.assertIn("only Edit-War-related task", prompt)
         self.assertIn("describe the concrete\nsubject being contested", prompt)
         self.assertIn("do not output an Edit-War\nclassification", prompt)
@@ -276,20 +429,26 @@ class PromptTests(unittest.TestCase):
 
         self.assertNotEqual(normal, conflict)
 
-    def test_session_prompt_bundles_all_conflict_passages_without_comments(self):
+    def test_session_prompt_uses_full_context_edge_analyses_without_diff(self):
         session = {
             "pair": ["Alice", "Bob"],
             "event_count": 3,
             "revert_kinds": ["exact_sha1", "partial_text"],
-            "conflict_passages": ["observer status", "non-member state"],
+            "full_context_edge_analyses": [{
+                "edge_label": "Observer status",
+                "evidence": ["observer status", "non-member state"],
+            }],
         }
 
         prompt = revision_keywords.build_edit_war_description_prompt(session)
 
-        self.assertIn("PASSAGE 1: [[ observer status ]]", prompt)
-        self.assertIn("PASSAGE 2: [[ non-member state ]]", prompt)
+        self.assertIn('"edge_label": "Observer status"', prompt)
+        self.assertIn('"observer status"', prompt)
+        self.assertIn("No separate word diff, sentence window", prompt)
+        self.assertNotIn("[[", prompt)
+        self.assertNotIn("AFFECTED SENTENCE", prompt)
         self.assertIn("must not decide whether it is an Edit War", prompt)
-        self.assertIn("Use no outside knowledge and no\nedit comments", prompt)
+        self.assertIn("Use no outside knowledge", prompt)
 
     def test_session_description_is_one_structured_description_not_a_classifier(self):
         client = unittest.mock.Mock()
@@ -308,7 +467,10 @@ class PromptTests(unittest.TestCase):
             "pair": ["Alice", "Bob"],
             "event_count": 3,
             "revert_kinds": ["partial_text"],
-            "conflict_passages": ["observer status", "non-member state"],
+            "full_context_edge_analyses": [{
+                "edge_label": "Observer status",
+                "evidence": ["observer status", "non-member state"],
+            }],
         }
 
         result = revision_keywords.request_edit_war_description(
@@ -334,6 +496,7 @@ class PromptTests(unittest.TestCase):
             "added_keywords": [],
             "removed_keywords": [],
             "focus_keywords": [],
+            "difference_lod": [],
         })
         client.responses.parse.assert_not_called()
 
@@ -348,6 +511,7 @@ class PromptTests(unittest.TestCase):
                 added_keywords=["observer status"],
                 removed_keywords=[],
                 focus_keywords=["observer status", "UN", "vote", "resolution", "statehood"],
+                difference_lod=sample_difference_lod(),
             ),
             output_text="",
         )
@@ -356,13 +520,22 @@ class PromptTests(unittest.TestCase):
             client,
             "test-model",
             "ADDED 1: [[ observer status ]]",
+            previous_text="Palestine held status.",
+            current_text="Palestine received observer status.",
         )
 
         self.assertEqual(result["edge_label"], "UN observer status")
         self.assertEqual(result["evidence"], ["observer status"])
         self.assertEqual(client.responses.parse.call_count, 1)
+        model_input = client.responses.parse.call_args.kwargs["input"]
+        user_prompt = model_input[1]["content"]
+        self.assertIn("Palestine held status.", user_prompt)
+        self.assertIn("Palestine received observer status.", user_prompt)
+        self.assertNotIn("ADDED 1", user_prompt)
+        self.assertNotIn("[[", user_prompt)
+        self.assertNotIn("AFFECTED SENTENCE", user_prompt)
 
-    def test_ungrounded_evidence_is_retried(self):
+    def test_ungrounded_evidence_uses_grounded_diff_fallback_without_retry(self):
         client = unittest.mock.Mock()
         invalid = revision_keywords.RevisionKeywords(
             edge_label="UN observer status",
@@ -372,21 +545,22 @@ class PromptTests(unittest.TestCase):
             added_keywords=["observer status"],
             removed_keywords=[],
             focus_keywords=["observer status", "UN", "vote", "resolution", "statehood"],
+            difference_lod=sample_difference_lod(),
         )
-        valid = invalid.model_copy(update={"evidence": ["observer status"]})
-        client.responses.parse.side_effect = [
-            unittest.mock.Mock(output_parsed=invalid, output_text=""),
-            unittest.mock.Mock(output_parsed=valid, output_text=""),
-        ]
+        client.responses.parse.return_value = unittest.mock.Mock(
+            output_parsed=invalid, output_text=""
+        )
 
         result = revision_keywords.request_keywords(
             client,
             "test-model",
             "ADDED 1: [[ observer status ]]",
+            previous_text="Palestine held status.",
+            current_text="Palestine received observer status.",
         )
 
         self.assertEqual(result["evidence"], ["observer status"])
-        self.assertEqual(client.responses.parse.call_count, 2)
+        self.assertEqual(client.responses.parse.call_count, 1)
 
     def test_label_focus_changes_cache_configuration(self):
         first = revision_keywords.diff_label_configuration_sha256(
@@ -397,6 +571,16 @@ class PromptTests(unittest.TestCase):
         )
 
         self.assertNotEqual(first, second)
+
+    def test_provider_changes_cache_configuration(self):
+        alternate = revision_keywords.diff_label_configuration_sha256(
+            "same-model", 500, "git", "histogram", 12, "UN status", "alternate"
+        )
+        openai = revision_keywords.diff_label_configuration_sha256(
+            "same-model", 500, "git", "histogram", 12, "UN status", "openai"
+        )
+
+        self.assertNotEqual(alternate, openai)
 
 
 class OpcodeGroupingTests(unittest.TestCase):
@@ -472,7 +656,7 @@ class OpcodeGroupingTests(unittest.TestCase):
 
 class SnapshotTests(unittest.TestCase):
     def test_snapshot_id_and_source_hash_are_stable_shapes(self):
-        self.assertEqual(revision_keywords.PIPELINE_SNAPSHOT_ID, "2026-08-16-v008")
+        self.assertEqual(revision_keywords.PIPELINE_SNAPSHOT_ID, "2026-08-21-v012")
         self.assertRegex(revision_keywords.source_tree_sha256(), r"^[0-9a-f]{64}$")
 
     def test_default_diff_limit_covers_measured_corpus_maximum(self):

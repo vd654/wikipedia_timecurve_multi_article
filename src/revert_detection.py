@@ -8,12 +8,15 @@ import xml.etree.ElementTree as ET
 
 from rapidfuzz.distance import Levenshtein
 
+from text_cleaning import affected_sentence_window, sentence_window_at_position
+
 EDIT_WAR_MAX_HOURS = 48.0
 EDIT_WAR_MAX_REVISION_GAP = 15
 EDIT_WAR_MIN_EVENTS = 3
 PARTIAL_REVERT_MIN_SCORE = 0.72
 PARTIAL_REVERT_MIN_MATCHED_TOKENS = 4
 PARTIAL_REVERT_MAX_EVIDENCE_CHARS = 360
+PARTIAL_REVERT_MAX_SENTENCE_CHARS = 2_000
 EDIT_WAR_DEFINITION = (
     "Ein Edit War liegt vor, wenn zwei oder mehr Nutzer abwechselnd die "
     "Änderungen der jeweils anderen Seite wieder rückgängig machen "
@@ -59,13 +62,32 @@ def _content_tokens(words: list[str]) -> list[str]:
     return tokens
 
 
-def _snippet(words: list[str]) -> str:
+def _snippet(
+    words: list[str], max_chars: int = PARTIAL_REVERT_MAX_EVIDENCE_CHARS
+) -> str:
     text = " ".join(words)
     text = re.sub(r"<!--.*?-->|<ref\b.*?</ref\s*>", " ", text, flags=re.I | re.S)
     text = re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]+)\]\]", r"\1", text)
     text = re.sub(r"[{}\[\]|'=]+", " ", text)
     text = re.sub(r"<[^>]+>|\s+", " ", text).strip()
-    return text[:PARTIAL_REVERT_MAX_EVIDENCE_CHARS].strip()
+    return text[:max_chars].strip()
+
+
+def _affected_sentence(
+    words: list[str], start: int, end: int
+) -> str:
+    """Return cleaned sentence context for a changed or zero-width span."""
+    if start < end:
+        window = affected_sentence_window(words, start, end)
+    else:
+        window = sentence_window_at_position(words, start)
+    if window is None:
+        return ""
+    sentence_start, sentence_end = window
+    return _snippet(
+        words[sentence_start:sentence_end],
+        max_chars=PARTIAL_REVERT_MAX_SENTENCE_CHARS,
+    )
 
 
 def build_change_signature(previous_text: str, current_text: str) -> dict:
@@ -87,6 +109,12 @@ def build_change_signature(previous_text: str, current_text: str) -> dict:
             "removed_tokens": removed_tokens,
             "added_text": _snippet(added_words),
             "removed_text": _snippet(removed_words),
+            "previous_sentence": _affected_sentence(
+                previous_words, opcode.src_start, opcode.src_end
+            ),
+            "current_sentence": _affected_sentence(
+                current_words, opcode.dest_start, opcode.dest_end
+            ),
         })
     return {"units": units}
 
@@ -207,6 +235,17 @@ def detect_sha1_reverts(revisions: list[dict]) -> list[dict]:
                 ))
                 if evidence:
                     event["conflict_passages"] = evidence
+                sentences = list(dict.fromkeys(
+                    text
+                    for unit in signature.get("units", [])
+                    for text in (
+                        unit.get("previous_sentence", ""),
+                        unit.get("current_sentence", ""),
+                    )
+                    if text
+                ))
+                if sentences:
+                    event["conflict_sentences"] = sentences
                 events.append(event)
 
         if sha1:
@@ -300,6 +339,15 @@ def detect_partial_text_reverts(
             )
             if text
         ))
+        sentences = list(dict.fromkeys(
+            text
+            for unit in (earlier_unit, later_unit)
+            for text in (
+                unit.get("previous_sentence", ""),
+                unit.get("current_sentence", ""),
+            )
+            if text
+        ))
         events.append({
             "revision_index": later_index,
             "revision_id": later["revision_id"],
@@ -315,6 +363,7 @@ def detect_partial_text_reverts(
             "reversal_score": score,
             "matched_content_token_count": matched,
             "conflict_passages": evidence,
+            "conflict_sentences": sentences,
             "involves_probable_bot": bool(
                 later.get("probable_bot") or earlier.get("probable_bot")
             ),
@@ -497,6 +546,12 @@ def detect_edit_war_sessions(
                 for passage in event.get("conflict_passages", [])
                 if passage
             ))
+            conflict_sentences = list(dict.fromkeys(
+                sentence
+                for event in session_events
+                for sentence in event.get("conflict_sentences", [])
+                if sentence
+            ))
             candidates.append({
                 "pair": list(pair),
                 "events": session_events,
@@ -514,6 +569,7 @@ def detect_edit_war_sessions(
                     event.get("reversal_score", 1.0) for event in session_events
                 ) / len(session_events)),
                 "conflict_passages": conflict_passages,
+                "conflict_sentences": conflict_sentences,
             })
 
     candidates.sort(key=lambda session: (
@@ -604,6 +660,9 @@ def analyze_reverts(history: list[dict], sampled: list[dict]) -> dict:
                 "conflict_passages": sessions_by_id[session_id][
                     "conflict_passages"
                 ],
+                "conflict_sentences": sessions_by_id[session_id].get(
+                    "conflict_sentences", []
+                ),
             }
             for session_id in interval_session_ids
         ]

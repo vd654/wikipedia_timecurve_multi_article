@@ -12,12 +12,17 @@ import math
 import re
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
-from openai import OpenAI
 from pydantic import BaseModel, Field
 
 from config import BASE_DIR, article_paths
+from llm_provider import (
+    DEFAULT_OPENAI_MODEL,
+    LLM_PROVIDER,
+    create_llm_client,
+    model_or_default,
+)
 from revert_detection import (
     analyze_reverts,
     history_window_for_points,
@@ -32,7 +37,7 @@ from revision_keywords import (
 )
 
 
-MODEL = "gpt-5.6-terra"
+MODEL = DEFAULT_OPENAI_MODEL
 SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-08-19-v049"
 
 # Line width is an event code, not a semantic-distance scale. A normal edge is
@@ -53,7 +58,7 @@ TRAJECTORY_WIDTH_ENCODING = {
     "semantic_jump_controls_width": False,
 }
 LABEL_SYSTEM_PROMPT = """You create concise map labels for a semantic revision trajectory.
-Use only the supplied direct-diff edge labels and their grounded evidence. Never add
+Use only the supplied full-revision comparison labels and their grounded evidence. Never add
 outside knowledge.
 The final visualization is a five-level pyramid: article, macro topic, cluster,
 chronological section, and consecutive revision edge. You are labeling cluster
@@ -64,7 +69,7 @@ Each label is an umbrella concept for its node, not a generic label such as
 words. Preserve meaningful names, institutions, places, events, and policies."""
 
 MACRO_LABEL_SYSTEM_PROMPT = """You create concise overview labels for a semantic map.
-Use only the supplied child cluster labels and grounded direct-diff evidence. Never add
+Use only the supplied child cluster labels and grounded full-revision comparison evidence. Never add
 outside knowledge. Each node combines several spatially adjacent HDBSCAN clusters and
 needs one broad umbrella concept that makes the map understandable before the user
 zooms into the individual clusters. Prefer two to five words. Preserve meaningful
@@ -118,6 +123,22 @@ def fallback_label(terms: list[str], default: str) -> str:
     return " · ".join(terms[:2])
 
 
+def prioritised_terms(
+    primary: str,
+    keyword_groups: Iterable[Iterable[str]],
+    limit: int,
+) -> list[str]:
+    """Keep the matching LOD label first, then add frequent grounded evidence."""
+    ranked = top_terms(keyword_groups, limit)
+    if not primary:
+        return ranked
+    primary = _normalise_term(primary)
+    primary_key = _term_key(primary)
+    return [primary] + [
+        term for term in ranked if _term_key(term) != primary_key
+    ][:max(0, limit - 1)]
+
+
 def edge_phrase(terms: Iterable[str], max_words: int = 4) -> str:
     """Return one intact grounded phrase suitable for a trajectory edge.
 
@@ -130,6 +151,28 @@ def edge_phrase(terms: Iterable[str], max_words: int = 4) -> str:
         phrase = _normalise_term(term)
         if phrase and 1 <= len(phrase.split()) <= max_words:
             return phrase
+    return ""
+
+
+NON_TOPICAL_EDGE_LABEL_KEYS = {
+    "identical article text",
+    "no cleaned text change",
+    "no content change",
+    "no content difference",
+    "no substantive difference",
+}
+
+
+def parent_topic_label(label: str) -> str:
+    """Exclude neutral transitions from higher-level thematic aggregation."""
+    return "" if _term_key(label) in NON_TOPICAL_EDGE_LABEL_KEYS else label
+
+
+def difference_lod_label(pair: dict, level: int) -> str:
+    """Return one validated per-transition LOD label when present."""
+    for item in pair.get("difference_lod", []):
+        if int(item.get("level", -1)) == level:
+            return edge_phrase([item.get("label", "")])
     return ""
 
 
@@ -288,8 +331,14 @@ def build_hierarchy(
         x = (float(previous["mds"][0]) + float(current["mds"][0])) / 2
         y = (float(previous["mds"][1]) + float(current["mds"][1])) / 2
         direct_label = edge_phrase([pair.get("edge_label", "")])
+        thematic_label = parent_topic_label(direct_label)
+        lod_labels = {
+            level: difference_lod_label(pair, level)
+            for level in range(1, 6)
+        }
         terms = top_terms([
-            [direct_label] if direct_label else [],
+            [thematic_label] if thematic_label else [],
+            [lod_labels[5]] if lod_labels[5] else [],
             pair.get("evidence", []),
             pair.get("focus_keywords", []),
             pair.get("added_keywords", []),
@@ -300,12 +349,13 @@ def build_hierarchy(
         # A trajectory edge carries exactly one intact grounded phrase. A
         # phrase may contain up to four words (for example "UN General
         # Assembly"), but separate candidates are never combined.
-        label = direct_label or edge_phrase(terms)
+        if added == 0 and removed == 0:
+            label = "No cleaned-text change"
+        else:
+            label = direct_label or edge_phrase(terms)
         if not label:
             label = (
-                "No cleaned-text change"
-                if added == 0 and removed == 0
-                else "Unspecified text change"
+                "Unspecified text change"
             )
         edges.append({
             "node_id": f"edge-{index + 1}",
@@ -315,11 +365,31 @@ def build_hierarchy(
             "label": label,
             "short_label": label,
             "terms": terms,
+            "difference_lod": pair.get("difference_lod", []),
+            "section_terms": prioritised_terms(lod_labels[4], [
+                [lod_labels[5]] if lod_labels[5] else [],
+                [thematic_label] if thematic_label else [],
+                pair.get("focus_keywords", []),
+                pair.get("evidence", []),
+            ], 6),
+            "cluster_terms": prioritised_terms(lod_labels[3], [
+                [lod_labels[4]] if lod_labels[4] else [],
+                [thematic_label] if thematic_label else [],
+                pair.get("focus_keywords", []),
+            ], 6),
+            "macro_terms": prioritised_terms(lod_labels[2], [
+                [lod_labels[1]] if lod_labels[1] else [],
+                [thematic_label] if thematic_label else [],
+                pair.get("focus_keywords", []),
+            ], 6),
             "evidence": pair.get("evidence", []),
             "change_type": pair.get("change_type", "legacy_keyword_fallback"),
             "label_confidence": pair.get("confidence"),
             "conflict_description": pair.get("conflict_description", ""),
-            "label_source": "direct_diff_llm" if direct_label else "legacy_keyword_fallback",
+            "label_source": (
+                "full_revision_lod_llm" if direct_label
+                else "legacy_keyword_fallback"
+            ),
             "count_text": count_text,
             "added_words": added,
             "removed_words": removed,
@@ -345,7 +415,9 @@ def build_hierarchy(
             continue
         node_id = f"section-{run_number}"
         x, y = _mean_xy(points, range(run["start"], run["end"]))
-        terms = top_terms((edges[index]["terms"] for index in edge_indices), 12)
+        terms = top_terms(
+            (edges[index]["section_terms"] for index in edge_indices), 12
+        )
         if not terms:
             continue
         sections.append({
@@ -378,7 +450,12 @@ def build_hierarchy(
             if int(points[index + 1]["cluster_id"]) == cluster_id
         ]
         x, y = _mean_xy(points, indices)
-        terms = top_terms((edges[index]["terms"] for index in related_edges), 16)
+        terms = top_terms(
+            (edges[index]["cluster_terms"] for index in related_edges), 16
+        )
+        macro_terms = top_terms(
+            (edges[index]["macro_terms"] for index in related_edges), 16
+        )
         clusters.append({
             "node_id": node_id,
             "level": "cluster",
@@ -388,6 +465,7 @@ def build_hierarchy(
             "y": y,
             "label": fallback_label(terms, ""),
             "terms": terms,
+            "macro_terms": macro_terms or terms,
             "point_indices": indices,
             "revision_count": len(indices),
             "importance": len(indices) * (
@@ -427,7 +505,7 @@ def build_hierarchy(
         y = sum(
             float(child["y"]) * int(child["revision_count"]) for child in children
         ) / revision_count
-        terms = top_terms((child["terms"] for child in children), 20)
+        terms = top_terms((child["macro_terms"] for child in children), 20)
         macro_id = f"macro-{macro_number}"
         macros.append({
             "node_id": macro_id,
@@ -559,7 +637,7 @@ def format_label_pyramid(hierarchy: dict) -> str:
 
 
 def generate_labels(
-    client: OpenAI,
+    client: Any,
     model: str,
     nodes: list[dict],
     batch_size: int = 16,
@@ -613,6 +691,7 @@ def cached_llm_labels(
     projection_path: Path,
     keywords_path: Path,
     model: str,
+    provider: str = LLM_PROVIDER,
 ) -> dict[str, str]:
     """Reuse already generated offline labels for unchanged hierarchy nodes."""
     if not labels_path.exists():
@@ -621,6 +700,7 @@ def cached_llm_labels(
     if (
         Path(payload.get("projection", "")) != projection_path
         or Path(payload.get("revision_keywords", "")) != keywords_path
+        or payload.get("llm_provider") != provider
         or payload.get("model") != model
         or payload.get("label_system_prompt") != LABEL_SYSTEM_PROMPT
     ):
@@ -640,6 +720,7 @@ def cached_macro_labels(
     keywords_path: Path,
     model: str,
     macros: list[dict],
+    provider: str = LLM_PROVIDER,
 ) -> dict[str, str]:
     """Reuse macro labels only when their spatial memberships are unchanged."""
     if not labels_path.exists():
@@ -648,6 +729,7 @@ def cached_macro_labels(
     if (
         Path(payload.get("projection", "")) != projection_path
         or Path(payload.get("revision_keywords", "")) != keywords_path
+        or payload.get("llm_provider") != provider
         or payload.get("model") != model
         or payload.get("macro_label_system_prompt") != MACRO_LABEL_SYSTEM_PROMPT
     ):
@@ -996,12 +1078,101 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
     cluster_ids = sorted({row["cluster_id"] for row in point_rows})
     hull_rows = cluster_hull_rows(point_rows)
     macro_rows = macro_hull_rows(point_rows)
+    hierarchy_nodes = (
+        hierarchy.get("macros", []) + hierarchy["clusters"]
+        + hierarchy["sections"] + hierarchy["edges"]
+    )
+    node_by_id = {
+        str(node["node_id"]): node for node in hierarchy_nodes
+    }
+    root_node = hierarchy["roots"][0]
+
+    def fixed_parent_placement(node: dict) -> dict:
+        """Choose one deterministic placement towards the parent centre.
+
+        The rendered label may disappear when this position is occupied, but
+        it must never search another side of its anchor while zooming or
+        panning.
+        """
+        level = str(node["level"])
+        if level == "root":
+            return {
+                "label_dx": 0,
+                "label_dy": 0,
+                "label_align": "center",
+                "label_baseline": "middle",
+            }
+        parent = node_by_id.get(str(node.get("parent_id", "")), root_node)
+        # Point towards the parent centre: peripheral labels then extend into
+        # the available map interior rather than beyond the viewport edge.
+        dx = float(parent["x"]) - float(node["x"])
+        dy = float(parent["y"]) - float(node["y"])
+        offset = {
+            "macro": 16,
+            "cluster": 14,
+            "section": 12,
+            "endpoint": 14,
+        }.get(level, 12)
+        if abs(dx) < 1e-18 and abs(dy) < 1e-18:
+            direction = sum(
+                (index + 1) * ord(character)
+                for index, character in enumerate(str(node["node_id"]))
+            ) % 4
+            dx, dy = ((1, 0), (0, 1), (-1, 0), (0, -1))[direction]
+        if abs(dx) >= abs(dy):
+            right = dx >= 0
+            return {
+                "label_dx": offset if right else -offset,
+                "label_dy": 0,
+                "label_align": "left" if right else "right",
+                "label_baseline": "middle",
+            }
+        below = dy >= 0
+        return {
+            "label_dx": 0,
+            "label_dy": offset if below else -offset,
+            "label_align": "center",
+            "label_baseline": "top" if below else "bottom",
+        }
+
+    def label_ancestor_ids(node: dict) -> list[str]:
+        ancestors: list[str] = []
+        parent_id = str(node.get("parent_id") or "")
+        while parent_id:
+            ancestors.append(parent_id)
+            parent = node_by_id.get(parent_id)
+            if parent is None:
+                break
+            parent_id = str(parent.get("parent_id") or "")
+        return ancestors
+
+    def duplicates_ancestor_label(node: dict) -> bool:
+        """Suppress a child whose label repeats or nearly repeats an ancestor."""
+        if node.get("level") == "edge":
+            return False
+        label_key = _term_key(node.get("label", ""))
+        label_terms = set(label_key.split())
+        parent_id = str(node.get("parent_id", ""))
+        while label_key and parent_id in node_by_id:
+            parent = node_by_id[parent_id]
+            parent_key = _term_key(parent.get("label", ""))
+            parent_terms = set(parent_key.split())
+            shared_fraction = (
+                len(label_terms & parent_terms)
+                / max(1, min(len(label_terms), len(parent_terms)))
+            )
+            if parent_key == label_key or shared_fraction >= 0.75:
+                return True
+            parent_id = str(parent.get("parent_id", ""))
+        return False
+
     detail_labels = [
-        node for node in (
-            hierarchy.get("macros", []) + hierarchy["clusters"]
-            + hierarchy["sections"] + hierarchy["edges"]
-        ) if node["label"] and (
-            node["level"] != "edge" or node["node_id"] in edge_label_winner_ids
+        node for node in hierarchy_nodes
+        if node["label"]
+        and not duplicates_ancestor_label(node)
+        and (
+            node["level"] != "edge"
+            or node["node_id"] in edge_label_winner_ids
         )
     ]
     label_rows = [
@@ -1018,8 +1189,21 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 if node.get("cluster_id") is not None
                 else "#25322a"
             ),
+            # Once a semantic level is unlocked by zoom, its more specific
+            # labels are placed before their ancestors. An ancestor remains a
+            # candidate and therefore acts as a fallback whenever no child can
+            # be placed without collision.
+            "level_priority": {
+                "macro": 1,
+                "cluster": 2,
+                "section": 3,
+                "edge": 4,
+            }[node["level"]],
             "importance": node["importance"],
             "revision_count": node.get("revision_count"),
+            "parent_id": node.get("parent_id"),
+            "ancestor_ids": label_ancestor_ids(node),
+            **fixed_parent_placement(node),
             "edge_x": (
                 point_rows[node["pair_index"]]["x"]
                 if node["level"] == "edge" else None
@@ -1041,6 +1225,22 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
     ]
     label_rows.extend([
         {
+            "node_id": "root",
+            "level": "root",
+            "x": hierarchy["roots"][0]["x"],
+            "y": hierarchy["roots"][0]["y"],
+            "label": hierarchy["roots"][0]["label"],
+            "display_label": hierarchy["roots"][0]["label"],
+            "cluster_id": None,
+            "label_colour": "#151915",
+            "level_priority": 0,
+            "importance": hierarchy["roots"][0]["importance"],
+            "revision_count": hierarchy["roots"][0]["revision_count"],
+            "parent_id": None,
+            "ancestor_ids": [],
+            **fixed_parent_placement(hierarchy["roots"][0]),
+        },
+        {
             "node_id": "trajectory-start",
             "level": "endpoint",
             "x": point_rows[0]["x"],
@@ -1049,8 +1249,18 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             "display_label": "Start",
             "cluster_id": point_rows[0]["cluster_id"],
             "label_colour": "#263029",
+            "level_priority": 5,
             "importance": 1e12,
             "revision_count": 1,
+            "parent_id": "root",
+            "ancestor_ids": ["root"],
+            **fixed_parent_placement({
+                "node_id": "trajectory-start",
+                "level": "endpoint",
+                "x": point_rows[0]["x"],
+                "y": point_rows[0]["y"],
+                "parent_id": "root",
+            }),
         },
         {
             "node_id": "trajectory-end",
@@ -1061,16 +1271,20 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             "display_label": "Ende",
             "cluster_id": point_rows[-1]["cluster_id"],
             "label_colour": "#263029",
+            "level_priority": 5,
             "importance": 1e12,
             "revision_count": 1,
+            "parent_id": "root",
+            "ancestor_ids": ["root"],
+            **fixed_parent_placement({
+                "node_id": "trajectory-end",
+                "level": "endpoint",
+                "x": point_rows[-1]["x"],
+                "y": point_rows[-1]["y"],
+                "parent_id": "root",
+            }),
         },
     ])
-    root_row = {
-        "x": hierarchy["roots"][0]["x"],
-        "y": hierarchy["roots"][0]["y"],
-        "label": hierarchy["roots"][0]["label"],
-        "revision_count": hierarchy["roots"][0]["revision_count"],
-    }
     return {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
         "description": f"Semantic zoom revision timecurve for {article}",
@@ -1118,12 +1332,27 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             ]},
             {"name": "zoomLevel", "update": "max(0, log((xext[1]-xext[0])/(xdom[1]-xdom[0]))/log(2))"},
             {"name": "semanticLayer", "update": "zoomLevel < 0.7 ? 'root' : zoomLevel < 2.15 ? 'macro' : zoomLevel < 3.45 ? 'cluster' : zoomLevel < 4.4 ? 'section' : 'edge'"},
+            {"name": "macroBlendRaw", "update": "min(1,max(0,(zoomLevel-0.55)/0.30))"},
+            {"name": "macroBlend", "update": "macroBlendRaw*macroBlendRaw*(3-2*macroBlendRaw)"},
+            {"name": "clusterBlendRaw", "update": "min(1,max(0,(zoomLevel-1.95)/0.35))"},
+            {"name": "clusterBlend", "update": "clusterBlendRaw*clusterBlendRaw*(3-2*clusterBlendRaw)"},
+            {"name": "sectionBlendRaw", "update": "min(1,max(0,(zoomLevel-3.25)/0.40))"},
+            {"name": "sectionBlend", "update": "sectionBlendRaw*sectionBlendRaw*(3-2*sectionBlendRaw)"},
+            {"name": "edgeBlendRaw", "update": "min(1,max(0,(zoomLevel-4.20)/0.40))"},
+            {"name": "edgeBlend", "update": "edgeBlendRaw*edgeBlendRaw*(3-2*edgeBlendRaw)"},
             # Filled from the actually rendered label marks by render_html().
             # A large sort bonus keeps previously visible labels stable across
             # small zoom and pan changes without changing the LOD hierarchy.
             {"name": "stableParentLabelIds", "value": []},
             {"name": "stableEdgeLabelIds", "value": []},
-            {"name": "rootOpacity", "update": "semanticLayer==='root' ? 1 : 0"},
+            # Filled by a post-render Canvas-bounds audit. Labels have one
+            # fixed anchor position; these signals hide a label when that
+            # position collides instead of searching another side.
+            {"name": "blockedParentLabelIds", "value": []},
+            {"name": "blockedEdgeLabelIds", "value": []},
+            # Ancestor replacement is a soft LOD fade. Geometric collisions
+            # stay separate so the lower-priority label vanishes immediately.
+            {"name": "coveredParentLabelIds", "value": []},
             {"name": "macroOpacity", "update": "semanticLayer==='macro' ? 1 : 0"},
             {"name": "clusterOpacity", "update": "semanticLayer==='cluster' ? 1 : 0"},
             {"name": "sectionOpacity", "update": "semanticLayer==='section' ? 1 : 0"},
@@ -1144,27 +1373,23 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             {"name": "intraClusterEdges", "source": "edges", "transform": [
                 {"type": "filter", "expr": "datum.same_cluster"},
             ]},
-            {"name": "rootNode", "values": [root_row]},
             {"name": "labels", "values": label_rows},
             {"name": "macroHulls", "values": macro_rows},
             {"name": "clusterHulls", "values": hull_rows},
-            {"name": "visibleMacroLabels", "source": "labels", "transform": [
-                {"type": "filter", "expr": "!zooming && !down && datum.level==='macro' && macroOpacity>0.03"},
-                {"type": "filter", "expr": "datum.x >= min(xdom[0], xdom[1]) && datum.x <= max(xdom[0], xdom[1]) && datum.y >= min(ydom[0], ydom[1]) && datum.y <= max(ydom[0], ydom[1])"},
-                {"type": "formula", "as": "placementOrder", "expr": "-(datum.importance + (indexof(stableParentLabelIds, datum.node_id)>=0 ? 1e15 : 0))"},
-                {"type": "collect", "sort": {"field": "placementOrder", "order": "ascending"}},
-            ]},
             {"name": "visibleParentLabels", "source": "labels", "transform": [
-                {"type": "filter", "expr": "!zooming && !down"},
-                {"type": "filter", "expr": "(datum.level==='endpoint' && macroOpacity>0.03) || (datum.level==='cluster' && clusterOpacity>0.03) || (datum.level==='section' && sectionOpacity>0.03)"},
+                {"type": "filter", "expr": "datum.level==='root' || datum.level==='macro' || datum.level==='endpoint' || datum.level==='cluster' || datum.level==='section'"},
+                {"type": "filter", "expr": "datum.level==='root' || datum.level==='endpoint' || (datum.level==='macro' && zoomLevel>=0.45) || (datum.level==='cluster' && zoomLevel>=1.75) || (datum.level==='section' && zoomLevel>=3.05)"},
                 {"type": "filter", "expr": "datum.x >= min(xdom[0], xdom[1]) && datum.x <= max(xdom[0], xdom[1]) && datum.y >= min(ydom[0], ydom[1]) && datum.y <= max(ydom[0], ydom[1])"},
-                {"type": "formula", "as": "placementOrder", "expr": "-(datum.importance + (indexof(stableParentLabelIds, datum.node_id)>=0 ? 1e15 : 0))"},
+                {"type": "filter", "expr": "datum.level!=='root' || (scale('xscale', datum.x) >= 95 && scale('xscale', datum.x) <= width-95 && scale('yscale', datum.y) >= 24 && scale('yscale', datum.y) <= height-24)"},
+                {"type": "formula", "as": "placementOrder", "expr": "-(datum.level_priority*1e15 + (indexof(stableParentLabelIds, datum.node_id)>=0 ? 1e14 : 0) + datum.importance)"},
                 {"type": "collect", "sort": {"field": "placementOrder", "order": "ascending"}},
             ]},
             {"name": "visibleEdgeLabels", "source": "labels", "transform": [
-                {"type": "filter", "expr": "!zooming && !down && datum.level==='edge' && edgeOpacity>0.03"},
+                {"type": "filter", "expr": "datum.level==='edge'"},
+                {"type": "filter", "expr": "zoomLevel>=4.0"},
                 {"type": "filter", "expr": "datum.x >= min(xdom[0], xdom[1]) && datum.x <= max(xdom[0], xdom[1]) && datum.y >= min(ydom[0], ydom[1]) && datum.y <= max(ydom[0], ydom[1])"},
-                {"type": "formula", "as": "placementOrder", "expr": "-(datum.importance + (indexof(stableEdgeLabelIds, datum.node_id)>=0 ? 1e15 : 0))"},
+                {"type": "filter", "expr": "sqrt(pow(scale('xscale', datum.edge_x2)-scale('xscale', datum.edge_x), 2) + pow(scale('yscale', datum.edge_y2)-scale('yscale', datum.edge_y), 2)) >= max(64, length(datum.display_label)*7.6 + 26)"},
+                {"type": "formula", "as": "placementOrder", "expr": "-(datum.level_priority*1e15 + (indexof(stableEdgeLabelIds, datum.node_id)>=0 ? 1e14 : 0) + datum.importance)"},
                 {"type": "collect", "sort": {"field": "placementOrder", "order": "ascending"}},
             ]},
         ],
@@ -1304,77 +1529,27 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 }}
             },
             {
-                "name": "macroLabelAnchors", "type": "symbol", "from": {"data": "visibleMacroLabels"},
-                "encode": {"update": {
-                    "x": {"scale": "xscale", "field": "x"}, "y": {"scale": "yscale", "field": "y"},
-                    "size": {"value": 1},
-                    "fillOpacity": {"value": 0}, "strokeOpacity": {"value": 0}
-                }}
-            },
-            {
-                "name": "macroLabels", "type": "text",
-                "key": "datum.node_id",
-                "zindex": 3,
-                "from": {"data": "macroLabelAnchors"},
-                "transform": [
-                    {"type": "label", "anchor": ["middle"], "offset": [0], "padding": 3, "avoidBaseMark": False, "sort": {"field": "datum.placementOrder"}, "size": {"signal": "[width, height]"}},
-                ],
-                "encode": {"update": {
-                    "text": {"field": "datum.display_label"},
-                    "align": {"value": "center"},
-                    "baseline": {"value": "middle"},
-                    "fill": {"field": "datum.label_colour"},
-                    "font": {"value": "Inter, Arial, sans-serif"},
-                    "fontSize": {"value": 19},
-                    "fontWeight": {"value": 700},
-                }}
-            },
-            {
-                "name": "macroLabelHalos", "type": "text",
-                "key": "datum.datum.node_id",
-                "zindex": 2,
-                "from": {"data": "macroLabels"},
-                "encode": {"update": {
-                    "text": {"field": "text"},
-                    "x": {"field": "x"}, "y": {"field": "y"},
-                    "align": {"field": "align"},
-                    "baseline": {"field": "baseline"},
-                    "opacity": {"field": "opacity"},
-                    "stroke": {"value": "#fbfaf7"},
-                    "strokeWidth": {"value": 4},
-                    "strokeOpacity": {"value": 0.94},
-                    "font": {"field": "font"},
-                    "fontSize": {"field": "fontSize"},
-                    "fontWeight": {"field": "fontWeight"},
-                }}
-            },
-            {
-                "name": "semanticLabelAnchors", "type": "symbol", "from": {"data": "visibleParentLabels"},
-                "encode": {"update": {
-                    "x": {"scale": "xscale", "field": "x"}, "y": {"scale": "yscale", "field": "y"},
-                    "size": {"value": 1},
-                    "fillOpacity": {"value": 0}, "strokeOpacity": {"value": 0}
-                }}
-            },
-            {
                 "name": "semanticLabels", "type": "text",
-                "key": "datum.node_id",
+                "key": "node_id",
                 "zindex": 3,
-                "from": {"data": "semanticLabelAnchors"},
-                "transform": [
-                    {"type": "label", "anchor": ["top", "bottom", "right", "left", "top-right", "top-left", "bottom-right", "bottom-left"], "offset": [9, 9, 10, 10, 12, 12, 12, 12], "padding": 3, "avoidBaseMark": False, "avoidMarks": ["revisionPoints", "macroLabels"], "sort": {"field": "datum.placementOrder"}, "size": {"signal": "[width, height]"}},
-                ],
+                "from": {"data": "visibleParentLabels"},
                 "encode": {"update": {
-                    "text": {"field": "datum.display_label"},
-                    "fill": {"field": "datum.label_colour"},
+                    "text": {"field": "display_label"},
+                    "x": {"signal": "scale('xscale', datum.x) + datum.label_dx"},
+                    "y": {"signal": "scale('yscale', datum.y) + datum.label_dy"},
+                    "align": {"field": "label_align"},
+                    "baseline": {"field": "label_baseline"},
+                    "opacity": {"signal": "indexof(coveredParentLabelIds, datum.node_id)>=0 ? 0 : datum.level==='macro' ? macroBlend : datum.level==='cluster' ? clusterBlend : datum.level==='section' ? sectionBlend : 1"},
+                    "fillOpacity": {"signal": "indexof(blockedParentLabelIds, datum.node_id)>=0 ? 0 : 1"},
+                    "fill": {"field": "label_colour"},
                     "font": {"value": "Inter, Arial, sans-serif"},
-                    "fontSize": {"signal": "datum.datum.level==='cluster' ? 16 : 14"},
+                    "fontSize": {"signal": "datum.level==='root' ? 28 : datum.level==='macro' ? 19 : datum.level==='cluster' ? 16 : 14"},
                     "fontWeight": {"value": 700},
                 }}
             },
             {
                 "name": "semanticLabelHalos", "type": "text",
-                "key": "datum.datum.node_id",
+                "key": "node_id",
                 "zindex": 2,
                 "from": {"data": "semanticLabels"},
                 "encode": {"update": {
@@ -1383,45 +1558,37 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                     "align": {"field": "align"},
                     "baseline": {"field": "baseline"},
                     "opacity": {"field": "opacity"},
+                    "fillOpacity": {"value": 0},
                     "stroke": {"value": "#fbfaf7"},
                     "strokeWidth": {"value": 4},
-                    "strokeOpacity": {"value": 0.94},
+                    "strokeOpacity": {"signal": "datum.fillOpacity===0 ? 0 : 0.94"},
                     "font": {"field": "font"},
                     "fontSize": {"field": "fontSize"},
                     "fontWeight": {"field": "fontWeight"},
                 }}
             },
             {
-                "name": "edgeLabelAnchors", "type": "symbol",
+                "name": "edgeLabels", "type": "text",
                 "key": "node_id",
+                "zindex": 7,
                 "from": {"data": "visibleEdgeLabels"},
                 "encode": {"update": {
+                    "text": {"field": "label"},
                     "x": {"signal": "scale('xscale', datum.x) - 9 * (scale('yscale', datum.edge_y2) - scale('yscale', datum.edge_y)) / max(sqrt(pow(scale('xscale', datum.edge_x2) - scale('xscale', datum.edge_x), 2) + pow(scale('yscale', datum.edge_y2) - scale('yscale', datum.edge_y), 2)), 1)"},
                     "y": {"signal": "scale('yscale', datum.y) + 9 * (scale('xscale', datum.edge_x2) - scale('xscale', datum.edge_x)) / max(sqrt(pow(scale('xscale', datum.edge_x2) - scale('xscale', datum.edge_x), 2) + pow(scale('yscale', datum.edge_y2) - scale('yscale', datum.edge_y), 2)), 1)"},
-                    "size": {"value": 1},
-                    "fillOpacity": {"value": 0}, "strokeOpacity": {"value": 0}
-                }}
-            },
-            {
-                "name": "edgeLabels", "type": "text",
-                "key": "datum.node_id",
-                "zindex": 7,
-                "from": {"data": "edgeLabelAnchors"},
-                "transform": [
-                    {"type": "label", "anchor": ["middle"], "offset": [0], "padding": 5, "avoidBaseMark": False, "avoidMarks": ["revisionPoints", "macroLabels", "semanticLabels"], "sort": {"field": "datum.placementOrder"}, "size": {"signal": "[width, height]"}},
-                ],
-                "encode": {"update": {
-                    "text": {"field": "datum.label"}, "align": {"value": "center"},
+                    "align": {"value": "center"},
                     "baseline": {"value": "middle"},
                     "font": {"value": "Inter, Arial, sans-serif"},
-                    "fontSize": {"value": 11}, "fontWeight": {"value": 700},
+                    "fontSize": {"value": 12}, "fontWeight": {"value": 700},
+                    "opacity": {"signal": "edgeBlend"},
+                    "fillOpacity": {"signal": "indexof(blockedEdgeLabelIds, datum.node_id)>=0 ? 0 : 1"},
                     "limit": {"value": 280},
                     "fill": {"value": "#4f5750"},
                 }}
             },
             {
                 "name": "edgeLabelHalos", "type": "text",
-                "key": "datum.datum.node_id",
+                "key": "node_id",
                 "zindex": 6,
                 "from": {"data": "edgeLabels"},
                 "encode": {"update": {
@@ -1433,24 +1600,10 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                     "fillOpacity": {"value": 0},
                     "stroke": {"value": "#fbfaf7"},
                     "strokeWidth": {"value": 4},
-                    "strokeOpacity": {"value": 0.96},
+                    "strokeOpacity": {"signal": "datum.fillOpacity===0 ? 0 : 0.96"},
                     "font": {"field": "font"},
                     "fontSize": {"field": "fontSize"},
                     "fontWeight": {"field": "fontWeight"},
-                }}
-            },
-            {
-                "name": "rootLabel", "type": "text", "from": {"data": "rootNode"},
-                "encode": {"enter": {
-                    "text": {"field": "label"}, "align": {"value": "center"},
-                    "baseline": {"value": "middle"},
-                    "font": {"value": "Inter, Arial, sans-serif"},
-                    "fontSize": {"value": 28}, "fontWeight": {"value": 700},
-                    "fill": {"value": "#151915"}
-                }, "update": {
-                    "x": {"scale": "xscale", "field": "x"},
-                    "y": {"scale": "yscale", "field": "y"},
-                    "opacity": {"signal": "rootOpacity"},
                 }}
             },
         ],
@@ -1486,7 +1639,10 @@ html,body{{height:100%;margin:0;background:#fbfaf7;color:#151915;font-family:Int
 #topbar{{padding:14px 20px 8px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}}
 #topbar h1{{font-size:20px;line-height:1.2;font-weight:700;margin:0}}
 #content{{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 250px;border-top:1px solid #e2e5df}}
-#vis{{flex:1;min-width:0;min-height:0}}canvas{{cursor:grab}}canvas:active{{cursor:grabbing}}
+#vis{{flex:1;min-width:0;min-height:0}}
+#vis svg{{cursor:grab}}
+#vis svg:active{{cursor:grabbing}}
+#vis svg text{{transition:opacity 220ms cubic-bezier(.4,0,.2,1)}}
 #legend{{min-width:0;overflow:auto;border-left:1px solid #d9ddd6;padding:16px 16px 22px;background:#f7f6f2;box-sizing:border-box}}
 #legend h2{{font-size:17px;margin:0 0 15px}}
 #legend h3{{font-size:12px;line-height:1.2;letter-spacing:.06em;text-transform:uppercase;color:#687068;margin:18px 0 9px}}
@@ -1524,49 +1680,218 @@ html,body{{height:100%;margin:0;background:#fbfaf7;color:#151915;font-family:Int
 const spec={encoded};
 const handler=new vegaTooltip.Handler({{theme:'light'}});
 const vis=document.getElementById('vis');
-const view=new vega.View(vega.parse(spec),{{renderer:'canvas',hover:true}})
+const view=new vega.View(vega.parse(spec),{{renderer:'svg',hover:true}})
   .initialize(vis).tooltip(handler.call);
 let resizeFrame=0;
 let stabilityTimer=0;
 let stabilitySyncing=false;
+let stabilityPending=false;
 let lastWidth=0;
 let lastHeight=0;
+const detailChildThreshold=2;
 function sameIds(first,second){{
   return first.length===second.length&&first.every((value,index)=>value===second[index]);
 }}
-function renderedLabelIds(markName){{
-  const ids=new Set();
+function levelIsActive(level){{
+  if(level==='macro')return view.signal('macroBlend')>0.001;
+  if(level==='cluster')return view.signal('clusterBlend')>0.001;
+  if(level==='section')return view.signal('sectionBlend')>0.001;
+  if(level==='edge')return view.signal('edgeBlend')>0.001;
+  return true;
+}}
+function renderedLabelItems(mode,...markNames){{
+  const names=new Set(markNames);
+  const blockedParents=new Set(view.signal('blockedParentLabelIds')||[]);
+  const blockedEdges=new Set(view.signal('blockedEdgeLabelIds')||[]);
+  const coveredParents=new Set(view.signal('coveredParentLabelIds')||[]);
+  const items=new Map();
   function visit(item){{
     if(!item)return;
-    if(item.mark&&item.mark.name===markName&&item.opacity!==0&&Number.isFinite(item.x)&&Number.isFinite(item.y)){{
+    if(item.mark&&names.has(item.mark.name)&&item.bounds){{
       const datum=item.datum&&item.datum.datum?item.datum.datum:item.datum;
-      if(datum&&datum.node_id)ids.add(String(datum.node_id));
+      const bounds=item.bounds;
+      if(datum&&datum.node_id&&
+         Number.isFinite(bounds.x1)&&Number.isFinite(bounds.y1)&&
+         Number.isFinite(bounds.x2)&&Number.isFinite(bounds.y2)){{
+        const kind=item.mark.name==='edgeLabels'?'edge':'parent';
+        const id=String(datum.node_id);
+        const level=String(datum.level||'');
+        const collisionBlocked=kind==='parent'
+          ? blockedParents.has(id)
+          : blockedEdges.has(id);
+        const hierarchyCovered=kind==='parent'&&coveredParents.has(id);
+        const include=levelIsActive(level)&&(
+          mode==='collision' ? !hierarchyCovered :
+          mode==='hierarchy' ? !collisionBlocked :
+          !collisionBlocked&&!hierarchyCovered
+        );
+        if(!include){{
+          if(Array.isArray(item.items))item.items.forEach(visit);
+          return;
+        }}
+        items.set(`${{kind}}:${{id}}`,{{
+          id,
+          kind,
+          level,
+          parentId:datum.parent_id==null?'':String(datum.parent_id),
+          ancestorIds:Array.isArray(datum.ancestor_ids)
+            ? datum.ancestor_ids.map(String)
+            : [],
+          priority:Number(datum.level_priority)||0,
+          importance:Number(datum.importance)||0,
+          x1:bounds.x1,
+          y1:bounds.y1,
+          x2:bounds.x2,
+          y2:bounds.y2
+        }});
+      }}
     }}
     if(Array.isArray(item.items))item.items.forEach(visit);
   }}
   visit(view.scenegraph().root);
-  return Array.from(ids).sort();
+  return Array.from(items.values());
+}}
+function renderedLabelIds(...markNames){{
+  return renderedLabelItems('visible',...markNames)
+    .map(item=>item.id)
+    .sort();
+}}
+const labelCollisionPadding=6;
+function boxesOverlap(first,second,padding=labelCollisionPadding){{
+  return first.x1-padding<=second.x2+padding&&
+    first.x2+padding>=second.x1-padding&&
+    first.y1-padding<=second.y2+padding&&
+    first.y2+padding>=second.y1-padding;
+}}
+function outsideViewport(candidate,padding=4){{
+  return candidate.x1-padding<0||candidate.y1-padding<0||
+    candidate.x2+padding>view.width()||candidate.y2+padding>view.height();
+}}
+function collisionBlocks(){{
+  const stableParents=new Set(view.signal('stableParentLabelIds')||[]);
+  const stableEdges=new Set(view.signal('stableEdgeLabelIds')||[]);
+  const candidates=[
+    ...renderedLabelItems('collision','semanticLabels'),
+    ...renderedLabelItems('collision','edgeLabels')
+  ];
+  candidates.sort((first,second)=>{{
+    const priorityDifference=second.priority-first.priority;
+    if(priorityDifference)return priorityDifference;
+    const firstStable=first.kind==='parent'?stableParents.has(first.id):stableEdges.has(first.id);
+    const secondStable=second.kind==='parent'?stableParents.has(second.id):stableEdges.has(second.id);
+    if(firstStable!==secondStable)return secondStable-firstStable;
+    const importanceDifference=second.importance-first.importance;
+    if(importanceDifference)return importanceDifference;
+    return `${{first.kind}}:${{first.id}}`.localeCompare(`${{second.kind}}:${{second.id}}`);
+  }});
+  const kept=[];
+  const blockedParents=[];
+  const blockedEdges=[];
+  for(const candidate of candidates){{
+    if(outsideViewport(candidate)||kept.some(other=>boxesOverlap(candidate,other))){{
+      (candidate.kind==='parent'?blockedParents:blockedEdges).push(candidate.id);
+    }}else{{
+      kept.push(candidate);
+    }}
+  }}
+  return {{
+    parentIds:Array.from(new Set(blockedParents)).sort(),
+    edgeIds:Array.from(new Set(blockedEdges)).sort()
+  }};
+}}
+function hierarchyParentBlocks(){{
+  const visible=[
+    ...renderedLabelItems('hierarchy','semanticLabels'),
+    ...renderedLabelItems('hierarchy','edgeLabels')
+  ];
+  const visibleIds=new Set(visible.map(item=>item.id));
+  const detailedDescendantCounts=new Map();
+  for(const child of visible){{
+    if(child.level==='endpoint')continue;
+    for(const ancestorId of child.ancestorIds){{
+      if(!visibleIds.has(ancestorId))continue;
+      detailedDescendantCounts.set(
+        ancestorId,
+        (detailedDescendantCounts.get(ancestorId)||0)+1
+      );
+    }}
+  }}
+  return Array.from(detailedDescendantCounts.entries())
+    .filter(([_parentId,count])=>count>=detailChildThreshold)
+    .map(([parentId])=>parentId)
+    .sort();
 }}
 async function syncLabelStability(){{
-  if(stabilitySyncing||view.signal('zooming')||view.signal('down'))return;
-  const parentIds=Array.from(new Set([
-    ...renderedLabelIds('macroLabels'),
-    ...renderedLabelIds('semanticLabels')
-  ])).sort();
-  const edgeIds=renderedLabelIds('edgeLabels');
-  const oldParentIds=(view.signal('stableParentLabelIds')||[]).slice().sort();
-  const oldEdgeIds=(view.signal('stableEdgeLabelIds')||[]).slice().sort();
-  vis.dataset.semanticLayer=String(view.signal('semanticLayer'));
-  vis.dataset.stableParentLabels=String(parentIds.length);
-  vis.dataset.stableEdgeLabels=String(edgeIds.length);
-  if(sameIds(parentIds,oldParentIds)&&sameIds(edgeIds,oldEdgeIds))return;
+  if(view.signal('down'))return;
+  if(stabilitySyncing){{
+    stabilityPending=true;
+    return;
+  }}
   stabilitySyncing=true;
   try{{
-    view.signal('stableParentLabelIds',parentIds);
-    view.signal('stableEdgeLabelIds',edgeIds);
-    await view.runAsync();
+    let blocked=collisionBlocks();
+    let currentBlockedParents=(view.signal('blockedParentLabelIds')||[]).slice().sort();
+    let currentBlockedEdges=(view.signal('blockedEdgeLabelIds')||[]).slice().sort();
+    if(!sameIds(blocked.parentIds,currentBlockedParents)||
+       !sameIds(blocked.edgeIds,currentBlockedEdges)){{
+      view.signal('blockedParentLabelIds',blocked.parentIds);
+      view.signal('blockedEdgeLabelIds',blocked.edgeIds);
+      await view.runAsync();
+    }}
+    const coveredParents=hierarchyParentBlocks();
+    const oldCoveredParents=(view.signal('coveredParentLabelIds')||[]).slice().sort();
+    if(!sameIds(coveredParents,oldCoveredParents)){{
+      view.signal('coveredParentLabelIds',coveredParents);
+      await view.runAsync();
+    }}
+    // Removing a covered ancestor can free a lower-priority label. Recompute
+    // from all active fixed-position candidates and replace, rather than
+    // merging, the collision block list.
+    blocked=collisionBlocks();
+    currentBlockedParents=(view.signal('blockedParentLabelIds')||[]).slice().sort();
+    currentBlockedEdges=(view.signal('blockedEdgeLabelIds')||[]).slice().sort();
+    if(!sameIds(blocked.parentIds,currentBlockedParents)||
+       !sameIds(blocked.edgeIds,currentBlockedEdges)){{
+      view.signal('blockedParentLabelIds',blocked.parentIds);
+      view.signal('blockedEdgeLabelIds',blocked.edgeIds);
+      await view.runAsync();
+    }}
+    let parentIds=renderedLabelIds('semanticLabels');
+    let edgeIds=renderedLabelIds('edgeLabels');
+    const oldParentIds=(view.signal('stableParentLabelIds')||[]).slice().sort();
+    const oldEdgeIds=(view.signal('stableEdgeLabelIds')||[]).slice().sort();
+    if(!sameIds(parentIds,oldParentIds)||!sameIds(edgeIds,oldEdgeIds)){{
+      view.signal('stableParentLabelIds',parentIds);
+      view.signal('stableEdgeLabelIds',edgeIds);
+      await view.runAsync();
+    }}
+    // Audit once more after the stability order update. Collision-hidden
+    // candidates remain measurable, so a former loser can return as soon as
+    // it has sufficient room at its fixed anchor.
+    const residual=collisionBlocks();
+    if(!sameIds(residual.parentIds,blocked.parentIds)||
+       !sameIds(residual.edgeIds,blocked.edgeIds)){{
+      blocked=residual;
+      view.signal('blockedParentLabelIds',blocked.parentIds);
+      view.signal('blockedEdgeLabelIds',blocked.edgeIds);
+      await view.runAsync();
+      parentIds=renderedLabelIds('semanticLabels');
+      edgeIds=renderedLabelIds('edgeLabels');
+      view.signal('stableParentLabelIds',parentIds);
+      view.signal('stableEdgeLabelIds',edgeIds);
+      await view.runAsync();
+    }}
+    vis.dataset.semanticLayer=String(view.signal('semanticLayer'));
+    vis.dataset.stableParentLabels=String(parentIds.length);
+    vis.dataset.stableEdgeLabels=String(edgeIds.length);
+    vis.dataset.blockedParentLabels=String(blocked.parentIds.length);
+    vis.dataset.blockedEdgeLabels=String(blocked.edgeIds.length);
   }}finally{{
     stabilitySyncing=false;
+    if(stabilityPending){{
+      stabilityPending=false;
+      scheduleLabelStability();
+    }}
   }}
 }}
 function scheduleLabelStability(){{
@@ -1574,6 +1899,7 @@ function scheduleLabelStability(){{
   stabilityTimer=setTimeout(()=>{{void syncLabelStability();}},0);
 }}
 view.addSignalListener('zooming',(_name,value)=>{{if(!value)scheduleLabelStability();}});
+view.addSignalListener('zoomLevel',()=>{{scheduleLabelStability();}});
 view.addSignalListener('down',(_name,value)=>{{if(value===null)scheduleLabelStability();}});
 function resizeView(){{
   cancelAnimationFrame(resizeFrame);
@@ -1611,11 +1937,14 @@ def parse_args() -> argparse.Namespace:
         metavar="DIFF_LABELS",
         type=Path,
         required=True,
-        help="Offline direct-diff label JSON (--keywords remains a compatibility alias)",
+        help="Offline full-revision comparison label JSON (--keywords remains a compatibility alias)",
     )
     parser.add_argument("--article", required=True)
     parser.add_argument("--xml", type=Path)
-    parser.add_argument("--model", default=MODEL)
+    parser.add_argument(
+        "--model",
+        help=f"OpenAI model name (default: {DEFAULT_OPENAI_MODEL})",
+    )
     parser.add_argument("--no-llm", action="store_true", help="Keep deterministic grounded fallback labels.")
     parser.add_argument("--skip-word-counts", action="store_true")
     parser.add_argument("--labels-output", type=Path)
@@ -1625,6 +1954,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    args.model = model_or_default(args.model)
     projection_path = args.projection.expanduser().resolve()
     keywords_path = args.diff_labels.expanduser().resolve()
     projection = json.loads(projection_path.read_text(encoding="utf-8"))
@@ -1671,11 +2001,16 @@ def main() -> int:
             if node["terms"]
         ]
         llm_labels = cached_llm_labels(
-            labels_output, projection_path, keywords_path, args.model
+            labels_output,
+            projection_path,
+            keywords_path,
+            args.model,
+            LLM_PROVIDER,
         )
         missing = [node for node in nodes if node["node_id"] not in llm_labels]
         if missing:
-            client = OpenAI(api_key=load_api_key(Path(BASE_DIR) / ".env"))
+            api_key = load_api_key(Path(BASE_DIR) / ".env")
+            client = create_llm_client(api_key=api_key)
             llm_labels.update(generate_labels(client, args.model, missing))
         for level in ("clusters", "sections"):
             for node in hierarchy[level]:
@@ -1692,7 +2027,12 @@ def main() -> int:
                 if cluster_labels.get(cluster_id)
             ]
         macro_labels = cached_macro_labels(
-            labels_output, projection_path, keywords_path, args.model, hierarchy["macros"]
+            labels_output,
+            projection_path,
+            keywords_path,
+            args.model,
+            hierarchy["macros"],
+            LLM_PROVIDER,
         )
         missing_macros = [
             node for node in hierarchy["macros"]
@@ -1700,7 +2040,8 @@ def main() -> int:
         ]
         if missing_macros:
             if "client" not in locals():
-                client = OpenAI(api_key=load_api_key(Path(BASE_DIR) / ".env"))
+                api_key = load_api_key(Path(BASE_DIR) / ".env")
+                client = create_llm_client(api_key=api_key)
             macro_labels.update(generate_labels(
                 client,
                 args.model,
@@ -1715,10 +2056,13 @@ def main() -> int:
         "projection": str(projection_path),
         "revision_diff_labels": str(keywords_path),
         "revision_keywords": str(keywords_path),
+        "llm_provider": None if args.no_llm else LLM_PROVIDER,
         "model": None if args.no_llm else args.model,
         "labels_generated_offline": True,
         "interactive_llm_calls": False,
-        "edge_label_strategy": "stored direct-diff label, one phrase of at most four words",
+        "edge_label_strategy": (
+            "stored full-revision comparison label, one phrase of at most four words"
+        ),
         "trajectory_width_encoding": TRAJECTORY_WIDTH_ENCODING,
         "edit_wars": revert_analysis,
         "pipeline_snapshot_id": SEMANTIC_ZOOM_SNAPSHOT_ID,
