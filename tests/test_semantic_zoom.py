@@ -16,6 +16,7 @@ from semantic_zoom import (  # noqa: E402
     cluster_label_colour,
     convex_hull,
     edge_phrase,
+    fallback_label,
     format_label_pyramid,
     macro_hull_rows,
     parent_topic_label,
@@ -129,6 +130,14 @@ def test_runs_and_five_level_hierarchy():
     )
     assert hierarchy["edges"][0]["parent_id"].startswith("section-")
     assert hierarchy["edges"][-1]["parent_id"] == "root"
+
+
+def test_fallback_label_uses_only_the_most_relevant_complete_term():
+    assert fallback_label(
+        ["Statehood recognition", "Interlanguage links"],
+        "Fallback",
+    ) == "Statehood recognition"
+    assert fallback_label([], "Fallback") == "Fallback"
 
 
 def test_minimal_full_revision_edge_labels_feed_parent_terms():

@@ -112,15 +112,8 @@ def top_terms(keyword_groups: Iterable[Iterable[str]], limit: int = 12) -> list[
 
 
 def fallback_label(terms: list[str], default: str) -> str:
-    """A grounded deterministic label used when LLM generation is disabled."""
-    if not terms:
-        return default
-    if len(terms) == 1:
-        return terms[0]
-    first_words = {_term_key(term).split()[0] for term in terms[:3] if _term_key(term)}
-    if len(first_words) == 1:
-        return terms[0]
-    return " · ".join(terms[:2])
+    """Use the single most relevant grounded term without combining phrases."""
+    return terms[0] if terms else default
 
 
 def prioritised_terms(
