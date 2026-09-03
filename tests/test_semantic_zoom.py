@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from semantic_zoom import (  # noqa: E402
+    LABEL_SYSTEM_PROMPT,
+    MACRO_LABEL_SYSTEM_PROMPT,
     build_hierarchy,
     build_vega_spec,
     cached_word_counts,
@@ -115,8 +117,8 @@ def test_runs_and_five_level_hierarchy():
     assert hierarchy["roots"][0]["label"] == "Example"
     assert hierarchy["clusters"][0]["parent_id"] == "macro-1"
     assert hierarchy["macros"][0]["parent_id"] == "root"
-    assert hierarchy["edges"][0]["count_text"] == "+3/−1 Wörter"
-    assert "Wörter" not in hierarchy["edges"][0]["label"]
+    assert hierarchy["edges"][0]["count_text"] == "+3/−1 words"
+    assert "words" not in hierarchy["edges"][0]["label"]
     assert hierarchy["edges"][0]["label"] == "Topic 0"
     assert hierarchy["edges"][0]["label_source"] == "full_revision_lod_llm"
     assert hierarchy["edges"][0]["section_terms"][0] == "Section change 0"
@@ -172,7 +174,7 @@ def test_edge_phrase_keeps_one_complete_phrase_of_at_most_four_words():
     assert edge_phrase(["  Currency   codes  "]) == "Currency codes"
 
 
-def test_neutral_edge_labels_do_not_become_parent_topics():
+def test_neutral_edge_labels_only_ground_otherwise_empty_clusters():
     assert parent_topic_label("No content change") == ""
     assert parent_topic_label("Identical article text") == ""
     assert parent_topic_label("East Jerusalem capital") == "East Jerusalem capital"
@@ -195,11 +197,18 @@ def test_neutral_edge_labels_do_not_become_parent_topics():
 
     assert hierarchy["edges"][0]["label"] == "No content change"
     assert hierarchy["edges"][0]["section_terms"] == []
+    assert hierarchy["sections"] == []
     assert all(
-        "No content change" not in node["terms"]
-        for level in ("sections", "clusters", "macros")
-        for node in hierarchy[level]
+        node["terms"] == ["No content change"]
+        for node in hierarchy["clusters"]
     )
+
+
+def test_parent_prompts_require_one_english_label():
+    for prompt in (LABEL_SYSTEM_PROMPT, MACRO_LABEL_SYSTEM_PROMPT):
+        normalized = " ".join(prompt.split())
+        assert "one English" in normalized
+        assert "Never join, enumerate, or contrast" in normalized
 
 
 def test_noise_revisions_remain_leaf_edges_without_sections():
@@ -259,9 +268,9 @@ def test_invalid_long_direct_label_is_not_silently_truncated():
 def test_terminal_label_pyramid_is_continuous_and_compact():
     hierarchy = build_hierarchy(sample_projection(), sample_keywords())
     output = format_label_pyramid(hierarchy)
-    assert "Artikel → Makrothema → Themencluster" in output
-    assert "Land → Bundesland → Region → Ort → Straße" in output
-    assert "Article/  [1 Macros | 2 Cluster | 1 Sections | 5 Übergänge]" in output
+    assert "article → macro topic → topic cluster" in output
+    assert "country → state → region → place → street" in output
+    assert "Article/  [1 Macros | 2 Cluster | 1 Sections | 5 Edges]" in output
     assert "└──" in output
     assert "Topic" in output
 
@@ -426,8 +435,8 @@ def test_vega_spec_uses_semantic_zoom_and_cartographic_label_transform():
     }
     point_tooltip = point_mark["encode"]["enter"]["tooltip"]["signal"]
     assert point_tooltip == (
-        "{'Revision-ID': datum.revision_id, 'Zeit': datum.timestamp, "
-        "'Autor': datum.author, 'Cluster': datum.cluster_label}"
+        "{'Revision ID': datum.revision_id, 'Timestamp': datum.timestamp, "
+        "'Author': datum.author, 'Cluster': datum.cluster_label}"
     )
     trajectory_mark = next(mark for mark in spec["marks"] if mark.get("name") == "trajectory")
     assert "tooltip" not in trajectory_mark["encode"]["update"]
@@ -488,7 +497,7 @@ def test_vega_spec_uses_semantic_zoom_and_cartographic_label_transform():
     assert root_row["label"] == "Article"
     assert root_row["level_priority"] == 0
     endpoint_rows = [row for row in labels_data["values"] if row["level"] == "endpoint"]
-    assert [row["label"] for row in endpoint_rows] == ["Start", "Ende"]
+    assert [row["label"] for row in endpoint_rows] == ["Start", "End"]
     assert not any(
         row.get("edge_label_dummy") or row.get("semantic_label_dummy")
         for row in labels_data["values"]
@@ -636,7 +645,7 @@ def test_vega_spec_uses_semantic_zoom_and_cartographic_label_transform():
     assert revision_points["encode"]["update"]["size"] == {"value": 64}
     assert section_highlights["encode"]["update"]["size"] == {"value": 170}
     assert not any(mark.get("name") in {"rootCenterMark", "clusterCenterMarks"} for mark in spec["marks"])
-    assert "+3/−1 Wörter" not in json.dumps(spec, ensure_ascii=False)
+    assert "+3/−1 words" not in json.dumps(spec, ensure_ascii=False)
     assert all(
         " · " not in row["label"]
         for row in next(data for data in spec["data"] if data["name"] == "edges")["values"]
@@ -661,23 +670,20 @@ def test_html_has_no_interactive_model_call():
     assert "renderer:'canvas'" not in page
     assert "vega@5.33.1" in page
     assert "<h1>Meaningful Projection Space</h1>" in page
-    assert "<h1>Semantische Revisions-Timecurve" not in page
+    assert '<html lang="en">' in page
+    assert "<title>Semantic Zoom Timecurve" in page
     assert "ResizeObserver" in page
     assert "width:min(100%,1200px)" in page
     assert "height:min(100%,720px)" in page
     assert 'id="content"' in page
     assert 'id="legend"' in page
     assert "grid-template-columns:minmax(0,1fr) 250px" in page
-    assert "Normale Trajektorienkante" in page
-    assert '<span>Mehrfach belegter Weg</span>' in page
-    assert '<span>Exakter Revert</span>' in page
-    assert "Exakter Revert oder mehrfach belegter Weg" not in page
+    assert "Standard trajectory edge" in page
+    assert '<span>Repeated path</span>' in page
+    assert '<span>Exact revert</span>' in page
     assert '<span>Edit War</span>' in page
-    assert "Bestätigter Edit War" not in page
-    assert "Punkt eines zeitlichen Abschnitts" in page
-    assert "Semantisches Label der aktiven Zoomstufe" not in page
-    assert "Erste und letzte Revision" not in page
-    assert "Die Linienbreite steigt" not in page
+    assert "Temporal-section point" in page
+    assert "<h2>Legend</h2>" in page
     assert "Cluster 1" in page
     assert "Cluster 2" in page
     assert "Noise" in page

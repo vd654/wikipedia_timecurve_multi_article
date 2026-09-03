@@ -3,8 +3,8 @@
   "projection": "/Users/vanessadungl/Desktop/wikipedia_timecurve_multi_article/output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json",
   "revision_diff_labels": "/Users/vanessadungl/Desktop/wikipedia_timecurve_multi_article/output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_labels_gpt-5.6-terra_001.json",
   "revision_keywords": "/Users/vanessadungl/Desktop/wikipedia_timecurve_multi_article/output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_labels_gpt-5.6-terra_001.json",
-  "llm_provider": null,
-  "model": null,
+  "llm_provider": "openai",
+  "model": "gpt-5.6-terra",
   "labels_generated_offline": true,
   "interactive_llm_calls": false,
   "edge_label_strategy": "stored full-revision comparison label, one phrase of at most four words",
@@ -14273,9 +14273,9 @@
     ]
   },
   "pipeline_snapshot_id": "2026-08-19-v049",
-  "source_sha256": "ce55675a16568ec98cf881c95a7ecb31a3d31b8597cd1ca9f01a4372dd05fa56",
-  "label_system_prompt": null,
-  "macro_label_system_prompt": null,
+  "source_sha256": "a6670b8dee6926f198b2ede4cf81f277905d9cf73c8f2e16173ca6e5cdb51708",
+  "label_system_prompt": "You create concise map labels for a semantic revision trajectory.\nUse only the supplied full-revision comparison labels and their grounded evidence. Never add\noutside knowledge.\nThe final visualization is a five-level pyramid: article, macro topic, cluster,\nchronological section, and consecutive revision edge. You are labeling cluster\nand section nodes; macro topics are generated in a separate parent pass and the\ndetailed revision edges already exist as grounded leaf labels.\nEach label is an umbrella concept for its node, not a generic label such as\n'changes', 'revision', 'miscellaneous', or a numbered level. Prefer two to five\nwords. Return exactly one English label per node. Never join, enumerate, or\ncontrast multiple candidate labels. Preserve meaningful names, institutions,\nplaces, events, and policies.",
+  "macro_label_system_prompt": "You create concise overview labels for a semantic map.\nUse only the supplied child cluster labels and grounded full-revision comparison evidence. Never add\noutside knowledge. Each node combines several spatially adjacent HDBSCAN clusters and\nneeds one broad umbrella concept that makes the map understandable before the user\nzooms into the individual clusters. Prefer two to five words. Preserve meaningful\nnames, institutions, places, events, and policies. Never use technical terms such as\n'cluster', 'group', 'area', 'level', 'miscellaneous', or a number. Return exactly\none English umbrella label per node. Never join, enumerate, or contrast multiple\ncandidate labels.",
   "word_counts_are_git_word_diff": false,
   "hierarchy": {
     "roots": [
@@ -14302,7 +14302,7 @@
         ],
         "x": -0.00030287580122264306,
         "y": -0.0002805940772394969,
-        "label": "Sovereign state",
+        "label": "Palestinian Statehood Recognition",
         "terms": [
           "Sovereign state",
           "Interlanguage links",
@@ -14321,7 +14321,9 @@
           "French–Thai interlanguage links",
           "Palestinian recognition count"
         ],
-        "child_labels": [],
+        "child_labels": [
+          "Palestinian Statehood Recognition"
+        ],
         "revision_count": 24,
         "importance": 24.074320025873185,
         "parent_id": "root"
@@ -14341,7 +14343,7 @@
         ],
         "x": 0.0021631546909764,
         "y": -0.00045102429237989965,
-        "label": "UN observer-state upgrade",
+        "label": "Palestinian Statehood Recognition",
         "terms": [
           "UN observer-state upgrade",
           "UN observer-state vote",
@@ -14364,7 +14366,16 @@
           "Jordan recognition wording",
           "Israel self-defense claim"
         ],
-        "child_labels": [],
+        "child_labels": [
+          "UN Statehood and Gaza Status",
+          "Palestinian Political Status",
+          "UN Observer-State Recognition",
+          "Palestine UN Representation",
+          "Palestine International Recognition",
+          "UN Observer-State Recognition",
+          "State of Palestine Infobox",
+          "Unchanged Content"
+        ],
         "revision_count": 82,
         "importance": 82.23119781937255,
         "parent_id": "root"
@@ -14383,7 +14394,7 @@
         ],
         "x": 0.0012301861945349488,
         "y": 0.0008360680849993828,
-        "label": "Philip Jessup statehood",
+        "label": "Palestinian Statehood and Membership",
         "terms": [
           "Philip Jessup statehood",
           "Palestinian demographics",
@@ -14406,7 +14417,15 @@
           "Philip Jessup",
           "Palestine in United Nations"
         ],
-        "child_labels": [],
+        "child_labels": [
+          "Palestinian State Identity",
+          "Palestinian Statehood Criteria",
+          "Palestinian Governance and Membership",
+          "Palestine’s UN Status",
+          "Oslo Areas and Statehood",
+          "PLO Sovereignty and UNESCO",
+          "PLO UN Legal Representation"
+        ],
         "revision_count": 61,
         "importance": 61.14689343309529,
         "parent_id": "root"
@@ -14436,7 +14455,7 @@
         ],
         "x": -0.001184399036236551,
         "y": 0.00015049171395127537,
-        "label": "Limited recognition",
+        "label": "Palestinian Sovereignty Claims",
         "terms": [
           "Limited recognition",
           "Sovereign state",
@@ -14459,7 +14478,26 @@
           "Tourism capitalization",
           "Catastrophe terminology"
         ],
-        "child_labels": [],
+        "child_labels": [
+          "Palestinian Sovereignty and Location",
+          "Palestinian State Identity",
+          "Palestinian De Facto Sovereignty",
+          "Palestinian Recognition and Status",
+          "Palestinian Sovereignty and Territory",
+          "East Jerusalem and Statehood",
+          "Palestinian Statehood Assertion",
+          "Palestinian Statehood and Authority",
+          "De Jure Sovereignty Status",
+          "Palestine Naming and Status",
+          "Palestinian Sovereignty Claims",
+          "UN Observer State Status",
+          "De Jure Sovereignty Wording",
+          "Palestinian International Recognition",
+          "East Jerusalem Territorial Claims",
+          "Palestinian Sovereignty Claims",
+          "Historical Palestine Sovereignty Claims",
+          "East Jerusalem Capital Status"
+        ],
         "revision_count": 192,
         "importance": 192.30487593670657,
         "parent_id": "root"
@@ -14476,7 +14514,7 @@
         ],
         "x": -0.0012056220150766911,
         "y": -0.000854463336580747,
-        "label": "Pope Francis reference",
+        "label": "Palestinian State Institutions",
         "terms": [
           "Pope Francis reference",
           "Israeli shekel ILS",
@@ -14499,7 +14537,13 @@
           "Israel sovereignty dispute",
           "Israeli new shekel"
         ],
-        "child_labels": [],
+        "child_labels": [
+          "Palestinian Institutions and Infrastructure",
+          "Palestinian Diplomatic Representation",
+          "Palestinian National Status",
+          "Palestinian International Status",
+          "Palestinian Statehood Documentation"
+        ],
         "revision_count": 67,
         "importance": 67.06226245127803,
         "parent_id": "root"
@@ -14515,7 +14559,7 @@
         ],
         "x": 4.813770367237497e-05,
         "y": 0.00048576399871799725,
-        "label": "Bahrain-printed Palestinian stamps",
+        "label": "State of Palestine Designation",
         "terms": [
           "Bahrain-printed Palestinian stamps",
           "Salim Zanoun speakership",
@@ -14538,7 +14582,12 @@
           "Lezgian Wikipedia link",
           "Israeli occupation since 1967"
         ],
-        "child_labels": [],
+        "child_labels": [
+          "State of Palestine Designation",
+          "Palestinian Embassy Renaming",
+          "Palestinian State Symbols",
+          "Occupation and State Symbols"
+        ],
         "revision_count": 31,
         "importance": 31.034170507517402,
         "parent_id": "root"
@@ -14551,7 +14600,7 @@
         ],
         "x": 0.0014235794356045619,
         "y": -3.922423251115441e-05,
-        "label": "Palestinian demographics",
+        "label": "Palestinian UN Statehood",
         "terms": [
           "Palestinian demographics",
           "PLO Assembly seating",
@@ -14563,7 +14612,9 @@
           "Philip Jessup quotation",
           "UN membership application"
         ],
-        "child_labels": [],
+        "child_labels": [
+          "Palestinian UN Statehood"
+        ],
         "revision_count": 23,
         "importance": 23.105429887594106,
         "parent_id": "root"
@@ -14577,7 +14628,7 @@
         "hdbscan_label": "Cluster 1",
         "x": -0.00030287580122264306,
         "y": -0.0002805940772394969,
-        "label": "Sovereign state",
+        "label": "Palestinian Statehood Recognition",
         "terms": [
           "Sovereign state",
           "Interlanguage links",
@@ -14651,7 +14702,7 @@
         "hdbscan_label": "Cluster 2",
         "x": 0.0022070091070029835,
         "y": 3.0196002764279867e-05,
-        "label": "UN observer-state vote",
+        "label": "UN Statehood and Gaza Status",
         "terms": [
           "UN observer-state vote",
           "2005 Gaza withdrawal",
@@ -14685,7 +14736,7 @@
         "hdbscan_label": "Cluster 3",
         "x": 0.0007761305010588557,
         "y": 0.0011477573917367042,
-        "label": "Palestinian demographics",
+        "label": "Palestinian State Identity",
         "terms": [
           "Palestinian demographics",
           "Palestinian calling code",
@@ -14725,7 +14776,7 @@
         "hdbscan_label": "Cluster 4",
         "x": 0.0020960715375132714,
         "y": -0.00034105511238843856,
-        "label": "Fatah–Hamas split",
+        "label": "Palestinian Political Status",
         "terms": [
           "Fatah–Hamas split",
           "Infobox country template",
@@ -14758,7 +14809,7 @@
         "hdbscan_label": "Cluster 5",
         "x": 0.0019756831065073062,
         "y": -0.00021143721940879934,
-        "label": "UN observer-state upgrade",
+        "label": "UN Observer-State Recognition",
         "terms": [
           "UN observer-state upgrade",
           "Partial recognition",
@@ -14791,7 +14842,7 @@
         "hdbscan_label": "Cluster 6",
         "x": 0.0018888178368720002,
         "y": -0.0003698675720593286,
-        "label": "UN Resolution 67/19 vote",
+        "label": "Palestine UN Representation",
         "terms": [
           "UN Resolution 67/19 vote",
           "State of Palestine infobox",
@@ -14832,7 +14883,7 @@
         "hdbscan_label": "Cluster 7",
         "x": -0.0017106454202859913,
         "y": 0.00012962638081260452,
-        "label": "Limited recognition",
+        "label": "Palestinian Sovereignty and Location",
         "terms": [
           "Limited recognition",
           "Levant location",
@@ -14870,7 +14921,7 @@
         "hdbscan_label": "Cluster 8",
         "x": -0.0013485412209516016,
         "y": -0.000702060047157577,
-        "label": "Pope Francis reference",
+        "label": "Palestinian Institutions and Infrastructure",
         "terms": [
           "Pope Francis reference",
           "Israeli shekel ILS",
@@ -14912,7 +14963,7 @@
         "hdbscan_label": "Cluster 9",
         "x": -0.001264538276724046,
         "y": -0.000684686772367237,
-        "label": "Gaza",
+        "label": "Palestinian Diplomatic Representation",
         "terms": [
           "Gaza",
           "Jerusalem largest city",
@@ -14952,7 +15003,7 @@
         "hdbscan_label": "Cluster 10",
         "x": -0.0010517814818808504,
         "y": -0.0010402615081290508,
-        "label": "Palestine's observer status",
+        "label": "Palestinian National Status",
         "terms": [
           "Palestine's observer status",
           "Palestinian media outlets",
@@ -15016,7 +15067,7 @@
         "hdbscan_label": "Cluster 11",
         "x": 0.002300080989255744,
         "y": -0.0003784459528769632,
-        "label": "Gaza Occupation Status",
+        "label": "Palestine International Recognition",
         "terms": [
           "Gaza Occupation Status",
           "International recognition",
@@ -15084,7 +15135,7 @@
         "hdbscan_label": "Cluster 12",
         "x": -0.001151135488283027,
         "y": -0.0009469756949247841,
-        "label": "Wells Stabler telegram",
+        "label": "Palestinian International Status",
         "terms": [
           "Wells Stabler telegram",
           "granted observer status",
@@ -15123,7 +15174,7 @@
         "hdbscan_label": "Cluster 13",
         "x": -0.0012570256011557072,
         "y": -0.000856515697945131,
-        "label": "UNCCP Economic Survey",
+        "label": "Palestinian Statehood Documentation",
         "terms": [
           "UNCCP Economic Survey",
           "Rockwell–Rifai memorandum",
@@ -15175,7 +15226,7 @@
         "hdbscan_label": "Cluster 14",
         "x": -0.00012933960500203953,
         "y": 0.0005154591799738697,
-        "label": "Bahrain-printed Palestinian stamps",
+        "label": "State of Palestine Designation",
         "terms": [
           "Bahrain-printed Palestinian stamps",
           "Salim Zanoun speakership",
@@ -15225,7 +15276,7 @@
         "hdbscan_label": "Cluster 15",
         "x": 0.0014235794356045619,
         "y": -3.922423251115441e-05,
-        "label": "Palestinian demographics",
+        "label": "Palestinian UN Statehood",
         "terms": [
           "Palestinian demographics",
           "PLO Assembly seating",
@@ -15284,7 +15335,7 @@
         "hdbscan_label": "Cluster 16",
         "x": 0.00032479900254306474,
         "y": 0.0007141225918548853,
-        "label": "Abbas embassy renaming",
+        "label": "Palestinian Embassy Renaming",
         "terms": [
           "Abbas embassy renaming",
           "Embassy name change",
@@ -15315,7 +15366,7 @@
         "hdbscan_label": "Cluster 17",
         "x": -0.0012470718593175206,
         "y": -0.00032054880248875533,
-        "label": "Palestine tourism",
+        "label": "Palestinian State Identity",
         "terms": [
           "Palestine tourism",
           "Tourism capitalization",
@@ -15365,7 +15416,7 @@
         "hdbscan_label": "Cluster 18",
         "x": 0.0014484629840768582,
         "y": 0.0008087461539058291,
-        "label": "Philip Jessup statehood",
+        "label": "Palestinian Statehood Criteria",
         "terms": [
           "Philip Jessup statehood",
           "UNESCO Palestine membership",
@@ -15396,7 +15447,7 @@
         "hdbscan_label": "Cluster 19",
         "x": 0.0022753567926906164,
         "y": -0.0006844935547019917,
-        "label": "29 November 2012",
+        "label": "UN Observer-State Recognition",
         "terms": [
           "29 November 2012",
           "UN recognition vote",
@@ -15443,7 +15494,7 @@
         "hdbscan_label": "Cluster 20",
         "x": 0.0013766071542614096,
         "y": 0.0009046538731985344,
-        "label": "Hamas control",
+        "label": "Palestinian Governance and Membership",
         "terms": [
           "Hamas control",
           "UN membership criteria",
@@ -15491,7 +15542,7 @@
         "hdbscan_label": "Cluster 21",
         "x": 0.001423042263439821,
         "y": 0.0010320541013568696,
-        "label": "Consequences of occupation",
+        "label": "Palestine’s UN Status",
         "terms": [
           "Consequences of occupation",
           "granted observer status",
@@ -15530,7 +15581,7 @@
         "hdbscan_label": "Cluster 22",
         "x": 0.0011739267899596461,
         "y": 0.0006707770871052501,
-        "label": "Oslo Areas A–C",
+        "label": "Oslo Areas and Statehood",
         "terms": [
           "Oslo Areas A–C",
           "Statehood effective status",
@@ -15560,7 +15611,7 @@
         "hdbscan_label": "Cluster 23",
         "x": -0.001330308509843332,
         "y": 4.7146403959500005e-05,
-        "label": "De facto sovereignty",
+        "label": "Palestinian De Facto Sovereignty",
         "terms": [
           "De facto sovereignty",
           "Judea and Samaria",
@@ -15591,7 +15642,7 @@
         "hdbscan_label": "Cluster 24",
         "x": 0.001358180480813692,
         "y": 0.0006109742724542443,
-        "label": "Palestinian Hebrew speakers",
+        "label": "PLO Sovereignty and UNESCO",
         "terms": [
           "Palestinian Hebrew speakers",
           "Hebrew speakers",
@@ -15629,7 +15680,7 @@
         "hdbscan_label": "Cluster 25",
         "x": 0.0012065357679116732,
         "y": 0.00039483596717686774,
-        "label": "PLO UN representation",
+        "label": "PLO UN Legal Representation",
         "terms": [
           "PLO UN representation",
           "Jessup statehood criterion",
@@ -15664,7 +15715,7 @@
         "hdbscan_label": "Cluster 26",
         "x": -0.001341016375559437,
         "y": -0.00015279016097545904,
-        "label": "Palestinian media outlets",
+        "label": "Palestinian Recognition and Status",
         "terms": [
           "Palestinian media outlets",
           "Limited recognition",
@@ -15698,7 +15749,7 @@
         "hdbscan_label": "Cluster 27",
         "x": 0.00013991902259640447,
         "y": 0.00035597020677910956,
-        "label": "Palestinian flag",
+        "label": "Palestinian State Symbols",
         "terms": [
           "Palestinian flag",
           "Official coat of arms",
@@ -15734,7 +15785,7 @@
         "hdbscan_label": "Cluster 28",
         "x": 0.00013991902259640452,
         "y": 0.0003559702067791092,
-        "label": "Israeli occupation since 1967",
+        "label": "Occupation and State Symbols",
         "terms": [
           "Israeli occupation since 1967",
           "Thai Wikipedia link",
@@ -15764,7 +15815,7 @@
         "hdbscan_label": "Cluster 29",
         "x": -0.001373235441765708,
         "y": -7.559922300626876e-05,
-        "label": "Judea and Samaria",
+        "label": "Palestinian Sovereignty and Territory",
         "terms": [
           "Judea and Samaria",
           "National anthem",
@@ -15808,7 +15859,7 @@
         "hdbscan_label": "Cluster 30",
         "x": -0.0013332910370989438,
         "y": -3.5851077980059096e-05,
-        "label": "East Jerusalem capital",
+        "label": "East Jerusalem and Statehood",
         "terms": [
           "East Jerusalem capital",
           "Israeli War of Independence",
@@ -15850,7 +15901,7 @@
         "hdbscan_label": "Cluster 31",
         "x": 0.0021466505929975547,
         "y": -0.0007534427920825684,
-        "label": "State of Palestine",
+        "label": "State of Palestine Infobox",
         "terms": [
           "State of Palestine",
           "State of Palestine infobox",
@@ -15880,9 +15931,13 @@
         "hdbscan_label": "Cluster 32",
         "x": 0.0021466505929975542,
         "y": -0.0007534427920825687,
-        "label": "",
-        "terms": [],
-        "macro_terms": [],
+        "label": "Unchanged Content",
+        "terms": [
+          "No content change"
+        ],
+        "macro_terms": [
+          "No content change"
+        ],
         "point_indices": [
           63,
           64,
@@ -15908,7 +15963,7 @@
         "hdbscan_label": "Cluster 33",
         "x": -0.0010960132807285518,
         "y": 0.0007433961118772327,
-        "label": "Statehood assertion",
+        "label": "Palestinian Statehood Assertion",
         "terms": [
           "Statehood assertion",
           "Palestinian statehood",
@@ -15970,7 +16025,7 @@
         "hdbscan_label": "Cluster 34",
         "x": -0.001248409301837808,
         "y": 0.0004924008779047474,
-        "label": "Partially recognized state",
+        "label": "Palestinian Statehood and Authority",
         "terms": [
           "Partially recognized state",
           "Sovereign state status",
@@ -16019,7 +16074,7 @@
         "hdbscan_label": "Cluster 35",
         "x": -0.001213064696200902,
         "y": -0.00010506458234126806,
-        "label": "De jure sovereignty",
+        "label": "De Jure Sovereignty Status",
         "terms": [
           "De jure sovereignty",
           "PLO spacing",
@@ -16075,7 +16130,7 @@
         "hdbscan_label": "Cluster 36",
         "x": -0.001036642558057067,
         "y": 0.0003605414926076244,
-        "label": "UN Resolution 67/19",
+        "label": "Palestine Naming and Status",
         "terms": [
           "UN Resolution 67/19",
           "Palestinian Authority name change",
@@ -16124,7 +16179,7 @@
         "hdbscan_label": "Cluster 37",
         "x": -0.0009545574433912594,
         "y": 0.0002667062978973039,
-        "label": "Rami Hamdallah",
+        "label": "Palestinian Sovereignty Claims",
         "terms": [
           "Rami Hamdallah",
           "Palestinian Authority absorption",
@@ -16184,7 +16239,7 @@
         "hdbscan_label": "Cluster 38",
         "x": -0.0010892325685223057,
         "y": -5.157922040002943e-05,
-        "label": "2012 UN resolution",
+        "label": "UN Observer State Status",
         "terms": [
           "2012 UN resolution",
           "UN observer state",
@@ -16221,7 +16276,7 @@
         "hdbscan_label": "Cluster 39",
         "x": -0.0009011704745977303,
         "y": 0.00010424769222221757,
-        "label": "De jure sovereignty",
+        "label": "De Jure Sovereignty Wording",
         "terms": [
           "De jure sovereignty",
           "British date formatting",
@@ -16252,7 +16307,7 @@
         "hdbscan_label": "Cluster 40",
         "x": -0.0009867148483928645,
         "y": 5.0431105828782436e-05,
-        "label": "Limited recognition",
+        "label": "Palestinian International Recognition",
         "terms": [
           "Limited recognition",
           "2014 population estimate",
@@ -16284,7 +16339,7 @@
         "hdbscan_label": "Cluster 41",
         "x": -0.0010584216754042379,
         "y": 0.00015215196666322194,
-        "label": "Security Council assumption",
+        "label": "East Jerusalem Territorial Claims",
         "terms": [
           "Security Council assumption",
           "Higgins territorial entitlement",
@@ -16318,7 +16373,7 @@
         "hdbscan_label": "Cluster 42",
         "x": -0.0011268797373370453,
         "y": 4.480515568093676e-05,
-        "label": "Sovereign state",
+        "label": "Palestinian Sovereignty Claims",
         "terms": [
           "Sovereign state",
           "Limited recognition",
@@ -16353,7 +16408,7 @@
         "hdbscan_label": "Cluster 43",
         "x": -0.001136889429980712,
         "y": 0.00015994065974896937,
-        "label": "Herodotus's Phoenician interactions",
+        "label": "Historical Palestine Sovereignty Claims",
         "terms": [
           "Herodotus's Phoenician interactions",
           "All-Israel sovereignty claim",
@@ -16383,7 +16438,7 @@
         "hdbscan_label": "Cluster 44",
         "x": -0.001104468964309875,
         "y": 0.00020261767872991688,
-        "label": "Independence wording",
+        "label": "East Jerusalem Capital Status",
         "terms": [
           "Independence wording",
           "East Jerusalem",
@@ -16434,7 +16489,7 @@
         "cluster_id": 10,
         "x": 0.002258293912743767,
         "y": -0.000352285142939718,
-        "label": "Korean interlanguage link",
+        "label": "Korean Interlanguage Link",
         "terms": [
           "Korean interlanguage link"
         ],
@@ -16452,7 +16507,7 @@
         "cluster_id": 10,
         "x": 0.0023051324624937366,
         "y": -0.000359002531880452,
-        "label": "PLO UN seating",
+        "label": "Palestine Country Designation",
         "terms": [
           "PLO UN seating",
           "AP Palestine state report",
@@ -16481,7 +16536,7 @@
         "cluster_id": 18,
         "x": 0.0022609406503514267,
         "y": -0.0006710898348707606,
-        "label": "UN observer-state upgrade",
+        "label": "UN Observer-State Upgrade",
         "terms": [
           "UN observer-state upgrade",
           "General Assembly capitalization"
@@ -16501,7 +16556,7 @@
         "cluster_id": 30,
         "x": 0.0021466505929975547,
         "y": -0.0007534427920825683,
-        "label": "Israeli shekel",
+        "label": "Israeli Shekel",
         "terms": [
           "Israeli shekel"
         ],
@@ -16520,7 +16575,7 @@
         "cluster_id": 18,
         "x": 0.0023272116293355594,
         "y": -0.0006699796889547231,
-        "label": "1994 PNA administration",
+        "label": "Palestinian Authority Administration",
         "terms": [
           "1994 PNA administration",
           "Muslim population"
@@ -16540,7 +16595,7 @@
         "cluster_id": 4,
         "x": 0.001968987795553898,
         "y": -0.00026869513241716496,
-        "label": "Recognized",
+        "label": "Recognition Terminology",
         "terms": [
           "Recognized",
           "recognized capitalization"
@@ -16559,7 +16614,7 @@
         "cluster_id": 5,
         "x": 0.0019083519211183606,
         "y": -0.0003590933198073304,
-        "label": "Israel self-defense claim",
+        "label": "Israeli Statehood Claims",
         "terms": [
           "Israel self-defense claim",
           "History of statehood"
@@ -16578,7 +16633,7 @@
         "cluster_id": 14,
         "x": 0.001417301735123903,
         "y": -4.6911946527450337e-05,
-        "label": "Palestine's UNGA seating",
+        "label": "Palestine UN Status and Territory",
         "terms": [
           "Palestine's UNGA seating",
           "Resolution 67/19",
@@ -16617,7 +16672,7 @@
         "cluster_id": 21,
         "x": 0.0011739267899596461,
         "y": 0.0006707770871052501,
-        "label": "Statehood effective status",
+        "label": "Palestinian Statehood Status",
         "terms": [
           "Statehood effective status",
           "Norwegian interwiki title"
@@ -16639,7 +16694,7 @@
         "cluster_id": 20,
         "x": 0.0014314483876982404,
         "y": 0.0010265310965809292,
-        "label": "granted observer status",
+        "label": "Palestine UN Observer Status",
         "terms": [
           "granted observer status",
           "PLO submitted application",
@@ -16660,7 +16715,7 @@
         "cluster_id": 23,
         "x": 0.0013880468372116008,
         "y": 0.0006489581140884208,
-        "label": "Hebrew speakers",
+        "label": "Hebrew Language",
         "terms": [
           "Hebrew speakers"
         ],
@@ -16678,7 +16733,7 @@
         "cluster_id": 23,
         "x": 0.0013338541452177408,
         "y": 0.0005715575937132192,
-        "label": "Philip Jessup statehood",
+        "label": "Philip Jessup Statehood Criteria",
         "terms": [
           "Philip Jessup statehood",
           "Lezgin Wikipedia link"
@@ -16698,7 +16753,7 @@
         "cluster_id": 19,
         "x": 0.001375751284856532,
         "y": 0.0009039798664723505,
-        "label": "Hamas control",
+        "label": "Palestinian Governance",
         "terms": [
           "Hamas control",
           "Unelected parliamentary democracy"
@@ -16720,7 +16775,7 @@
         "cluster_id": 24,
         "x": 0.0012281870552391108,
         "y": 0.00041119852701468487,
-        "label": "Diplomatic setback",
+        "label": "Observer-State Legal Rights",
         "terms": [
           "Diplomatic setback",
           "Observer-state legal rights"
@@ -16739,7 +16794,7 @@
         "cluster_id": 2,
         "x": 0.0008442774913453235,
         "y": 0.0012259245195900446,
-        "label": "Palestinian calling code",
+        "label": "Palestinian National Status",
         "terms": [
           "Palestinian calling code",
           "Declaration of Independence"
@@ -16762,7 +16817,7 @@
         "cluster_id": 15,
         "x": 0.0003547380660700713,
         "y": 0.000750983653894483,
-        "label": "French Palestine title",
+        "label": "French Palestine Title",
         "terms": [
           "French Palestine title"
         ],
@@ -16780,7 +16835,7 @@
         "cluster_id": 13,
         "x": -7.613935029698956e-05,
         "y": 0.0005261297958117684,
-        "label": "Salim Zanoun speakership",
+        "label": "Palestinian Authority Statehood",
         "terms": [
           "Salim Zanoun speakership",
           "Statehood effective wording",
@@ -16806,7 +16861,7 @@
         "cluster_id": 27,
         "x": 0.00013991902259640452,
         "y": 0.0003559702067791092,
-        "label": "Thai Wikipedia link",
+        "label": "Palestine Coat of Arms",
         "terms": [
           "Thai Wikipedia link",
           "Palestine coat of arms"
@@ -16828,7 +16883,7 @@
         "cluster_id": 26,
         "x": 0.00013991902259640447,
         "y": 0.00035597020677910956,
-        "label": "Official coat of arms",
+        "label": "Palestine Statehood and Symbols",
         "terms": [
           "Official coat of arms",
           "Palestinian coat of arms",
@@ -16853,7 +16908,7 @@
         "cluster_id": 13,
         "x": -0.00020027327794210615,
         "y": 0.0005012316921900048,
-        "label": "State of Palestine retitling",
+        "label": "State of Palestine Designation",
         "terms": [
           "State of Palestine retitling",
           "Post-resolution UN permission",
@@ -16876,7 +16931,7 @@
         "cluster_id": 0,
         "x": -0.00030042080149229845,
         "y": -0.0002834279597318537,
-        "label": "Sovereign state",
+        "label": "Statehood and Governance",
         "terms": [
           "Sovereign state",
           "Interlanguage links",
@@ -16925,7 +16980,7 @@
         "cluster_id": 35,
         "x": -0.0010340842649515206,
         "y": 0.00035821875523199423,
-        "label": "2009 Gini coefficient",
+        "label": "Geographic and Statistical Data",
         "terms": [
           "2009 Gini coefficient",
           "ISO 3166 code",
@@ -16954,7 +17009,7 @@
         "cluster_id": 32,
         "x": -0.0011088323662577116,
         "y": 0.0007617356471573124,
-        "label": "Palestinian leadership claim",
+        "label": "Statehood Claim Wording",
         "terms": [
           "Palestinian leadership claim",
           "Palestinian statehood claim",
@@ -16985,7 +17040,7 @@
         "cluster_id": 32,
         "x": -0.0011102274092811223,
         "y": 0.0007846749969298559,
-        "label": "2013 Palestinian HDI",
+        "label": "Palestinian HDI",
         "terms": [
           "2013 Palestinian HDI"
         ],
@@ -17004,7 +17059,7 @@
         "cluster_id": 33,
         "x": -0.001291261672231881,
         "y": 0.0005408674527874319,
-        "label": "Partially recognized state",
+        "label": "Partially Recognized State",
         "terms": [
           "Partially recognized state",
           "Rami Hamdallah"
@@ -17025,7 +17080,7 @@
         "cluster_id": 33,
         "x": -0.0012043672425192328,
         "y": 0.00043999174540027214,
-        "label": "Palestinian Authority succession",
+        "label": "Palestinian Authority Succession",
         "terms": [
           "Palestinian Authority succession",
           "Sovereign state status"
@@ -17044,7 +17099,7 @@
         "cluster_id": 36,
         "x": -0.0009476064552518976,
         "y": 0.0002583880194898913,
-        "label": "Rami Hamdallah",
+        "label": "PLO Representation and Sovereignty",
         "terms": [
           "Rami Hamdallah",
           "Modern Jordan",
@@ -17070,7 +17125,7 @@
         "cluster_id": 41,
         "x": -0.0011374094068155912,
         "y": 4.821294476809197e-05,
-        "label": "Purported sovereignty",
+        "label": "Palestinian Sovereignty",
         "terms": [
           "Purported sovereignty",
           "Palestinian sovereignty"
@@ -17089,7 +17144,7 @@
         "cluster_id": 34,
         "x": -0.0012143669131958962,
         "y": -9.517608142700317e-05,
-        "label": "PLO spacing",
+        "label": "PLO Formatting",
         "terms": [
           "PLO spacing"
         ],
@@ -17117,7 +17172,7 @@
         "cluster_id": 36,
         "x": -0.0009607733248138585,
         "y": 0.00022642114666318779,
-        "label": "Higgins's apportioned territory",
+        "label": "Higgins Apportioned Territory",
         "terms": [
           "Higgins's apportioned territory"
         ],
@@ -17135,7 +17190,7 @@
         "cluster_id": 40,
         "x": -0.0010584216754042379,
         "y": 0.00015215196666322194,
-        "label": "Higgins territorial entitlement",
+        "label": "Higgins Territorial Entitlement",
         "terms": [
           "Higgins territorial entitlement",
           "Levant",
@@ -17159,7 +17214,7 @@
         "cluster_id": 43,
         "x": -0.0011088741493268332,
         "y": 0.0002019161511251246,
-        "label": "East Jerusalem capital",
+        "label": "Jerusalem Capital",
         "terms": [
           "East Jerusalem capital",
           "Jerusalem capital"
@@ -17180,7 +17235,7 @@
         "cluster_id": 39,
         "x": -0.0009743143841679726,
         "y": 3.9739434811486546e-05,
-        "label": "2014 population estimate",
+        "label": "Population Estimate",
         "terms": [
           "2014 population estimate"
         ],
@@ -17198,7 +17253,7 @@
         "cluster_id": 39,
         "x": -0.0009991153126177562,
         "y": 6.112277684607834e-05,
-        "label": "Palestinian international recognition",
+        "label": "Palestinian International Recognition",
         "terms": [
           "Palestinian international recognition"
         ],
@@ -17237,7 +17292,7 @@
         "cluster_id": 16,
         "x": -0.0012386764902098375,
         "y": -0.00030835441580972026,
-        "label": "Tourism capitalization",
+        "label": "Tourism Capitalization",
         "terms": [
           "Tourism capitalization"
         ],
@@ -17255,7 +17310,7 @@
         "cluster_id": 29,
         "x": -0.0013332910370989438,
         "y": -3.5851077980059096e-05,
-        "label": "East Jerusalem capital",
+        "label": "Palestine infobox details",
         "terms": [
           "East Jerusalem capital",
           "Parliment misspelling",
@@ -17286,7 +17341,7 @@
         "cluster_id": 34,
         "x": -0.0012086371584179223,
         "y": -0.0001386854854497687,
-        "label": "UTC time-zone wording",
+        "label": "Palestine time zone",
         "terms": [
           "UTC time-zone wording",
           "UTC+3 DST offset",
@@ -17308,7 +17363,7 @@
         "cluster_id": 28,
         "x": -0.001374045957667019,
         "y": -6.720626948835482e-05,
-        "label": "Palestinian currency",
+        "label": "Palestinian territory and security",
         "terms": [
           "Palestinian currency",
           "Israeli-occupied territories",
@@ -17368,7 +17423,7 @@
         "cluster_id": 7,
         "x": -0.0013699626347419484,
         "y": -0.0006521289238717029,
-        "label": "Israeli shekel ILS",
+        "label": "Israeli shekel",
         "terms": [
           "Israeli shekel ILS"
         ],
@@ -17387,7 +17442,7 @@
         "cluster_id": 8,
         "x": -0.0012640093202780577,
         "y": -0.0006843496748877803,
-        "label": "Gaza",
+        "label": "Gaza and Jerusalem",
         "terms": [
           "Gaza",
           "Jerusalem largest city"
@@ -17416,7 +17471,7 @@
         "cluster_id": 12,
         "x": -0.0012768808985980855,
         "y": -0.0008547514139422527,
-        "label": "Gerson page citations",
+        "label": "Palestine governance citations",
         "terms": [
           "Gerson page citations",
           "Palestine name-change citation",
@@ -17458,7 +17513,7 @@
         "cluster_id": 11,
         "x": -0.001151135488283027,
         "y": -0.0009469756949247841,
-        "label": "granted observer status",
+        "label": "Palestine international status",
         "terms": [
           "granted observer status",
           "internationally backed",
@@ -17486,7 +17541,7 @@
         "cluster_id": 9,
         "x": -0.0010517814818808504,
         "y": -0.0010402615081290508,
-        "label": "Palestinian media outlets",
+        "label": "State of Palestine overview",
         "terms": [
           "Palestinian media outlets",
           "Tourism wording",
@@ -17530,7 +17585,7 @@
         "cluster_id": 7,
         "x": -0.0013245693834299914,
         "y": -0.000734578944745999,
-        "label": "Infrastructure Communications Transportation",
+        "label": "Infrastructure and water supply",
         "terms": [
           "Infrastructure Communications Transportation",
           "Water supply sanitation"

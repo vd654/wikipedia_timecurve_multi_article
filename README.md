@@ -70,9 +70,11 @@ Die Modellantworten werden nach jeder Kante gecacht. Ein abgebrochener Lauf
 kann deshalb ohne erneute Aufrufe fortgesetzt werden. Beim späteren Zoomen
 finden keine API-Aufrufe statt.
 
-Die übergeordneten Ebenen werden offline aus den gespeicherten Kantenlabels
-gebildet. Pro Ebene wird genau der relevanteste vollständige Begriff verwendet;
-mehrere Begriffe werden weder getrennt noch mit `·` kombiniert.
+Die übergeordneten Ebenen werden vor dem Rendern mit derselben OpenAI-API aus
+den gespeicherten Kantenlabels und Keywords ihres jeweiligen Bereichs erzeugt.
+Terra formuliert für jeden zeitlichen Abschnitt, Cluster und jedes Makrothema
+genau einen englischen Überbegriff. Die Antworten werden im Hierarchie-JSON
+gecacht; mehrere Begriffe werden weder getrennt noch mit `·` kombiniert.
 
 ## Kartografische Hierarchie
 
@@ -151,7 +153,7 @@ Der vorhandene Cache verhindert doppelte Modellaufrufe. Mit
 mit Git-Wortdiff, Evidenz und Änderungsstatistiken zur Verfügung; sie ist für
 die fertige Präsentationsdatei nicht erforderlich.
 
-### 4. Finale Karte offline rendern
+### 4. Finale Karte erstellen
 
 ```bash
 python src/semantic_zoom.py \
@@ -160,15 +162,16 @@ python src/semantic_zoom.py \
   --diff-labels \
     output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_labels_gpt-5.6-terra_001.json \
   --article Palestine \
-  --no-llm \
+  --model gpt-5.6-terra \
   --skip-word-counts \
   --labels-output \
     output/Palestine_small/Palestine_small_bert_timecurve_002_semantic_zoom_full_revision_terra_001.json \
   --html-output output/Palestine_final.html
 ```
 
-Dieser Schritt verwendet ausschließlich die gespeicherten Ergebnisse und
-verursacht keine API-Kosten.
+Der erste Lauf erzeugt die übergeordneten englischen Labels per API. Bei
+unveränderten Eingaben werden sie aus dem Hierarchie-JSON wiederverwendet und
+verursachen keine erneuten API-Kosten.
 
 ## Bedienung
 
@@ -177,9 +180,11 @@ verursacht keine API-Kosten.
 - Doppelklick: Gesamtansicht wiederherstellen
 - Revisionspunkt: Revision-ID, Zeitpunkt, Autor und Cluster anzeigen
 
-Die HTML-Datei lädt Vega und Vega-Tooltip über ein CDN. Für eine Präsentation
-ohne Internet sollte zusätzlich ein statischer SVG- oder PDF-Export
-bereitgehalten werden.
+Die HTML-Datei enthält Daten und Vega-Spezifikation, lädt Vega und Vega-Tooltip
+aber über ein CDN und ist daher noch keine vollständig autarke Offline-Version.
+Für eine Präsentation ohne Internet sollte zusätzlich ein statischer SVG- oder
+PDF-Export bereitgehalten oder die beiden JavaScript-Bibliotheken lokal
+eingebunden werden.
 
 ## Projektstruktur
 

@@ -66,7 +66,9 @@ and section nodes; macro topics are generated in a separate parent pass and the
 detailed revision edges already exist as grounded leaf labels.
 Each label is an umbrella concept for its node, not a generic label such as
 'changes', 'revision', 'miscellaneous', or a numbered level. Prefer two to five
-words. Preserve meaningful names, institutions, places, events, and policies."""
+words. Return exactly one English label per node. Never join, enumerate, or
+contrast multiple candidate labels. Preserve meaningful names, institutions,
+places, events, and policies."""
 
 MACRO_LABEL_SYSTEM_PROMPT = """You create concise overview labels for a semantic map.
 Use only the supplied child cluster labels and grounded full-revision comparison evidence. Never add
@@ -74,7 +76,9 @@ outside knowledge. Each node combines several spatially adjacent HDBSCAN cluster
 needs one broad umbrella concept that makes the map understandable before the user
 zooms into the individual clusters. Prefer two to five words. Preserve meaningful
 names, institutions, places, events, and policies. Never use technical terms such as
-'cluster', 'group', 'area', 'level', 'miscellaneous', or a number."""
+'cluster', 'group', 'area', 'level', 'miscellaneous', or a number. Return exactly
+one English umbrella label per node. Never join, enumerate, or contrast multiple
+candidate labels."""
 
 
 class NodeLabel(BaseModel):
@@ -297,7 +301,7 @@ def cached_word_counts(
     if len(edges) != pair_count:
         return None
     result = []
-    pattern = re.compile(r"^\+(\d+)/−(\d+) Wörter$")
+    pattern = re.compile(r"^\+(\d+)/−(\d+) (?:words|Wörter)$")
     for edge in edges:
         match = pattern.match(edge.get("count_text", ""))
         if not match:
@@ -338,7 +342,7 @@ def build_hierarchy(
             pair.get("removed_keywords", []),
         ], 6)
         added, removed = word_counts[index] if word_counts else (None, None)
-        count_text = f"+{added}/−{removed} Wörter" if added is not None else ""
+        count_text = f"+{added}/−{removed} words" if added is not None else ""
         # A trajectory edge carries exactly one intact grounded phrase. A
         # phrase may contain up to four words (for example "UN General
         # Assembly"), but separate candidates are never combined.
@@ -419,7 +423,7 @@ def build_hierarchy(
             "cluster_id": run["cluster_id"],
             "x": x,
             "y": y,
-            "label": fallback_label(terms, "Lokale Entwicklung"),
+            "label": fallback_label(terms, "Local development"),
             "terms": terms,
             "edge_indices": edge_indices,
             "revision_count": len(edge_indices) + 1,
@@ -446,6 +450,13 @@ def build_hierarchy(
         terms = top_terms(
             (edges[index]["cluster_terms"] for index in related_edges), 16
         )
+        # Some dense clusters consist entirely of neutral transitions. They
+        # still need grounded evidence for an API-generated parent label, so
+        # retain the existing edge phrase instead of inventing a topic.
+        if not terms:
+            terms = top_terms(
+                ([edges[index]["label"]] for index in related_edges), 4
+            )
         macro_terms = top_terms(
             (edges[index]["macro_terms"] for index in related_edges), 16
         )
@@ -567,13 +578,13 @@ def format_label_pyramid(hierarchy: dict) -> str:
     total = counts_below(str(root["node_id"]))
     lines = [
         "",
-        "Labelpyramide",
-        "Maßstab: Artikel → Makrothema → Themencluster → zeitlicher Abschnitt → Revisionsübergang",
-        "Map-Analogie: Land → Bundesland → Region → Ort → Straße",
+        "Label hierarchy",
+        "Scale: article → macro topic → topic cluster → temporal section → revision edge",
+        "Map analogy: country → state → region → place → street",
         (
             f"{root.get('label') or 'Article'}/  "
             f"[{total['macro']} Macros | {total['cluster']} Cluster | "
-            f"{total['section']} Sections | {total['edge']} Übergänge]"
+            f"{total['section']} Sections | {total['edge']} Edges]"
         ),
     ]
 
@@ -594,7 +605,7 @@ def format_label_pyramid(hierarchy: dict) -> str:
         lines.append(
             f"{macro_branch}{macro['label']}  "
             f"[{counts['cluster']} Cluster | {counts['section']} Sections | "
-            f"{counts['edge']} Übergänge]"
+            f"{counts['edge']} Edges]"
         )
 
         cluster = best_child(str(macro["node_id"]), "cluster")
@@ -623,8 +634,8 @@ def format_label_pyramid(hierarchy: dict) -> str:
             for node in direct_root_children if node.get("level") == "section"
         )
         lines.append(
-            "└── Direkt unter Root / nicht einem Macro zugeordnet  "
-            f"[{direct_sections} Sections | {direct_edges} Übergänge]"
+            "└── Directly below root / not assigned to a macro topic  "
+            f"[{direct_sections} Sections | {direct_edges} Edges]"
         )
     return "\n".join(lines)
 
@@ -653,7 +664,8 @@ def generate_labels(
         prompt = (
             "Create one umbrella label for every node below. More abstract cluster labels "
             "must summarize the supplied evidence; section labels should be narrower. "
-            "Return every node_id exactly once.\n\n"
+            "Use the keywords and child labels from that node's own area only. Return "
+            "every node_id exactly once and one English label per node.\n\n"
             + json.dumps(evidence, ensure_ascii=False, indent=2)
         )
         response = client.responses.parse(
@@ -715,7 +727,7 @@ def cached_macro_labels(
     macros: list[dict],
     provider: str = LLM_PROVIDER,
 ) -> dict[str, str]:
-    """Reuse macro labels only when their spatial memberships are unchanged."""
+    """Reuse macro labels only when membership and API evidence are unchanged."""
     if not labels_path.exists():
         return {}
     payload = json.loads(labels_path.read_text(encoding="utf-8"))
@@ -728,7 +740,11 @@ def cached_macro_labels(
     ):
         return {}
     expected = {
-        node["node_id"]: tuple(node["cluster_ids"])
+        node["node_id"]: {
+            "cluster_ids": tuple(node["cluster_ids"]),
+            "terms": tuple(node.get("terms", [])),
+            "child_labels": tuple(node.get("child_labels", [])),
+        }
         for node in macros
     }
     result = {}
@@ -736,7 +752,11 @@ def cached_macro_labels(
         node_id = node.get("node_id")
         if (
             node_id in expected
-            and tuple(node.get("cluster_ids", [])) == expected[node_id]
+            and tuple(node.get("cluster_ids", []))
+            == expected[node_id]["cluster_ids"]
+            and tuple(node.get("terms", [])) == expected[node_id]["terms"]
+            and tuple(node.get("child_labels", []))
+            == expected[node_id]["child_labels"]
             and node.get("label")
         ):
             result[node_id] = node["label"]
@@ -1260,8 +1280,8 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             "level": "endpoint",
             "x": point_rows[-1]["x"],
             "y": point_rows[-1]["y"],
-            "label": "Ende",
-            "display_label": "Ende",
+            "label": "End",
+            "display_label": "End",
             "cluster_id": point_rows[-1]["cluster_id"],
             "label_colour": "#263029",
             "level_priority": 5,
@@ -1498,7 +1518,7 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             {
                 "name": "revisionPoints", "type": "symbol", "from": {"data": "points"},
                 "encode": {"enter": {
-                    "tooltip": {"signal": "{'Revision-ID': datum.revision_id, 'Zeit': datum.timestamp, 'Autor': datum.author, 'Cluster': datum.cluster_label}"}
+                    "tooltip": {"signal": "{'Revision ID': datum.revision_id, 'Timestamp': datum.timestamp, 'Author': datum.author, 'Cluster': datum.cluster_label}"}
                 }, "update": {
                     "x": {"scale": "xscale", "field": "x"}, "y": {"scale": "yscale", "field": "y"},
                     "size": {"value": 64},
@@ -1621,9 +1641,9 @@ def render_html(article: str, spec: dict) -> str:
         )
     )
     return f"""<!doctype html>
-<html lang="de"><head><meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Semantische Zoom-Timecurve – {html.escape(article)}</title>
+<title>Semantic Zoom Timecurve – {html.escape(article)}</title>
 <script src="https://cdn.jsdelivr.net/npm/vega@5.33.1"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-tooltip@0.35.2/build/vega-tooltip.min.js"></script>
 <style>
@@ -1652,16 +1672,16 @@ html,body{{height:100%;margin:0;background:#fbfaf7;color:#151915;font-family:Int
 </style></head><body><main id="app">
 <header id="topbar"><h1>Meaningful Projection Space</h1></header>
 <div id="content">
-<div id="vis" role="img" aria-label="Interaktive semantische Revisions-Timecurve"></div>
-<aside id="legend" aria-label="Legende der Visualisierung">
-<h2>Legende</h2>
-<h3>Darstellung</h3>
+<div id="vis" role="img" aria-label="Interactive semantic revision timecurve"></div>
+<aside id="legend" aria-label="Visualization legend">
+<h2>Legend</h2>
+<h3>Display</h3>
 <ul class="legend-list">
-<li><span class="legend-dot"></span><span>Revisionspunkt</span></li>
-<li><span class="legend-ring"></span><span>Punkt eines zeitlichen Abschnitts</span></li>
-<li><span class="legend-line"></span><span>Normale Trajektorienkante</span></li>
-<li><span class="legend-line thick"></span><span>Mehrfach belegter Weg</span></li>
-<li><span class="legend-line exact-revert"></span><span>Exakter Revert</span></li>
+<li><span class="legend-dot"></span><span>Revision point</span></li>
+<li><span class="legend-ring"></span><span>Temporal-section point</span></li>
+<li><span class="legend-line"></span><span>Standard trajectory edge</span></li>
+<li><span class="legend-line thick"></span><span>Repeated path</span></li>
+<li><span class="legend-line exact-revert"></span><span>Exact revert</span></li>
 <li><span class="legend-line edit-war"></span><span>Edit War</span></li>
 </ul>
 <h3>Cluster</h3>
@@ -2067,11 +2087,11 @@ def main() -> int:
     }
     labels_output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     html_output.write_text(render_html(args.article, build_vega_spec(args.article, projection, hierarchy)), encoding="utf-8")
-    print(f"Labelhierarchie: {labels_output}")
-    print(f"Semantische Zoom-Timecurve: {html_output}")
+    print(f"Label hierarchy: {labels_output}")
+    print(f"Semantic zoom timecurve: {html_output}")
     print(format_label_pyramid(hierarchy))
     print(
-        "Makrothemen/Cluster/Abschnitte/Kanten: "
+        "Macro topics/clusters/sections/edges: "
         f"{len(hierarchy['macros'])}/{len(hierarchy['clusters'])}/"
         f"{len(hierarchy['sections'])}/{len(hierarchy['edges'])}"
     )
