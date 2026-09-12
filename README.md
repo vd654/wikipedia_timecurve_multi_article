@@ -3,8 +3,9 @@
 Das Projekt visualisiert die Entwicklung eines Wikipedia-Artikels als
 zweidimensionale semantische Landschaft. Jeder Punkt ist eine vollständige
 Artikelrevision, jede Linie verbindet zwei chronologisch aufeinanderfolgende
-Revisionen. Beim Zoomen werden schrittweise genauere kartografische Labels
-sichtbar.
+Revisionen. Labels werden ohne feste Zoomstufen kartografisch verteilt: Sobald
+beim Zoomen oder Verschieben genügend freier Bildschirmraum entsteht, erscheint
+dort der nächste priorisierte Begriff.
 
 ## Finale Palestine-Version
 
@@ -41,7 +42,7 @@ Wikipedia-XML
 → HDBSCAN auf den MDS-Koordinaten
 → chronologische Revisionskurve
 → Terra-Volltextvergleich für jede Kante
-→ fünfstufiges kartografisches Labeling
+→ kontinuierliches kartografisches Labeling aus einer fünfteiligen Hierarchie
 ```
 
 Die Chunks sind ausschließlich technische Eingabeeinheiten des
@@ -60,11 +61,14 @@ Perzentil-Streckung und kein UMAP. Die Clusteranzahl wird nicht vorgegeben.
 
 ## Kantenlabels
 
-Für jede der 619 Kanten erhält `gpt-5.6-terra` ausschließlich die beiden
-vollständigen bereinigten Revisionstexte vor und nach der Änderung. Das Modell
-erzeugt genau ein unteilbares Label mit ein bis vier Wörtern. Wort-Diffs,
-Bearbeitungskommentare und Satzfenster werden nicht als zusätzlicher
-Modellkontext gesendet.
+Für jede der 619 Kanten erhält `gpt-5.6-terra` die beiden vollständigen
+bereinigten Revisionstexte vor und nach der Änderung sowie Autor, Zeitstempel
+und Bearbeitungskommentar beider Revisionen. Ein vorberechneter Diff wird nicht
+übergeben; das Modell analysiert die beiden Volltexte direkt. Es erzeugt ein
+unteilbares Label mit zwei bis drei Wörtern und eine ausführliche Beschreibung
+der erkannten Änderung. Die Metadaten sind lediglich
+nicht vertrauenswürdiger Zusatzkontext; der tatsächliche Textunterschied bleibt
+maßgeblich. Wort-Diffs und Satzfenster werden nicht erzeugt oder gesendet.
 
 Die Modellantworten werden nach jeder Kante gecacht. Ein abgebrochener Lauf
 kann deshalb ohne erneute Aufrufe fortgesetzt werden. Beim späteren Zoomen
@@ -86,16 +90,49 @@ Artikel
             └── Revisionskante
 ```
 
-Weit herausgezoomt dominieren die abstrakten Ebenen. Beim Hineinzoomen erhalten
-detailliertere Labels Vorrang. Alle Labels besitzen eine feste Ankerposition:
-Sie wechseln nicht auf eine andere Seite ihres Ankers. Berühren sich zwei
-Textflächen, verschwindet das Label mit niedrigerer Priorität. Es erscheint
-erst bei weiterem Zoom wieder, sobald genügend Platz vorhanden ist. Normale
-LOD-Wechsel werden weich ein- und ausgeblendet.
+Die Hierarchie liefert lediglich Kandidaten und kartografische Prioritäten; sie
+definiert keine Zoomstufen. Artikel-, Makro-, Cluster-, Abschnitts- und
+Kantenlabels werden bei jedem Maßstab gemeinsam in Bildschirmkoordinaten
+geprüft. Abstrakte Labels haben Vorrang, danach füllen detailliertere Labels
+jeden ausreichend großen freien Bereich. Übergeordnete Labels besitzen eine
+feste Ankerposition; jedes Kantenlabel wird in der Mitte des aktuell sichtbaren
+Kantenabschnitts platziert. Alle Labels behalten eine konstante Schriftgröße.
+Berühren sich zwei Textflächen, verschwindet das Label mit niedrigerer
+Priorität. Es erscheint wieder, sobald Zoomen oder Verschieben genügend Platz
+schafft. Ein Stabilitätsbonus verhindert Flackern bei kleinen Bewegungen.
+Textgleiche Labelkandidaten werden bereits vor dem Rendering normalisiert und
+dedupliziert. Dabei gewinnt zuerst die höhere Hierarchiepriorität; bei gleicher
+Priorität entscheiden Importance, Revisionszahl und zuletzt die stabile Node-ID.
+Jedes sichtbare Label besitzt eine vollständig deckende Textfüllung und eine
+vollständig deckende weiße 4-px-Kontur. Ausgeblendete Kollisionskandidaten
+werden ohne halbtransparente Zwischenphase entfernt.
+Jede eigenständige Revisionskante bleibt dabei ein Labelkandidat; auch gleiche
+Texte auf verschiedenen Kanten werden erst durch die räumliche Kollision und
+nicht vorab durch eine globale Text-Deduplizierung entfernt.
 
-Revisionspunkte verwenden stabile HDBSCAN-Farben; Noise bleibt grau. Exakte
-Reverts werden rot hervorgehoben. Bestätigte Edit-War-Kanten erhalten ab der
-Makroebene einen transparenten grünen Halo.
+Revisionspunkte verwenden stabile HDBSCAN-Farben; Noise bleibt grau. Punkte,
+Abschnittsringe und Trajektorienlinien sind für die Detailansicht bewusst
+kräftig dimensioniert. Auf jedem mindestens 34 Bildschirm-Pixel langen,
+sichtbaren Teilstück einer normalen Kante zeigt ein Pfeil die chronologische
+Revisionsrichtung. Wie bei Shaclens behält er beim Zoomen seine Bildschirmgröße
+und sitzt bis zu 30 px hinter dem Anfang des aktuell sichtbaren Liniensegments.
+Exakte Reverts erhalten keine Pfeile, damit Hin- und
+Rückbewegungen nicht durch überlagerte Pfeilspitzen unleserlich werden. Am
+Zielpunkt eines exakten Reverts ersetzt stattdessen ein aus einem zentrierten
+Kreisbogen und einer Pfeilspitze aufgebautes rotes Rücksprung-Glyph den
+normalen Revisionskreis; die zugehörige Kante endet dadurch direkt im Symbol
+und behält die reguläre Trajektorienfarbe. An diesem Punkt wird auch ein möglicher
+Abschnittsring unterdrückt. Da ein Revert häufig exakt auf der projizierten
+Position einer älteren Revision landet, werden dort auch alle koordinatengleichen
+normalen Kreise ausgeblendet und durch genau ein Glyph ersetzt. Ein kleines
+Quadrat in Hintergrundfarbe liegt zusätzlich zwischen
+Trajektoriengeometrie und Glyph; es maskiert mögliche Punkt- und Linienreste im
+offenen Zentrum. Bestätigte Edit-War-Kanten erhalten einen
+transparenten grünen Halo.
+
+Reine Statusmeldungen ohne inhaltliche Änderung (`No content change`,
+`Unchanged content`, `Content unchanged`) werden nicht als Kartenlabels
+gerendert. Die zugehörigen Revisionen und Trajektorienkanten bleiben erhalten.
 
 ## Installation
 
@@ -138,22 +175,40 @@ Die Pipeline erzeugt die Basiskarte, die Projektionsmetadaten, die
 Revisionsvektoren und die Kosinus-Distanzmatrix. Ausgaben werden fortlaufend
 nummeriert.
 
-### 3. Volltext-Kantenlabels erzeugen
+### 3. Revisionsmetadaten ergänzen
+
+Das vorhandene XML bleibt unverändert. Autor, Zeitstempel und
+Bearbeitungskommentar werden für die exakten Revisions-IDs der Projektion in
+eine separate JSON-Datei geladen:
+
+```bash
+python src/revision_metadata.py \
+  --projection \
+    output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json
+```
+
+### 4. Volltext-Kantenlabels erzeugen
 
 ```bash
 python src/edge_labels.py \
   --article Palestine \
   --visualization \
     output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json \
+  --metadata \
+    output/Palestine_small/Palestine_small_bert_timecurve_002_revision_metadata.json \
   --model gpt-5.6-terra
 ```
 
-Der vorhandene Cache verhindert doppelte Modellaufrufe. Mit
+Das Modell erhält beide vollständigen bereinigten Revisionstexte sowie Autor,
+Zeitstempel und Bearbeitungskommentar beider Revisionen. Es bekommt keinen
+vorberechneten Diff, sondern vergleicht die Volltexte selbst. Metadaten gelten
+dabei als nicht vertrauenswürdiger Zusatzkontext; der tatsächliche Textvergleich
+bleibt maßgeblich. Der vorhandene Cache verhindert doppelte Modellaufrufe. Mit
 `src/revision_keywords.py` steht zusätzlich eine ausführlichere Auditpipeline
 mit Git-Wortdiff, Evidenz und Änderungsstatistiken zur Verfügung; sie ist für
 die fertige Präsentationsdatei nicht erforderlich.
 
-### 4. Finale Karte erstellen
+### 5. Finale Karte erstellen
 
 ```bash
 python src/semantic_zoom.py \
@@ -175,7 +230,11 @@ verursachen keine erneuten API-Kosten.
 
 ## Bedienung
 
-- Mausrad oder Trackpad: Zoom um den Zeiger
+- Mausrad oder Trackpad: kontinuierlicher Zoom um den Zeiger von 1 % bis 50×;
+  beim Herauszoomen wird die Geometrie zusammengeschoben, während Linien,
+  Punkte und Schrift ihre Größe in Bildschirm-Pixeln behalten. Am äußersten
+  Maßstab verdichtet sich die Karte zu einem Punkt mit dem priorisierten
+  Artikel-Label aus dem jeweiligen Datensatz
 - Ziehen: Karte verschieben
 - Doppelklick: Gesamtansicht wiederherstellen
 - Revisionspunkt: Revision-ID, Zeitpunkt, Autor und Cluster anzeigen
@@ -194,6 +253,7 @@ src/
 ├── text_cleaning.py      Wikitext in Vergleichstext umwandeln
 ├── main_pipeline.py      Embeddings, MDS, HDBSCAN und Basiskarte
 ├── revert_detection.py   Reverts und Edit-War-Sitzungen erkennen
+├── revision_metadata.py  Autor, Zeitstempel und Kommentare ergänzen
 ├── edge_labels.py        ein Terra-Label pro vollständigem Revisionspaar
 ├── semantic_zoom.py      Hierarchie und interaktive finale Karte
 ├── revision_keywords.py  optionale ausführliche Diff-Auditpipeline

@@ -9,10 +9,11 @@
   "interactive_llm_calls": false,
   "edge_label_strategy": "stored full-revision comparison label, one phrase of at most four words",
   "trajectory_width_encoding": {
-    "normal_edge_px": 1.15,
-    "exact_sha1_revert_increment_px": 1.35,
-    "additional_same_geometry_increment_px": 0.85,
-    "maximum_px": 5.0,
+    "normal_edge_px": 2.25,
+    "exact_sha1_revert_increment_px": 0.0,
+    "exact_sha1_revert_encoding": "undo glyph at target revision",
+    "additional_same_geometry_increment_px": 1.1,
+    "maximum_px": 8.0,
     "overlap_definition": "same undirected MDS endpoints rounded to 12 decimal places",
     "semantic_jump_controls_width": false
   },
@@ -14272,8 +14273,8 @@
       }
     ]
   },
-  "pipeline_snapshot_id": "2026-08-19-v049",
-  "source_sha256": "a6670b8dee6926f198b2ede4cf81f277905d9cf73c8f2e16173ca6e5cdb51708",
+  "pipeline_snapshot_id": "2026-09-04-v069",
+  "source_sha256": "b7570384db27fa51a1a42991673848e04dc72b3befe1d09981ff959aef381a21",
   "label_system_prompt": "You create concise map labels for a semantic revision trajectory.\nUse only the supplied full-revision comparison labels and their grounded evidence. Never add\noutside knowledge.\nThe final visualization is a five-level pyramid: article, macro topic, cluster,\nchronological section, and consecutive revision edge. You are labeling cluster\nand section nodes; macro topics are generated in a separate parent pass and the\ndetailed revision edges already exist as grounded leaf labels.\nEach label is an umbrella concept for its node, not a generic label such as\n'changes', 'revision', 'miscellaneous', or a numbered level. Prefer two to five\nwords. Return exactly one English label per node. Never join, enumerate, or\ncontrast multiple candidate labels. Preserve meaningful names, institutions,\nplaces, events, and policies.",
   "macro_label_system_prompt": "You create concise overview labels for a semantic map.\nUse only the supplied child cluster labels and grounded full-revision comparison evidence. Never add\noutside knowledge. Each node combines several spatially adjacent HDBSCAN clusters and\nneeds one broad umbrella concept that makes the map understandable before the user\nzooms into the individual clusters. Prefer two to five words. Preserve meaningful\nnames, institutions, places, events, and policies. Never use technical terms such as\n'cluster', 'group', 'area', 'level', 'miscellaneous', or a number. Return exactly\none English umbrella label per node. Never join, enumerate, or contrast multiple\ncandidate labels.",
   "word_counts_are_git_word_diff": false,
@@ -17606,8 +17607,8 @@
         "level": "edge",
         "x": 0.002487878351658565,
         "y": 0.00021910682894355992,
-        "label": "Favourably spelling",
-        "short_label": "Favourably spelling",
+        "label": "UN Observer Status",
+        "short_label": "UN Observer Status",
         "terms": [
           "Favourably spelling"
         ],
@@ -17625,7 +17626,7 @@
         "change_type": "legacy_keyword_fallback",
         "label_confidence": null,
         "conflict_description": "",
-        "label_source": "full_revision_lod_llm",
+        "label_source": "full_revision_metadata_llm_preview",
         "count_text": "",
         "added_words": null,
         "removed_words": null,
@@ -17633,15 +17634,16 @@
         "previous_revision_id": "525952673",
         "current_revision_id": "525955556",
         "importance": 0.0003081304294125786,
-        "parent_id": "root"
+        "parent_id": "root",
+        "detailed_description": "On 2012-12-02T02:01:22Z, Iman0613 removed six bracketed citation references and changed “favourably” to “favorably” in the 2012 United Nations observer state status section."
       },
       {
         "node_id": "edge-2",
         "level": "edge",
         "x": 0.002487177171110084,
         "y": 0.00033319805253724456,
-        "label": "German interlanguage link",
-        "short_label": "German interlanguage link",
+        "label": "German Palestine Article",
+        "short_label": "German Palestine Article",
         "terms": [
           "German interlanguage link"
         ],
@@ -17659,7 +17661,7 @@
         "change_type": "legacy_keyword_fallback",
         "label_confidence": null,
         "conflict_description": "",
-        "label_source": "full_revision_lod_llm",
+        "label_source": "full_revision_metadata_llm_preview",
         "count_text": "",
         "added_words": null,
         "removed_words": null,
@@ -17667,15 +17669,16 @@
         "previous_revision_id": "525955556",
         "current_revision_id": "525961957",
         "importance": 1e-09,
-        "parent_id": "root"
+        "parent_id": "root",
+        "detailed_description": "On 2012-12-02T03:11:10Z, Gerakibot added a German-language State of Palestine entry to the article's interlanguage links."
       },
       {
         "node_id": "edge-3",
         "level": "edge",
         "x": 0.0023719244583720557,
         "y": -9.012998302424858e-07,
-        "label": "UN observer state",
-        "short_label": "UN observer state",
+        "label": "Palestinian Observer State",
+        "short_label": "Palestinian Observer State",
         "terms": [
           "UN observer state"
         ],
@@ -17693,7 +17696,7 @@
         "change_type": "legacy_keyword_fallback",
         "label_confidence": null,
         "conflict_description": "",
-        "label_source": "full_revision_lod_llm",
+        "label_source": "full_revision_metadata_llm_preview",
         "count_text": "",
         "added_words": null,
         "removed_words": null,
@@ -17701,15 +17704,16 @@
         "previous_revision_id": "525961957",
         "current_revision_id": "525963070",
         "importance": 0.000561434348288814,
-        "parent_id": "cluster-10"
+        "parent_id": "cluster-10",
+        "detailed_description": "On 2012-12-02T03:42:04Z, Patwinkle reworked the 2012 Statehood section to describe the 29 November 2012 UN vote and added stated potential treaty, agency, territorial-rights, International Court of Justice, and ICC implications for Palestine."
       },
       {
         "node_id": "edge-4",
         "level": "edge",
         "x": 0.002256671745634061,
         "y": -0.0003350006521977228,
-        "label": "No content change",
-        "short_label": "No content change",
+        "label": "No Content Change",
+        "short_label": "No Content Change",
         "terms": [],
         "difference_lod": [],
         "section_terms": [],
@@ -17719,7 +17723,7 @@
         "change_type": "legacy_keyword_fallback",
         "label_confidence": null,
         "conflict_description": "",
-        "label_source": "full_revision_lod_llm",
+        "label_source": "full_revision_metadata_llm_preview",
         "count_text": "",
         "added_words": null,
         "removed_words": null,
@@ -17727,15 +17731,16 @@
         "previous_revision_id": "525963070",
         "current_revision_id": "525968106",
         "importance": 1e-09,
-        "parent_id": "cluster-10"
+        "parent_id": "cluster-10",
+        "detailed_description": "On 2012-12-02T04:39:39Z, Huntington made a revision, but the supplied cleaned article content did not change."
       },
       {
         "node_id": "edge-5",
         "level": "edge",
         "x": 0.002256671745634061,
         "y": -0.0003350006521977148,
-        "label": "No content change",
-        "short_label": "No content change",
+        "label": "No Content Change",
+        "short_label": "No Content Change",
         "terms": [],
         "difference_lod": [],
         "section_terms": [],
@@ -17745,7 +17750,7 @@
         "change_type": "legacy_keyword_fallback",
         "label_confidence": null,
         "conflict_description": "",
-        "label_source": "full_revision_lod_llm",
+        "label_source": "full_revision_metadata_llm_preview",
         "count_text": "",
         "added_words": null,
         "removed_words": null,
@@ -17753,7 +17758,8 @@
         "previous_revision_id": "525968106",
         "current_revision_id": "525968373",
         "importance": 1e-09,
-        "parent_id": "cluster-10"
+        "parent_id": "cluster-10",
+        "detailed_description": "On 2012-12-02T04:42:19Z, Malik Shabazz made a revision for which the supplied cleaned article content did not change."
       },
       {
         "node_id": "edge-6",
@@ -37152,5 +37158,17 @@
         "parent_id": "root"
       }
     ]
+  },
+  "partial_edge_label_overlay": {
+    "source": "/Users/vanessadungl/Desktop/wikipedia_timecurve_multi_article/output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_labels_gpt-5.6-terra_first_005.json",
+    "updated_node_ids": [
+      "edge-1",
+      "edge-2",
+      "edge-3",
+      "edge-4",
+      "edge-5"
+    ],
+    "updated_edge_count": 5,
+    "parent_labels_regenerated": false
   }
 }
