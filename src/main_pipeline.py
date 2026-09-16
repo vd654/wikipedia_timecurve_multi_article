@@ -459,10 +459,24 @@ def build_points(
     return points, drift
 
 
-def build_visualization(article: str, points: list[dict], diagnostics: dict) -> str:
+def build_visualization(article: str, points: list[dict]) -> str:
     """Build the chronological MDS curve colored by 2D HDBSCAN clusters."""
     import altair as alt
     import pandas as pd
+
+    revision_dates = [parse_timestamp(point["timestamp"]) for point in points]
+    english_months = (
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    )
+
+    def display_date(value: datetime) -> str:
+        return f"{value.day} {english_months[value.month - 1]} {value.year}"
+
+    revision_period = (
+        f"Revision period: {display_date(min(revision_dates))} - "
+        f"{display_date(max(revision_dates))}"
+    )
 
     rows = []
     for point in points:
@@ -474,15 +488,11 @@ def build_visualization(article: str, points: list[dict], diagnostics: dict) -> 
             "date_time": point["timestamp"].replace("T", " ").replace("Z", " UTC"),
             "revision_id": point["revision_id"],
             "author": point["author"],
-            "clean_words": point["clean_word_count"],
-            "chunks": point["encoding_chunk_count"],
-            "semantic_jump": point["semantic_jump_from_previous"],
             "cluster_id": cluster_id,
             "cluster": "Noise" if cluster_id == -1 else f"Cluster {cluster_id + 1}",
-            "cluster_probability": point["cluster_probability"],
             "endpoint": (
                 "Start" if point["revision_index"] == 0
-                else "Ende" if point["revision_index"] == len(points) - 1
+                else "End" if point["revision_index"] == len(points) - 1
                 else None
             ),
         })
@@ -509,7 +519,7 @@ def build_visualization(article: str, points: list[dict], diagnostics: dict) -> 
         color="#6f7782", strokeWidth=1.8, opacity=0.68
     ).encode(x=x, y=y, order="order:O")
     base_points = alt.Chart(frame).mark_point(
-        filled=True, stroke="#ffffff", strokeWidth=1.0, opacity=0.9
+        filled=True, stroke="#ffffff", strokeWidth=1.0, opacity=0.9, size=60
     ).encode(
         x=x,
         y=y,
@@ -517,30 +527,19 @@ def build_visualization(article: str, points: list[dict], diagnostics: dict) -> 
             "cluster:N",
             scale=alt.Scale(domain=cluster_names, range=cluster_colors),
             legend=alt.Legend(
-                title="Cluster",
+                title=[revision_period, " ", "Cluster"],
+                titleLimit=600,
+                titleLineHeight=20,
                 columns=3,
                 symbolLimit=0,
                 labelLimit=120,
             ),
         ),
-        size=alt.Size(
-            "clean_words:Q",
-            scale=alt.Scale(range=[18, 135]),
-            legend=alt.Legend(title="Artikelgröße"),
-        ),
         tooltip=[
-            alt.Tooltip("date_time:N", title="Datum und Uhrzeit"),
+            alt.Tooltip("date_time:N", title="Date and time"),
             alt.Tooltip("revision_id:N", title="Revision ID"),
-            alt.Tooltip("author:N", title="Autor"),
-            alt.Tooltip("clean_words:Q", title="Wörter"),
-            alt.Tooltip("chunks:Q", title="Encoding-Chunks"),
-            alt.Tooltip("semantic_jump:Q", title="Kosinus-Sprung", format=".4f"),
-            alt.Tooltip("cluster:N", title="HDBSCAN"),
-            alt.Tooltip(
-                "cluster_probability:Q",
-                title="Cluster-Wahrscheinlichkeit",
-                format=".3f",
-            ),
+            alt.Tooltip("author:N", title="Author"),
+            alt.Tooltip("cluster:N", title="Cluster"),
         ],
     )
     endpoints = alt.Chart(frame).transform_filter(
@@ -549,20 +548,18 @@ def build_visualization(article: str, points: list[dict], diagnostics: dict) -> 
         x=x, y=y, text="endpoint:N"
     )
 
-    quality = diagnostics["projection"]["quality"]
-    clustering = diagnostics["clustering"]
     chart = (path + base_points + endpoints).add_params(zoom).properties(
         width=PLOT_WIDTH,
         height=PLOT_HEIGHT,
-        title=f"Semantische Revisions-Timecurve – Wikipedia: {article}",
+        title=f"semantic revision timecurve {article}",
     ).configure_view(strokeWidth=0)
 
     spec = chart.to_json(indent=None)
     return f"""<!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Semantic Revision Timecurve – {html.escape(article)}</title>
+  <title>semantic revision timecurve {html.escape(article)}</title>
   <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
   <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
   <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -570,20 +567,11 @@ def build_visualization(article: str, points: list[dict], diagnostics: dict) -> 
     body {{ font-family: Arial, sans-serif; background: #f5f5f5; padding: 24px; }}
     h1, p {{ text-align: center; }}
     .card {{ background: white; padding: 18px; border-radius: 10px; }}
-    .quality {{ max-width: 880px; margin: 14px auto; line-height: 1.5; }}
   </style>
 </head>
 <body>
-  <h1>Semantische Revisions-Timecurve: Wikipedia „{html.escape(article)}“</h1>
+  <h1>semantic revision timecurve {html.escape(article)}</h1>
   <div class="card"><div id="vis"></div></div>
-  <div class="card quality">
-    <b>Projektionsqualität:</b>
-    Stress-1 {quality['normalized_stress_1']:.4f};
-    Shepard-Korrelation {quality['shepard_correlation']:.4f}.<br>
-    <b>HDBSCAN auf MDS-2D:</b>
-    {clustering['cluster_count']} Cluster,
-    {clustering['noise_point_count']} Noise-Punkte.
-  </div>
   <script>vegaEmbed('#vis', {spec}, {{actions: false, renderer: 'canvas'}});</script>
 </body>
 </html>"""
@@ -681,7 +669,7 @@ def main() -> int:
         "drift_records": drift,
     }
 
-    html_text = build_visualization(args.article, points, diagnostics)
+    html_text = build_visualization(args.article, points)
     output = next_numbered_path(paths["output_dir"], paths["output_basename"])
     stem = os.path.splitext(output)[0]
     with open(output, "w", encoding="utf-8") as handle:

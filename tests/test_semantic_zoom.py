@@ -363,11 +363,13 @@ def test_detailed_edge_description_is_rendered_as_multiline_label():
     assert " ".join(edge_row["display_label"]) == description
 
 
-def test_child_label_identical_to_ancestor_is_not_a_map_candidate():
+def test_child_label_identical_to_ancestor_remains_a_map_candidate():
     projection = sample_projection()
     hierarchy = build_hierarchy(projection, sample_keywords())
     hierarchy["macros"][0]["label"] = "Shared parent label"
     hierarchy["clusters"][0]["label"] = "Shared parent label"
+    hierarchy["clusters"][0]["x"] = hierarchy["macros"][0]["x"]
+    hierarchy["clusters"][0]["y"] = hierarchy["macros"][0]["y"]
     hierarchy["clusters"][1]["label"] = "Shared parent label detail"
 
     spec = build_vega_spec("Example", projection, hierarchy)
@@ -375,8 +377,16 @@ def test_child_label_identical_to_ancestor_is_not_a_map_candidate():
     node_ids = {row["node_id"] for row in rows}
 
     assert hierarchy["macros"][0]["node_id"] in node_ids
-    assert hierarchy["clusters"][0]["node_id"] not in node_ids
-    assert hierarchy["clusters"][1]["node_id"] not in node_ids
+    assert hierarchy["clusters"][0]["node_id"] in node_ids
+    assert hierarchy["clusters"][1]["node_id"] in node_ids
+    coincident_child = next(
+        row for row in rows
+        if row["node_id"] == hierarchy["clusters"][0]["node_id"]
+    )
+    assert max(
+        abs(coincident_child["label_dx"]),
+        abs(coincident_child["label_dy"]),
+    ) == 24
 
 
 def test_duplicate_labels_keep_highest_priority_before_importance():
@@ -402,7 +412,7 @@ def test_duplicate_labels_keep_highest_priority_before_importance():
     assert [row["node_id"] for row in rows] == ["macro-2"]
 
 
-def test_equal_priority_duplicate_labels_keep_most_important_node():
+def test_equal_priority_duplicate_labels_remain_map_candidates():
     projection = sample_projection()
     hierarchy = build_hierarchy(projection, sample_keywords())
     first_macro = hierarchy["macros"][0]
@@ -426,7 +436,7 @@ def test_equal_priority_duplicate_labels_keep_most_important_node():
         if row["display_label"].casefold() == "palestinian statehood recognition"
     ]
 
-    assert [row["node_id"] for row in matching] == ["macro-2"]
+    assert [row["node_id"] for row in matching] == ["macro-1", "macro-2"]
 
 
 def test_equal_edge_labels_remain_distinct_candidates():
@@ -807,7 +817,9 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert "rootLabel" not in mark_names
     assert "semanticLabelHalos" not in mark_names
     edge_text = next(mark for mark in spec["marks"] if mark.get("name") == "edgeLabels")
-    assert edge_text["encode"]["update"]["text"]["field"] == "display_label"
+    assert edge_text["encode"]["update"]["text"] == {
+        "signal": "zoomLevel>=2 ? datum.display_label : datum.label"
+    }
     assert edge_text["encode"]["update"]["lineHeight"] == {"value": 10}
     assert "tooltip" not in edge_text["encode"]["update"]
     assert "datum.labelScreenX" in edge_text["encode"]["update"]["x"]["signal"]
@@ -823,10 +835,10 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert "transform" not in edge_text
     edge_candidates = next(data for data in spec["data"] if data["name"] == "visibleEdgeLabels")
     assert edge_candidates["transform"][0]["expr"] == "datum.level==='edge'"
-    assert edge_candidates["transform"][1] == {
-        "type": "filter",
-        "expr": "zoomLevel>=5",
-    }
+    assert not any(
+        "zoomLevel" in transform.get("expr", "")
+        for transform in edge_candidates["transform"]
+    )
     assert not any("length(datum.display_label)" in transform.get("expr", "") for transform in edge_candidates["transform"])
     transforms_by_field = {
         transform["as"]: transform
@@ -870,7 +882,9 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert signal_values["blockedParentLabelIds"] == []
     assert signal_values["blockedEdgeLabelIds"] == []
     assert "coveredParentLabelIds" not in signal_values
-    assert edge_text["encode"]["update"]["text"] == {"field": "display_label"}
+    assert edge_text["encode"]["update"]["text"] == {
+        "signal": "zoomLevel>=2 ? datum.display_label : datum.label"
+    }
     assert edge_text["encode"]["update"]["align"]["value"] == "center"
     assert edge_text["encode"]["update"]["baseline"]["value"] == "middle"
     assert "angle" not in edge_text["encode"]["update"]

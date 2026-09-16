@@ -40,6 +40,7 @@ from revision_keywords import (
 
 MODEL = DEFAULT_OPENAI_MODEL
 SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-09-04-v069"
+EDGE_DESCRIPTION_MIN_ZOOM_LEVEL = 2
 MIN_VIEW_SCALE = 0.01
 MAX_VIEW_SCALE = 50.0
 MIN_PARENT_LABEL_WORDS = 2
@@ -1247,6 +1248,10 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             "endpoint": 14,
         }.get(level, 12)
         if abs(dx) < 1e-18 and abs(dy) < 1e-18:
+            # A single-child parent can share the exact anchor and wording of
+            # its child. Give the child enough separation for both labels to
+            # pass the screen-space collision check when the area is open.
+            offset += 10
             direction = sum(
                 (index + 1) * ord(character)
                 for index, character in enumerate(str(node["node_id"]))
@@ -1279,26 +1284,6 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             parent_id = str(parent.get("parent_id") or "")
         return ancestors
 
-    def duplicates_ancestor_label(node: dict) -> bool:
-        """Suppress a child whose label repeats or nearly repeats an ancestor."""
-        if node.get("level") == "edge":
-            return False
-        label_key = _term_key(node.get("label", ""))
-        label_terms = set(label_key.split())
-        parent_id = str(node.get("parent_id", ""))
-        while label_key and parent_id in node_by_id:
-            parent = node_by_id[parent_id]
-            parent_key = _term_key(parent.get("label", ""))
-            parent_terms = set(parent_key.split())
-            shared_fraction = (
-                len(label_terms & parent_terms)
-                / max(1, min(len(label_terms), len(parent_terms)))
-            )
-            if parent_key == label_key or shared_fraction >= 0.75:
-                return True
-            parent_id = str(parent.get("parent_id", ""))
-        return False
-
     def is_uninformative_label(node: dict) -> bool:
         """Hide labels that explicitly report the absence of a content edit."""
         return _term_key(node.get("label", "")) in {
@@ -1323,7 +1308,6 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
         node for node in hierarchy_nodes
         if node["label"]
         and not is_uninformative_label(node)
-        and not duplicates_ancestor_label(node)
     ]
     label_rows = [
         {
@@ -1340,11 +1324,10 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 if node.get("cluster_id") is not None
                 else "#25322a"
             ),
-            # All levels compete for screen space at every zoom scale. Broad
-            # labels win collisions first; increasingly detailed labels fill
-            # every remaining gap as zooming creates room around their fixed
-            # anchors. This is cartographic decluttering, not a zoom-level
-            # switch.
+            # Every level competes for screen space at every zoom scale. Broad
+            # labels win collisions first, and increasingly detailed labels
+            # fill every remaining gap as zooming creates room around their
+            # fixed anchors.
             "label_priority": {
                 "macro": 4,
                 "cluster": 3,
@@ -1440,7 +1423,6 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             }),
         },
     ])
-    label_rows = deduplicate_label_rows(label_rows)
     return {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
         "description": f"Semantic zoom revision timecurve for {article}",
@@ -1620,7 +1602,6 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             ]},
             {"name": "visibleEdgeLabels", "source": "labels", "transform": [
                 {"type": "filter", "expr": "datum.level==='edge'"},
-                {"type": "filter", "expr": "zoomLevel>=5"},
                 {"type": "formula", "as": "screenX1", "expr": "scale('xscale', datum.edge_x)"},
                 {"type": "formula", "as": "screenY1", "expr": "scale('yscale', datum.edge_y)"},
                 {"type": "formula", "as": "screenX2", "expr": "scale('xscale', datum.edge_x2)"},
@@ -1918,7 +1899,12 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 "zindex": 7,
                 "from": {"data": "visibleEdgeLabels"},
                 "encode": {"update": {
-                    "text": {"field": "display_label"},
+                    "text": {
+                        "signal": (
+                            f"zoomLevel>={EDGE_DESCRIPTION_MIN_ZOOM_LEVEL} ? "
+                            "datum.display_label : datum.label"
+                        )
+                    },
                     "x": {"signal": "datum.labelScreenX - 9*datum.screenDy/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
                     "y": {"signal": "datum.labelScreenY + 9*datum.screenDx/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
                     "align": {"value": "center"},

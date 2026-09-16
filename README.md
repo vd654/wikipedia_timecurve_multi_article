@@ -90,25 +90,25 @@ Artikel
             └── Revisionskante
 ```
 
-Die Hierarchie liefert lediglich Kandidaten und kartografische Prioritäten; sie
-definiert keine Zoomstufen. Artikel-, Makro-, Cluster-, Abschnitts- und
-Kantenlabels werden bei jedem Maßstab gemeinsam in Bildschirmkoordinaten
-geprüft. Abstrakte Labels haben Vorrang, danach füllen detailliertere Labels
-jeden ausreichend großen freien Bereich. Übergeordnete Labels besitzen eine
+Die Hierarchie liefert Kandidaten und kartografische Prioritäten. Artikel-,
+Makro-, Cluster-, Abschnitts- und kurze Kantenlabels werden bei jedem Maßstab
+gemeinsam in Bildschirmkoordinaten geprüft. Abstrakte Labels haben Vorrang,
+danach füllen detailliertere Labels jeden ausreichend großen freien Bereich.
+Übergeordnete Labels besitzen eine
 feste Ankerposition; jedes Kantenlabel wird in der Mitte des aktuell sichtbaren
 Kantenabschnitts platziert. Alle Labels behalten eine konstante Schriftgröße.
 Berühren sich zwei Textflächen, verschwindet das Label mit niedrigerer
 Priorität. Es erscheint wieder, sobald Zoomen oder Verschieben genügend Platz
 schafft. Ein Stabilitätsbonus verhindert Flackern bei kleinen Bewegungen.
-Textgleiche Labelkandidaten werden bereits vor dem Rendering normalisiert und
-dedupliziert. Dabei gewinnt zuerst die höhere Hierarchiepriorität; bei gleicher
-Priorität entscheiden Importance, Revisionszahl und zuletzt die stabile Node-ID.
+Auch textgleiche Artikel-, Makro-, Cluster- und Abschnittslabels bleiben eigene
+Kandidaten. Erst ihre tatsächliche räumliche Kollision entscheidet, welches
+Label sichtbar ist; bei ausreichend Platz können beide erscheinen.
 Jedes sichtbare Label besitzt eine vollständig deckende Textfüllung und eine
 vollständig deckende weiße 4-px-Kontur. Ausgeblendete Kollisionskandidaten
 werden ohne halbtransparente Zwischenphase entfernt.
-Jede eigenständige Revisionskante bleibt dabei ein Labelkandidat; auch gleiche
-Texte auf verschiedenen Kanten werden erst durch die räumliche Kollision und
-nicht vorab durch eine globale Text-Deduplizierung entfernt.
+Jede eigenständige Revisionskante bleibt ebenfalls ein Labelkandidat. Ihr
+kurzes Kartenlabel wird bei jedem Maßstab geprüft; ab Zoomstufe 2 wird die
+ausführliche mehrzeilige Beschreibung verwendet.
 
 Revisionspunkte verwenden stabile HDBSCAN-Farben; Noise bleibt grau. Punkte,
 Abschnittsringe und Trajektorienlinien sind für die Detailansicht bewusst
