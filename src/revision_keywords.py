@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+import numpy as np
 from pydantic import BaseModel, Field
 
 from config import BASE_DIR, article_paths, article_slug
@@ -1676,7 +1677,28 @@ def main() -> int:
     conflict_history, sampled_for_conflict = history_window_for_points(
         full_history, projection["points"]
     )
-    revert_analysis = analyze_reverts(conflict_history, sampled_for_conflict)
+    embedding_path = projection_path.with_name(
+        projection_path.name.replace(
+            "_projection.json", "_revision_embeddings.npy"
+        )
+    )
+    semantic_vectors = None
+    if embedding_path.exists():
+        embeddings = np.load(embedding_path)
+        if len(embeddings) != len(projection["points"]):
+            raise ValueError(
+                "Revisions-Embeddings passen nicht zu den Projektionspunkten: "
+                f"{len(embeddings)} statt {len(projection['points'])}."
+            )
+        semantic_vectors = {
+            str(point["revision_id"]): vector
+            for point, vector in zip(projection["points"], embeddings)
+        }
+    revert_analysis = analyze_reverts(
+        conflict_history,
+        sampled_for_conflict,
+        semantic_vectors=semantic_vectors,
+    )
     edit_war_contexts = []
     for statistics in revert_analysis["point_statistics"][1:]:
         sessions = statistics.get("interval_confirmed_edit_war_sessions", [])

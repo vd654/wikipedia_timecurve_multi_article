@@ -15,6 +15,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
+import numpy as np
 from pydantic import BaseModel, Field
 
 from config import BASE_DIR, article_paths
@@ -25,6 +26,7 @@ from llm_provider import (
     model_or_default,
 )
 from revert_detection import (
+    REVERT_ANALYSIS_VERSION,
     analyze_reverts,
     history_window_for_points,
     load_revert_history,
@@ -39,12 +41,23 @@ from revision_keywords import (
 
 
 MODEL = DEFAULT_OPENAI_MODEL
-SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-09-04-v069"
-EDGE_DESCRIPTION_MIN_ZOOM_LEVEL = 2
+SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-09-18-v087"
 MIN_VIEW_SCALE = 0.01
 MAX_VIEW_SCALE = 50.0
 MIN_PARENT_LABEL_WORDS = 2
 MAX_PARENT_LABEL_WORDS = 3
+BACKGROUND_COLOR = "#fbfaf7"
+TRAJECTORY_COLOR = "#72806f"
+NOISE_COLOR = "#8a8a8a"
+EXACT_REVERT_COLOR = "#d64545"
+PARTIAL_REVERT_COLOR = "#00875a"
+EDIT_WAR_COLOR = "#2457d6"
+EDGE_SHORT_LABEL_OFFSET = 9
+EDGE_DETAILED_LABEL_OFFSET = 28
+# A full revision description is only useful once its own edge is visibly
+# distinguishable.  This screen-space rule naturally opens descriptions while
+# zooming without tying the behaviour to an arbitrary global zoom level.
+MIN_DETAILED_EDGE_SCREEN_LENGTH = 72
 
 # Line width is an event code, not a semantic-distance scale. A normal edge is
 # clearly legible, and repeatedly traversed undirected MDS segments receive an
@@ -79,7 +92,14 @@ Each label must explain what its cluster or chronological section is about and m
 a generic label such as 'changes', 'revision', 'miscellaneous', or a numbered level. Use two to three
 words. Return exactly one English label per node. Never join, enumerate, or
 contrast multiple candidate labels. Preserve meaningful names, institutions,
-places, events, and policies."""
+places, events, and policies. Name the article subject or proposition being discussed,
+never the editing operation. Do not label a parent area with mechanics such as formatting,
+punctuation, spacing, capitalization, wording, terminology, citations, references,
+templates, infobox fields, spelling, or interlanguage links. For a formatting-only child
+edit, recover the underlying people, institutions, places, claims, or policies from its
+detailed description. For example, an em-dash spacing edit in sentences about UN
+representation and Jordanian claims should yield "PLO Representation Claims", not
+"Em Dash Spacing"."""
 
 MACRO_LABEL_SYSTEM_PROMPT = """You create concise English overview labels for a semantic
 map. Use only the supplied child cluster labels, detailed transition descriptions, and
@@ -89,9 +109,10 @@ of the article changes. Never add outside knowledge. Each node combines several 
 needs one broad umbrella concept that makes the map understandable before the user
 zooms into the individual clusters. Use two to three words. Preserve meaningful
 names, institutions, places, events, and policies. Never use technical terms such as
-'cluster', 'group', 'area', 'level', 'miscellaneous', or a number. Return exactly
-one English umbrella label per node. Never join, enumerate, or contrast multiple
-candidate labels."""
+'cluster', 'group', 'area', 'level', 'miscellaneous', or a number. Describe the
+article content, never editing mechanics such as formatting, wording, citations,
+templates, or infobox fields. Return exactly one English umbrella label per node.
+Never join, enumerate, or contrast multiple candidate labels."""
 
 
 class NodeLabel(BaseModel):
@@ -113,59 +134,225 @@ def valid_parent_label(value: str) -> bool:
     return MIN_PARENT_LABEL_WORDS <= len(words) <= MAX_PARENT_LABEL_WORDS
 
 
+EDITORIAL_MECHANICS_PATTERN = re.compile(
+    r"\b(?:format(?:ting)?|punctuation|spacing|capitali[sz]ation|wording|"
+    r"terminology|citations?|references?|templates?|infobox|spelling|"
+    r"misspelling|grammar|typography|copyedit(?:ing)?|interlanguage|links?)\b",
+    re.IGNORECASE,
+)
+
+# These nouns are not wrong in ordinary prose, but as two-to-three-word map
+# labels they merely describe a container or an undifferentiated collection.
+# The hierarchy must instead name the actual subject represented by the child
+# evidence (for example, "Palestinian State Indicators" rather than
+# "Palestine Infobox Details").
+GENERIC_PARENT_LABEL_PATTERN = re.compile(
+    r"\b(?:article|background|content|context|details?|profile|affairs|"
+    r"revisions?)\b",
+    re.IGNORECASE,
+)
+
+
+def content_focused_parent_label(value: str) -> bool:
+    """Reject hierarchy labels that describe editing mechanics, not content."""
+    label = _normalise_term(value)
+    return not (
+        EDITORIAL_MECHANICS_PATTERN.search(label)
+        or GENERIC_PARENT_LABEL_PATTERN.search(label)
+    )
+
+
+SPECIFICITY_STOPWORDS = {
+    "a", "an", "and", "for", "in", "of", "the", "to",
+    "palestine", "palestinian", "state",
+}
+
+
+def _specificity_tokens(value: object) -> set[str]:
+    return {
+        token
+        for token in _term_key(str(value or "")).split()
+        if token not in SPECIFICITY_STOPWORDS
+    }
+
+
+def hierarchy_specificity_issues(hierarchy: dict) -> list[dict]:
+    """Return parent-child labels that fail to add grounded detail."""
+    levels = ("roots", "macros", "clusters", "sections", "edges")
+    nodes = {
+        str(node.get("node_id", "")): node
+        for level in levels
+        for node in hierarchy.get(level, [])
+    }
+    issues: list[dict] = []
+    for child in nodes.values():
+        parent = nodes.get(str(child.get("parent_id") or ""))
+        if parent is None:
+            continue
+        parent_tokens = _specificity_tokens(parent.get("label"))
+        child_tokens = _specificity_tokens(child.get("label"))
+        if child_tokens - parent_tokens:
+            continue
+        issues.append({
+            "kind": "child_adds_no_specific_term",
+            "parent_id": parent.get("node_id"),
+            "parent_label": parent.get("label"),
+            "child_id": child.get("node_id"),
+            "child_label": child.get("label"),
+        })
+    for level in ("macros", "clusters", "sections"):
+        for node in hierarchy.get(level, []):
+            if not content_focused_parent_label(str(node.get("label", ""))):
+                issues.append({
+                    "kind": "parent_describes_editing_mechanics",
+                    "node_id": node.get("node_id"),
+                    "label": node.get("label"),
+                })
+    for edge in hierarchy.get("edges", []):
+        label = _normalise_term(str(edge.get("label", "")))
+        description = _normalise_term(
+            str(edge.get("detailed_description", ""))
+        )
+        label_key = _term_key(label)
+        macro_label_keys = {
+            _term_key(str(macro.get("label", "")))
+            for macro in hierarchy.get("macros", [])
+            if macro.get("label")
+        }
+        if (
+            label_key.endswith(" status")
+            or label_key == "un observer state"
+            or label_key in macro_label_keys
+        ):
+            issues.append({
+                "kind": "edge_repeats_broad_topic",
+                "node_id": edge.get("node_id"),
+                "label": label,
+            })
+        if not description or len(description.split()) <= len(label.split()):
+            issues.append({
+                "kind": "edge_description_not_more_detailed",
+                "node_id": edge.get("node_id"),
+                "label": label,
+            })
+    return issues
+
+
 def _term_key(value: str) -> str:
     return re.sub(r"[^\w]+", " ", value.casefold()).strip()
 
 
 def deduplicate_label_rows(label_rows: list[dict]) -> list[dict]:
-    """Deduplicate parent labels while preserving every trajectory edge.
+    """Remove duplicate parents and duplicate labels on coincident edges.
 
     Priority is deliberately compared before importance: a broad parent label
-    must beat a more locally important detail label with the same text. Equal
-    priorities are resolved by importance, revision count, and finally the
-    stable node id so the exported map is reproducible. Edge labels use their
-    node id as the key because equal wording on distinct edges is not a
-    duplicate placement; screen-space collision decides whether each fits.
+    must beat another parent label with the same text. Coincident edges keep
+    only the most explanatory label, ranked first by the number of added and
+    removed words. Spatially distinct edges must retain their own labels even
+    when their short text is identical; otherwise a label elsewhere on the map
+    can incorrectly erase the description of an open, clearly visible edge.
+    Semantic importance, revision coverage, and finally the stable node id
+    provide deterministic fallbacks.
     """
-    def candidate_key(row: dict) -> str:
-        if row.get("level") == "edge":
-            return f"edge:{row.get('node_id', '')}"
-        label = str(row.get("display_label") or row.get("label") or "")
-        key = _term_key(label)
-        return f"parent:{key}" if key else ""
+    def text_key(value: str | list[str] | None) -> str:
+        if isinstance(value, list):
+            value = " ".join(str(line) for line in value)
+        return _term_key(str(value or ""))
 
-    winners: dict[str, dict] = {}
-    for row in label_rows:
-        key = candidate_key(row)
-        if not key:
-            continue
-        current = winners.get(key)
-        candidate_rank = (
+    def rendered_keys(row: dict) -> tuple[str, str]:
+        parent_text = row.get("display_label") or row.get("label")
+        if row.get("level") != "edge":
+            key = text_key(parent_text)
+            return key, key
+        return (
+            text_key(row.get("label") or parent_text),
+            text_key(row.get("display_label") or row.get("label")),
+        )
+
+    def edge_geometry_key(row: dict) -> tuple | None:
+        if row.get("level") != "edge":
+            return None
+        coordinate_fields = ("edge_x", "edge_y", "edge_x2", "edge_y2")
+        if any(row.get(field) is None for field in coordinate_fields):
+            return None
+        endpoints = tuple(sorted((
+            (
+                round(float(row["edge_x"]), 12),
+                round(float(row["edge_y"]), 12),
+            ),
+            (
+                round(float(row["edge_x2"]), 12),
+                round(float(row["edge_y2"]), 12),
+            ),
+        )))
+        return endpoints
+
+    def rank(row: dict) -> tuple[int, int, int, int, float, float, int]:
+        description = _normalise_term(row.get("detailed_description", ""))
+        return (
             int(row.get("label_priority", 0)),
+            int(bool(description)),
+            int(row.get("change_magnitude") or 0),
+            len(_term_key(description).split()),
+            float(row.get("label_confidence") or 0.0),
             float(row.get("importance", 0.0)),
             int(row.get("revision_count") or 0),
         )
-        current_rank = (
-            int(current.get("label_priority", 0)),
-            float(current.get("importance", 0.0)),
-            int(current.get("revision_count") or 0),
-        ) if current is not None else None
-        if (
-            current is None
-            or candidate_rank > current_rank
-            or (
-                candidate_rank == current_rank
-                and str(row.get("node_id", ""))
-                < str(current.get("node_id", ""))
-            )
-        ):
-            winners[key] = row
 
-    return [
-        row for row in label_rows
-        if not (key := candidate_key(row))
-        or winners.get(key) is row
-    ]
+    ordered = sorted(
+        enumerate(label_rows),
+        key=lambda item: (
+            -rank(item[1])[0],
+            -rank(item[1])[1],
+            -rank(item[1])[2],
+            -rank(item[1])[3],
+            -rank(item[1])[4],
+            -rank(item[1])[5],
+            -rank(item[1])[6],
+            str(item[1].get("node_id", "")),
+        ),
+    )
+    accepted: set[int] = set()
+    used_parent_short: set[str] = set()
+    used_parent_detailed: set[str] = set()
+    used_geometryless_edge_short: set[str] = set()
+    used_geometryless_edge_detailed: set[str] = set()
+    used_edge_geometries: set[tuple] = set()
+    for index, row in ordered:
+        short_key, detailed_key = rendered_keys(row)
+        geometry_key = edge_geometry_key(row)
+        if row.get("level") == "edge":
+            if geometry_key is not None:
+                if geometry_key in used_edge_geometries:
+                    continue
+            elif (
+                (short_key and short_key in used_geometryless_edge_short)
+                or (
+                    detailed_key
+                    and detailed_key in used_geometryless_edge_detailed
+                )
+            ):
+                continue
+        elif (
+            (short_key and short_key in used_parent_short)
+            or (detailed_key and detailed_key in used_parent_detailed)
+        ):
+            continue
+        accepted.add(index)
+        if row.get("level") == "edge":
+            if geometry_key is not None:
+                used_edge_geometries.add(geometry_key)
+            else:
+                if short_key:
+                    used_geometryless_edge_short.add(short_key)
+                if detailed_key:
+                    used_geometryless_edge_detailed.add(detailed_key)
+        else:
+            if short_key:
+                used_parent_short.add(short_key)
+            if detailed_key:
+                used_parent_detailed.add(detailed_key)
+    return [row for index, row in enumerate(label_rows) if index in accepted]
 
 
 def top_terms(keyword_groups: Iterable[Iterable[str]], limit: int = 12) -> list[str]:
@@ -527,13 +714,10 @@ def build_hierarchy(
         terms = top_terms(
             (edges[index]["cluster_terms"] for index in related_edges), 16
         )
-        # Some dense clusters consist entirely of neutral transitions. They
-        # still need grounded evidence for an API-generated parent label, so
-        # retain the existing edge phrase instead of inventing a topic.
-        if not terms:
-            terms = top_terms(
-                ([edges[index]["label"]] for index in related_edges), 4
-            )
+        # A dense cluster made entirely from byte-identical cleaned revisions
+        # has no article-content topic to name. Keep it unlabeled instead of
+        # turning the article title or "No Content Change" into a misleading
+        # thematic heading.
         macro_terms = top_terms(
             (edges[index]["macro_terms"] for index in related_edges), 16
         )
@@ -751,7 +935,9 @@ def generate_labels(
         prompt = (
             "Create one umbrella label for every node below. More abstract cluster labels "
             "must summarize the supplied evidence; section labels should be narrower. "
-            "Use the keywords and child labels from that node's own area only. Return "
+            "Use the keywords and child labels from that node's own area only. Name the "
+            "underlying article subject, claim, institution, place, event, or policy; "
+            "editing mechanics are evidence and must never become the parent label. Return "
             "every node_id exactly once and one English label per node.\n\n"
             + json.dumps(evidence, ensure_ascii=False, indent=2)
         )
@@ -784,13 +970,17 @@ def generate_labels(
             invalid = {
                 node_id: label
                 for node_id, label in labels.items()
-                if not valid_parent_label(label)
+                if (
+                    not valid_parent_label(label)
+                    or not content_focused_parent_label(label)
+                )
             }
             if not invalid:
                 generated.update(labels)
                 break
             prompt += (
-                "\n\nCorrection required: every label must contain exactly "
+                "\n\nCorrection required: every label must describe article content, "
+                "must not describe editing mechanics, and must contain exactly "
                 f"{MIN_PARENT_LABEL_WORDS} to {MAX_PARENT_LABEL_WORDS} words. "
                 "Return the complete batch again with every node_id exactly once. "
                 "Invalid labels: "
@@ -815,12 +1005,20 @@ def cached_llm_labels(
     if not labels_path.exists():
         return {}
     payload = json.loads(labels_path.read_text(encoding="utf-8"))
+    fixed_labels = fixed_parent_label_sources_match(
+        payload, projection_path, keywords_path
+    )
     if (
         Path(payload.get("projection", "")) != projection_path
         or Path(payload.get("revision_keywords", "")) != keywords_path
-        or payload.get("llm_provider") != provider
-        or payload.get("model") != model
-        or payload.get("label_system_prompt") != LABEL_SYSTEM_PROMPT
+        or (
+            not fixed_labels
+            and (
+                payload.get("llm_provider") != provider
+                or payload.get("model") != model
+                or payload.get("label_system_prompt") != LABEL_SYSTEM_PROMPT
+            )
+        )
     ):
         return {}
     result = {}
@@ -831,6 +1029,10 @@ def cached_llm_labels(
                 node.get("node_id")
                 and node.get("label")
                 and valid_parent_label(str(node["label"]))
+                and (
+                    fixed_labels
+                    or content_focused_parent_label(str(node["label"]))
+                )
             ):
                 result[node["node_id"]] = _normalise_term(str(node["label"]))
     return result
@@ -844,16 +1046,25 @@ def cached_macro_labels(
     macros: list[dict],
     provider: str = LLM_PROVIDER,
 ) -> dict[str, str]:
-    """Reuse macro labels only when membership and API evidence are unchanged."""
+    """Reuse macro labels, preserving a reviewed fixed label pyramid by node id."""
     if not labels_path.exists():
         return {}
     payload = json.loads(labels_path.read_text(encoding="utf-8"))
+    fixed_labels = fixed_parent_label_sources_match(
+        payload, projection_path, keywords_path
+    )
     if (
         Path(payload.get("projection", "")) != projection_path
         or Path(payload.get("revision_keywords", "")) != keywords_path
-        or payload.get("llm_provider") != provider
-        or payload.get("model") != model
-        or payload.get("macro_label_system_prompt") != MACRO_LABEL_SYSTEM_PROMPT
+        or (
+            not fixed_labels
+            and (
+                payload.get("llm_provider") != provider
+                or payload.get("model") != model
+                or payload.get("macro_label_system_prompt")
+                != MACRO_LABEL_SYSTEM_PROMPT
+            )
+        )
     ):
         return {}
     expected = {
@@ -869,13 +1080,22 @@ def cached_macro_labels(
         node_id = node.get("node_id")
         if (
             node_id in expected
-            and tuple(node.get("cluster_ids", []))
-            == expected[node_id]["cluster_ids"]
-            and tuple(node.get("terms", [])) == expected[node_id]["terms"]
-            and tuple(node.get("child_labels", []))
-            == expected[node_id]["child_labels"]
+            and (
+                fixed_labels
+                or (
+                    tuple(node.get("cluster_ids", []))
+                    == expected[node_id]["cluster_ids"]
+                    and tuple(node.get("terms", [])) == expected[node_id]["terms"]
+                    and tuple(node.get("child_labels", []))
+                    == expected[node_id]["child_labels"]
+                )
+            )
             and node.get("label")
             and valid_parent_label(str(node["label"]))
+            and (
+                fixed_labels
+                or content_focused_parent_label(str(node["label"]))
+            )
         ):
             result[node_id] = _normalise_term(str(node["label"]))
     return result
@@ -890,7 +1110,7 @@ def _finite_extent(values: list[float]) -> list[float]:
 def cluster_colour(cluster_id: int) -> str:
     """Return the stable HDBSCAN colour used by the original timecurve."""
     if cluster_id == -1:
-        return "#8a8a8a"
+        return NOISE_COLOR
     hue = (cluster_id * 0.61803398875) % 1.0
     lightness = 0.48 if cluster_id % 2 == 0 else 0.60
     red, green, blue = colorsys.hls_to_rgb(hue, lightness, 0.72)
@@ -1066,8 +1286,210 @@ def section_region_rows(
     return polygons, corridors, corridor_points
 
 
-def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
-    points = projection["points"]
+def build_revert_arc_rows(
+    point_rows: list[dict], revert_analysis: dict | None
+) -> list[dict]:
+    """Map revert events to dashed screen-space arcs between plotted revisions.
+
+    Each exact arc starts at the revision whose change was undone and ends at
+    the plotted anchor of ``restored_revision_id``. A direct partial counter-
+    edit is drawn as an Edit-War arc only when the offline analysis assigned it
+    to a repeated counter-revert session.
+    """
+    if not revert_analysis:
+        return []
+
+    points_by_revision = {
+        str(point["revision_id"]): point for point in point_rows
+    }
+    coordinate_counts = Counter(
+        (
+            round(float(point["x"]), 12),
+            round(float(point["y"]), 12),
+        )
+        for point in point_rows
+    )
+    session_sizes = {
+        str(session.get("session_id", "")): int(session.get("event_count", 0))
+        for session in revert_analysis.get("edit_war_sessions", [])
+        if session.get("session_id")
+    }
+    rows = []
+    for event_order, event in enumerate(revert_analysis.get("events", [])):
+        source_id = str(event.get("revision_id", ""))
+        target_id = str(event.get("reverted_revision_id", ""))
+        revert_point = points_by_revision.get(source_id)
+        undone_point = points_by_revision.get(target_id)
+        if (
+            revert_point is None
+            or undone_point is None
+            or source_id == target_id
+        ):
+            continue
+        reverter = str(event.get("reverter", ""))
+        reverted_editor = str(event.get("reverted_editor", ""))
+        session_id = str(event.get("edit_war_session_id", ""))
+        revert_kind = str(event.get("revert_kind", "exact_sha1"))
+        is_edit_war = bool(session_id)
+        restored_id = str(event.get("restored_revision_id") or "")
+        restored_point = points_by_revision.get(restored_id)
+        return_anchor = (
+            restored_point
+            if revert_kind == "exact_sha1" and restored_point is not None
+            else revert_point
+        )
+        return_anchor_id = (
+            restored_id
+            if revert_kind == "exact_sha1" and restored_point is not None
+            else source_id
+        )
+        source_key = (
+            round(float(undone_point["x"]), 12),
+            round(float(undone_point["y"]), 12),
+        )
+        target_key = (
+            round(float(return_anchor["x"]), 12),
+            round(float(return_anchor["y"]), 12),
+        )
+        pair = [str(editor) for editor in event.get("pair", []) if editor]
+        rows.append({
+            "arc_id": f"revert-{event_order + 1}-{source_id}-{target_id}",
+            "event_order": int(event.get("revision_index", event_order)),
+            # Start at the undone change and point back to the resulting
+            # revert revision, matching the chronological return direction.
+            "x": undone_point["x"],
+            "y": undone_point["y"],
+            "x2": return_anchor["x"],
+            "y2": return_anchor["y"],
+            "revision_id": source_id,
+            "reverted_revision_id": target_id,
+            "restored_revision_id": restored_id,
+            "return_anchor_revision_id": return_anchor_id,
+            "source_overlap_count": coordinate_counts[source_key],
+            "target_overlap_count": coordinate_counts[target_key],
+            "reverter": reverter,
+            "reverted_editor": reverted_editor,
+            "pair_text": " ↔ ".join(pair),
+            "revert_kind": revert_kind,
+            "revert_kind_label": (
+                "Exact revert"
+                if event.get("revert_kind") == "exact_sha1"
+                else "Partial revert"
+            ),
+            "reversal_score": float(event.get("reversal_score", 1.0)),
+            "session_id": session_id,
+            "is_edit_war": is_edit_war,
+            "edit_war_label": "Edit War" if is_edit_war else "",
+            "session_event_count": session_sizes.get(
+                session_id, 0
+            ),
+        })
+
+    # Edit War is the highest-priority encoding only when the blue arc marks
+    # the same projected connection. A shared endpoint is insufficient: many
+    # unrelated revisions can collapse onto one projection coordinate, and
+    # suppressing by endpoint would hide valid revert arcs on other edges.
+    conflict_geometry_keys = {
+        tuple(sorted((
+            (round(float(row["x"]), 12), round(float(row["y"]), 12)),
+            (round(float(row["x2"]), 12), round(float(row["y2"]), 12)),
+        )))
+        for row in rows
+        if row["is_edit_war"]
+    }
+    rows = [
+        row for row in rows
+        if row["is_edit_war"]
+        or tuple(sorted((
+                (
+                    round(float(row["x"]), 12),
+                    round(float(row["y"]), 12),
+                ),
+                (
+                    round(float(row["x2"]), 12),
+                    round(float(row["y2"]), 12),
+                ),
+            ))) not in conflict_geometry_keys
+    ]
+
+    grouped: dict[tuple, list[dict]] = defaultdict(list)
+    for row in rows:
+        endpoints = tuple(sorted((
+            (round(float(row["x"]), 12), round(float(row["y"]), 12)),
+            (round(float(row["x2"]), 12), round(float(row["y2"]), 12)),
+        )))
+        grouped[(row["session_id"], endpoints)].append(row)
+
+    for group in grouped.values():
+        group.sort(key=lambda row: (row["event_order"], row["arc_id"]))
+        for rank, row in enumerate(group):
+            row["arc_rank"] = rank
+            row["arc_level"] = rank // 2
+            row["arc_count"] = len(group)
+    # Vega paints later paths on top. Draw every standalone revert first and
+    # every Edit War last, while retaining chronology within each category.
+    return sorted(
+        rows,
+        key=lambda row: (
+            bool(row["is_edit_war"]),
+            row["event_order"],
+            row["arc_id"],
+        ),
+    )
+
+
+def snap_exact_revert_positions(
+    point_rows: list[dict], revert_analysis: dict | None
+) -> None:
+    """Place exact revert revisions on the restored revision coordinate.
+
+    Identical SHA1 states are semantically identical even when an embedding or
+    projection round-trip leaves their stored coordinates a few pixels apart.
+    Snapping only exact reverts makes the visual return literally coincide
+    with the restored state while partial reverts retain their own positions.
+    """
+    if not revert_analysis:
+        return
+    points_by_revision = {
+        str(point["revision_id"]): point for point in point_rows
+    }
+    for event in revert_analysis.get("events", []):
+        if event.get("revert_kind") != "exact_sha1":
+            continue
+        revert_point = points_by_revision.get(str(event.get("revision_id", "")))
+        restored_point = points_by_revision.get(
+            str(event.get("restored_revision_id", ""))
+        )
+        if revert_point is None or restored_point is None:
+            continue
+        revert_point["projected_x_before_revert_snap"] = revert_point["x"]
+        revert_point["projected_y_before_revert_snap"] = revert_point["y"]
+        revert_point["x"] = restored_point["x"]
+        revert_point["y"] = restored_point["y"]
+        revert_point["exact_revert_restored_revision_id"] = str(
+            event["restored_revision_id"]
+        )
+
+
+def build_vega_spec(
+    article: str,
+    projection: dict,
+    hierarchy: dict,
+    revert_analysis: dict | None = None,
+) -> dict:
+    revert_analysis = revert_analysis or projection.get("edit_wars")
+    points = [dict(point) for point in projection["points"]]
+    point_statistics = (
+        revert_analysis.get("point_statistics", [])
+        if revert_analysis else []
+    )
+    if point_statistics and len(point_statistics) != len(points):
+        raise ValueError(
+            "Revert-Statistiken passen nicht zu den projizierten Punkten: "
+            f"{len(point_statistics)} statt {len(points)}."
+        )
+    for point, statistics in zip(points, point_statistics):
+        point.update(statistics)
     labelled_section_point_indices = {
         point_index
         for section in hierarchy["sections"]
@@ -1120,36 +1542,8 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
         }
         for point in points
     ]
-
-    def point_position_key(point: dict) -> tuple[float, float]:
-        return round(float(point["x"]), 12), round(float(point["y"]), 12)
-
-    # An exact revert commonly lands exactly on an older revision in the MDS
-    # projection. Suppressing only the new target point would leave that older
-    # circle visible inside the revert glyph. Mark the complete projected
-    # position instead, then render one glyph for each unique revert position.
-    exact_revert_position_counts = Counter(
-        point_position_key(point)
-        for point in point_rows
-        for _ in range(point["interval_exact_sha1_revert_count"])
-    )
-    exact_revert_glyph_rows = []
-    seen_exact_revert_positions: set[tuple[float, float]] = set()
-    for point in point_rows:
-        position_key = point_position_key(point)
-        point["is_exact_revert_position"] = (
-            position_key in exact_revert_position_counts
-        )
-        if (
-            point["interval_exact_sha1_revert_count"] > 0
-            and position_key not in seen_exact_revert_positions
-        ):
-            glyph_point = dict(point)
-            glyph_point["exact_revert_position_count"] = (
-                exact_revert_position_counts[position_key]
-            )
-            exact_revert_glyph_rows.append(glyph_point)
-            seen_exact_revert_positions.add(position_key)
+    snap_exact_revert_positions(point_rows, revert_analysis)
+    revert_arc_rows = build_revert_arc_rows(point_rows, revert_analysis)
 
     edge_rows = []
     for index, edge in enumerate(hierarchy["edges"]):
@@ -1211,7 +1605,6 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
     y_extent = _finite_extent(ys)
     cluster_ids = sorted({row["cluster_id"] for row in point_rows})
     hull_rows = cluster_hull_rows(point_rows)
-    macro_rows = macro_hull_rows(point_rows)
     hierarchy_nodes = (
         hierarchy.get("macros", []) + hierarchy["clusters"]
         + hierarchy["sections"] + hierarchy["edges"]
@@ -1335,6 +1728,14 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 "edge": 1,
             }[node["level"]],
             "importance": node["importance"],
+            "change_magnitude": (
+                int(node.get("added_words") or 0)
+                + int(node.get("removed_words") or 0)
+                if node["level"] == "edge" else 0
+            ),
+            "added_words": node.get("added_words"),
+            "removed_words": node.get("removed_words"),
+            "label_confidence": node.get("label_confidence"),
             "revision_count": node.get("revision_count"),
             "parent_id": node.get("parent_id"),
             "ancestor_ids": label_ancestor_ids(node),
@@ -1423,6 +1824,7 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             }),
         },
     ])
+    label_rows = deduplicate_label_rows(label_rows)
     return {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
         "description": f"Semantic zoom revision timecurve for {article}",
@@ -1430,7 +1832,7 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
         "width": 1180,
         "height": 760,
         "padding": {"top": 18, "left": 28, "right": 28, "bottom": 28},
-        "background": "#fbfaf7",
+        "background": BACKGROUND_COLOR,
         "signals": [
             {"name": "xext", "value": x_extent},
             {"name": "yext", "value": y_extent},
@@ -1464,6 +1866,10 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             {"name": "minViewScale", "value": MIN_VIEW_SCALE},
             {"name": "maxViewScale", "value": MAX_VIEW_SCALE},
             {"name": "viewScale", "update": "span(xext)/span(xdom)"},
+            {
+                "name": "rootOnlyOverview",
+                "update": "viewScale <= minViewScale * 1.001",
+            },
             {"name": "zoom", "value": 1, "on": [
                 {
                     "events": "wheel!",
@@ -1490,20 +1896,18 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             # position collides instead of searching another side.
             {"name": "blockedParentLabelIds", "value": []},
             {"name": "blockedEdgeLabelIds", "value": []},
+            # Filled by the screen-space collision audit. Detailed edge text
+            # is preferred whenever its measured bounds fit; otherwise the
+            # short label is used without relying on a zoom threshold.
+            {"name": "detailedEdgeLabelIds", "value": []},
         ],
         "data": [
             {"name": "points", "values": point_rows},
-            {"name": "normalRevisionPoints", "source": "points", "transform": [
-                {"type": "filter", "expr": "!datum.is_exact_revert_position"},
-            ]},
-            {"name": "exactRevertPoints", "values": exact_revert_glyph_rows},
+            {"name": "normalRevisionPoints", "source": "points"},
             {"name": "labelledSectionPoints", "source": "points", "transform": [
                 {
                     "type": "filter",
-                    "expr": (
-                        "datum.labelled_section_point && "
-                        "!datum.is_exact_revert_position"
-                    ),
+                    "expr": "datum.labelled_section_point",
                 },
             ]},
             {"name": "edges", "values": edge_rows},
@@ -1584,17 +1988,104 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 {"type": "formula", "as": "arrowScreenY", "expr": "datum.screenY1+datum.screenDy*datum.arrowT"},
                 {"type": "formula", "as": "arrowAngle", "expr": "atan2(datum.screenDy,datum.screenDx)*57.29577951308232"},
             ]},
-            {"name": "editWarEdges", "source": "edges", "transform": [
-                {"type": "filter", "expr": "datum.is_edit_war"},
+            {"name": "revertArcs", "values": revert_arc_rows},
+            {"name": "revertArcGeometry", "source": "revertArcs", "transform": [
+                {"type": "formula", "as": "screenX1", "expr": "scale('xscale', datum.x)"},
+                {"type": "formula", "as": "screenY1", "expr": "scale('yscale', datum.y)"},
+                {"type": "formula", "as": "screenX2", "expr": "scale('xscale', datum.x2)"},
+                {"type": "formula", "as": "screenY2", "expr": "scale('yscale', datum.y2)"},
+                {"type": "formula", "as": "screenDx", "expr": "datum.screenX2-datum.screenX1"},
+                {"type": "formula", "as": "screenDy", "expr": "datum.screenY2-datum.screenY1"},
+                {
+                    "type": "formula",
+                    "as": "screenLength",
+                    "expr": "sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2))",
+                },
+                {"type": "filter", "expr": "datum.screenLength>=2"},
+                {
+                    "type": "formula",
+                    "as": "arcHeight",
+                    "expr": (
+                        "datum.is_edit_war ? "
+                        "min(190,max(22,datum.screenLength*"
+                        "(0.25+0.075*datum.arc_level)+8*datum.arc_level)) : "
+                        "datum.revert_kind==='exact_sha1' ? "
+                        "min(190,max(22,datum.screenLength*0.28+"
+                        "8*datum.arc_level)) : "
+                        "min(95,max(10,datum.screenLength*0.12+"
+                        "4*datum.arc_level))"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "controlX",
+                    "expr": (
+                        "(datum.screenX1+datum.screenX2)/2 - "
+                        "datum.screenDy/datum.screenLength*datum.arcHeight"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "controlY",
+                    "expr": (
+                        "(datum.screenY1+datum.screenY2)/2 + "
+                        "datum.screenDx/datum.screenLength*datum.arcHeight"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "arcPath",
+                    "expr": (
+                        "'M'+datum.screenX1+','+datum.screenY1+' Q'+"
+                        "datum.controlX+','+datum.controlY+' '+"
+                        "datum.screenX2+','+datum.screenY2"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "arrowX",
+                    "expr": (
+                        "0.1024*datum.screenX1 + 0.4352*datum.controlX + "
+                        "0.4624*datum.screenX2"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "arrowY",
+                    "expr": (
+                        "0.1024*datum.screenY1 + 0.4352*datum.controlY + "
+                        "0.4624*datum.screenY2"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "arrowDx",
+                    "expr": (
+                        "0.64*(datum.controlX-datum.screenX1) + "
+                        "1.36*(datum.screenX2-datum.controlX)"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "arrowDy",
+                    "expr": (
+                        "0.64*(datum.controlY-datum.screenY1) + "
+                        "1.36*(datum.screenY2-datum.controlY)"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "arrowAngle",
+                    "expr": "atan2(datum.arrowDy,datum.arrowDx)*57.29577951308232",
+                },
             ]},
             {"name": "intraClusterEdges", "source": "edges", "transform": [
                 {"type": "filter", "expr": "datum.same_cluster"},
             ]},
             {"name": "labels", "values": label_rows},
-            {"name": "macroHulls", "values": macro_rows},
             {"name": "clusterHulls", "values": hull_rows},
             {"name": "visibleParentLabels", "source": "labels", "transform": [
-                {"type": "filter", "expr": "datum.level==='root' || datum.level==='macro' || datum.level==='endpoint' || datum.level==='cluster' || datum.level==='section'"},
+                {"type": "filter", "expr": "rootOnlyOverview ? datum.level==='root' : (datum.level==='root' || datum.level==='macro' || datum.level==='endpoint' || datum.level==='cluster' || datum.level==='section')"},
                 {"type": "filter", "expr": "datum.x >= min(xdom[0], xdom[1]) && datum.x <= max(xdom[0], xdom[1]) && datum.y >= min(ydom[0], ydom[1]) && datum.y <= max(ydom[0], ydom[1])"},
                 {"type": "filter", "expr": "datum.level!=='root' || (scale('xscale', datum.x) >= 95 && scale('xscale', datum.x) <= width-95 && scale('yscale', datum.y) >= 24 && scale('yscale', datum.y) <= height-24)"},
                 {"type": "formula", "as": "placementOrder", "expr": "-(datum.label_priority*1e15 + (indexof(stableParentLabelIds, datum.node_id)>=0 ? 1e14 : 0) + datum.importance)"},
@@ -1602,12 +2093,18 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
             ]},
             {"name": "visibleEdgeLabels", "source": "labels", "transform": [
                 {"type": "filter", "expr": "datum.level==='edge'"},
+                {"type": "filter", "expr": "!rootOnlyOverview"},
                 {"type": "formula", "as": "screenX1", "expr": "scale('xscale', datum.edge_x)"},
                 {"type": "formula", "as": "screenY1", "expr": "scale('yscale', datum.edge_y)"},
                 {"type": "formula", "as": "screenX2", "expr": "scale('xscale', datum.edge_x2)"},
                 {"type": "formula", "as": "screenY2", "expr": "scale('yscale', datum.edge_y2)"},
                 {"type": "formula", "as": "screenDx", "expr": "datum.screenX2-datum.screenX1"},
                 {"type": "formula", "as": "screenDy", "expr": "datum.screenY2-datum.screenY1"},
+                {
+                    "type": "formula",
+                    "as": "screenLength",
+                    "expr": "sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2))",
+                },
                 {
                     "type": "formula",
                     "as": "xClipMin",
@@ -1665,24 +2162,6 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
         ],
         "marks": [
             {
-                "name": "macroRegions", "type": "group",
-                "from": {"facet": {"name": "macroHull", "data": "macroHulls", "groupby": "macro_id"}},
-                "marks": [{
-                    "type": "line", "from": {"data": "macroHull"},
-                    "encode": {"update": {
-                        "x": {"scale": "xscale", "field": "x"},
-                        "y": {"scale": "yscale", "field": "y"},
-                        "order": {"field": "order"},
-                        "interpolate": {"value": "linear"},
-                        "fill": {"value": "#b7c3b7"},
-                        "fillOpacity": {"value": 0.035},
-                        "stroke": {"value": "#788878"},
-                        "strokeOpacity": {"value": 0.16},
-                        "strokeWidth": {"value": 1.6},
-                    }}
-                }],
-            },
-            {
                 "name": "clusterRegions", "type": "group",
                 "from": {"facet": {"name": "clusterHull", "data": "clusterHulls", "groupby": "cluster_id"}},
                 "marks": [{
@@ -1701,27 +2180,6 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 }],
             },
             {
-                "name": "editWarHalo",
-                "type": "rule",
-                "interactive": False,
-                "from": {"data": "editWarEdges"},
-                "encode": {"update": {
-                    "x": {"scale": "xscale", "field": "x"},
-                    "y": {"scale": "yscale", "field": "y"},
-                    "x2": {"scale": "xscale", "field": "x2"},
-                    "y2": {"scale": "yscale", "field": "y2"},
-                    "stroke": {"value": "#1f9d55"},
-                    "strokeOpacity": {"value": 0.24},
-                    "strokeWidth": {
-                        "signal": (
-                            "min(17, 10 + "
-                            "1.1*max(datum.overlap_count-1, 0))"
-                        )
-                    },
-                    "strokeCap": {"value": "round"},
-                }},
-            },
-            {
                 "name": "trajectory",
                 "type": "rule",
                 "from": {"data": "edges"},
@@ -1730,7 +2188,7 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                     "y": {"scale": "yscale", "field": "y"},
                     "x2": {"scale": "xscale", "field": "x2"},
                     "y2": {"scale": "yscale", "field": "y2"},
-                    "stroke": {"value": "#72806f"},
+                    "stroke": {"value": TRAJECTORY_COLOR},
                     "strokeOpacity": {"value": 0.42},
                     "strokeWidth": {"signal": TRAJECTORY_WIDTH_SIGNAL},
                 }}
@@ -1749,6 +2207,72 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 }}
             },
             {
+                "name": "revertArcPaths",
+                "type": "path",
+                "from": {"data": "revertArcGeometry"},
+                "encode": {
+                    "enter": {
+                        "tooltip": {
+                            "signal": (
+                                "{'Type': datum.revert_kind_label, "
+                                "'Revert revision': datum.revision_id, "
+                                "'Undone revision': datum.reverted_revision_id, "
+                                "'Restored revision': datum.restored_revision_id, "
+                                "'Return anchor': datum.return_anchor_revision_id, "
+                                "'Points at return anchor': datum.target_overlap_count, "
+                                "'Editors': datum.pair_text, "
+                                "'Edit War': datum.edit_war_label}"
+                            )
+                        },
+                    },
+                    "update": {
+                        "path": {"field": "arcPath"},
+                        "fillOpacity": {"value": 0},
+                        "stroke": {
+                            "signal": (
+                                f"datum.is_edit_war ? '{EDIT_WAR_COLOR}' : "
+                                "(datum.revert_kind==='exact_sha1' ? "
+                                f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}')"
+                            )
+                        },
+                        "strokeOpacity": {
+                            "signal": "datum.is_edit_war ? 0.9 : 0.78"
+                        },
+                        "strokeWidth": {
+                            "signal": "datum.is_edit_war ? 2.5 : 2"
+                        },
+                        "strokeDash": {"value": [8, 5]},
+                        "strokeCap": {"value": "round"},
+                        "strokeJoin": {"value": "round"},
+                    },
+                },
+            },
+            {
+                "name": "revertArcDirectionArrows",
+                "type": "symbol",
+                "interactive": False,
+                "from": {"data": "revertArcGeometry"},
+                "zindex": 1,
+                "encode": {"update": {
+                    "x": {"field": "arrowX"},
+                    "y": {"field": "arrowY"},
+                    "shape": {"value": "triangle-right"},
+                    "angle": {"field": "arrowAngle"},
+                    "size": {"signal": "datum.is_edit_war ? 54 : 46"},
+                    "fill": {
+                        "signal": (
+                            f"datum.is_edit_war ? '{EDIT_WAR_COLOR}' : "
+                            "(datum.revert_kind==='exact_sha1' ? "
+                            f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}')"
+                        )
+                    },
+                    "fillOpacity": {"value": 0.96},
+                    "stroke": {"value": BACKGROUND_COLOR},
+                    "strokeOpacity": {"value": 0.96},
+                    "strokeWidth": {"value": 0.8},
+                }},
+            },
+            {
                 "name": "directionArrows",
                 "type": "symbol",
                 "interactive": False,
@@ -1765,11 +2289,11 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                     "fill": {
                         "signal": (
                             "datum.same_cluster ? "
-                            "scale('clusterColor', datum.cluster_id) : '#72806f'"
+                            f"scale('clusterColor', datum.cluster_id) : '{TRAJECTORY_COLOR}'"
                         )
                     },
                     "fillOpacity": {"value": 0.9},
-                    "stroke": {"value": "#fbfaf7"},
+                    "stroke": {"value": BACKGROUND_COLOR},
                     "strokeOpacity": {"value": 0.95},
                     "strokeWidth": {"value": 0.8},
                 }},
@@ -1783,79 +2307,8 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                     "size": {"value": 120},
                     "fill": {"scale": "clusterColor", "field": "cluster_id"},
                     "fillOpacity": {"signal": "0.62 + 0.24*min(zoomLevel/4,1)"},
-                    "stroke": {"value": "#fbfaf7"}, "strokeWidth": {"value": 1.2},
+                    "stroke": {"value": BACKGROUND_COLOR}, "strokeWidth": {"value": 1.2},
                 }}
-            },
-            {
-                "name": "exactRevertGlyphMasks",
-                "type": "symbol",
-                "interactive": False,
-                "from": {"data": "exactRevertPoints"},
-                # Cover coincident points and the line centre before drawing
-                # the open undo glyph above it.
-                "zindex": 1,
-                "encode": {"update": {
-                    "x": {"scale": "xscale", "field": "x"},
-                    "y": {"scale": "yscale", "field": "y"},
-                    "shape": {"value": "square"},
-                    "size": {"value": 196},
-                    "fill": {"value": "#fbfaf7"},
-                    "fillOpacity": {"value": 1},
-                    "strokeOpacity": {"value": 0},
-                }},
-            },
-            {
-                "name": "exactRevertGlyphArcs",
-                "type": "arc",
-                "from": {"data": "exactRevertPoints"},
-                # A geometry-native glyph is centred exactly on the revision
-                # coordinate, unlike a font glyph with asymmetric metrics.
-                "zindex": 2,
-                "encode": {
-                    "enter": {
-                        "tooltip": {
-                            "signal": (
-                                "{'Revision ID': datum.revision_id, "
-                                "'Timestamp': datum.timestamp, "
-                                "'Author': datum.author, "
-                                "'Cluster': datum.cluster_label, "
-                                "'Exact revert': true, "
-                                "'Reverts at this position': "
-                                "datum.exact_revert_position_count}"
-                            )
-                        },
-                    },
-                    "update": {
-                        "x": {"scale": "xscale", "field": "x"},
-                        "y": {"scale": "yscale", "field": "y"},
-                        "startAngle": {"value": 0.55},
-                        "endAngle": {"value": 5.25},
-                        "innerRadius": {"value": 6.2},
-                        "outerRadius": {"value": 9.4},
-                        "fill": {"value": "#d64545"},
-                        "fillOpacity": {"value": 1},
-                    },
-                },
-            },
-            {
-                "name": "exactRevertGlyphHeads",
-                "type": "symbol",
-                "interactive": False,
-                "from": {"data": "exactRevertPoints"},
-                "zindex": 2,
-                "encode": {"update": {
-                    "x": {
-                        "signal": "scale('xscale',datum.x)+sin(5.25)*7.8",
-                    },
-                    "y": {
-                        "signal": "scale('yscale',datum.y)-cos(5.25)*7.8",
-                    },
-                    "shape": {"value": "triangle-right"},
-                    "angle": {"value": 300.8},
-                    "size": {"value": 42},
-                    "fill": {"value": "#d64545"},
-                    "fillOpacity": {"value": 1},
-                }},
             },
             {
                 "name": "sectionPointHighlights", "type": "symbol",
@@ -1889,9 +2342,71 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                     "strokeWidth": {"value": 4},
                     "strokeOpacity": {"value": 1},
                     "font": {"value": "Inter, Arial, sans-serif"},
-                    "fontSize": {"signal": "datum.level==='root' ? 28 : datum.level==='macro' ? 19 : datum.level==='cluster' ? 16 : 14"},
+                    "fontSize": {"signal": "datum.level==='root' ? 28 : datum.level==='macro' ? 19 : datum.level==='cluster' ? 16 : datum.level==='section' ? 12 : 14"},
                     "fontWeight": {"value": 700},
                 }}
+            },
+            {
+                "name": "edgeShortMeasureLabels", "type": "text",
+                "interactive": False,
+                "key": "node_id",
+                "from": {"data": "visibleEdgeLabels"},
+                "encode": {"update": {
+                    "text": {"field": "label"},
+                    "x": {"signal": "datum.labelScreenX - 9*datum.screenDy/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
+                    "y": {"signal": "datum.labelScreenY + 9*datum.screenDx/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
+                    "align": {"value": "center"},
+                    "baseline": {"value": "middle"},
+                    "font": {"value": "Inter, Arial, sans-serif"},
+                    "fontSize": {"value": 8},
+                    "lineHeight": {"value": 10},
+                    "fontWeight": {"value": 700},
+                    "opacity": {"value": 0},
+                    "fillOpacity": {"value": 0},
+                    "strokeOpacity": {"value": 0},
+                    "limit": {"value": 340},
+                }}
+            },
+            {
+                "name": "edgeDetailedMeasureLabels", "type": "text",
+                "interactive": False,
+                "key": "node_id",
+                "from": {"data": "visibleEdgeLabels"},
+                "encode": {"update": {
+                    "text": {"field": "display_label"},
+                    "x": {"signal": f"datum.labelScreenX - {EDGE_DETAILED_LABEL_OFFSET}*datum.screenDy/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
+                    "y": {"signal": f"datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET}*datum.screenDx/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
+                    "align": {"value": "center"},
+                    "baseline": {"value": "middle"},
+                    "font": {"value": "Inter, Arial, sans-serif"},
+                    "fontSize": {"value": 8},
+                    "lineHeight": {"value": 10},
+                    "fontWeight": {"value": 700},
+                    "opacity": {"value": 0},
+                    "fillOpacity": {"value": 0},
+                    "strokeOpacity": {"value": 0},
+                    "limit": {"value": 340},
+                }}
+            },
+            {
+                "name": "edgeDetailLeaders", "type": "rule",
+                "interactive": False,
+                "from": {"data": "visibleEdgeLabels"},
+                "zindex": 6,
+                "encode": {"update": {
+                    "x": {"field": "labelScreenX"},
+                    "y": {"field": "labelScreenY"},
+                    "x2": {"signal": f"datum.labelScreenX - {EDGE_DETAILED_LABEL_OFFSET - 8}*datum.screenDy/max(datum.screenLength,1)"},
+                    "y2": {"signal": f"datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET - 8}*datum.screenDx/max(datum.screenLength,1)"},
+                    "stroke": {"field": "label_colour"},
+                    "strokeWidth": {"value": 1.25},
+                    "strokeOpacity": {
+                        "signal": (
+                            "indexof(detailedEdgeLabelIds, datum.node_id)>=0 && "
+                            "indexof(blockedEdgeLabelIds, datum.node_id)<0 ? 0.78 : 0"
+                        )
+                    },
+                }},
             },
             {
                 "name": "edgeLabels", "type": "text",
@@ -1901,12 +2416,12 @@ def build_vega_spec(article: str, projection: dict, hierarchy: dict) -> dict:
                 "encode": {"update": {
                     "text": {
                         "signal": (
-                            f"zoomLevel>={EDGE_DESCRIPTION_MIN_ZOOM_LEVEL} ? "
+                            "indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? "
                             "datum.display_label : datum.label"
                         )
                     },
-                    "x": {"signal": "datum.labelScreenX - 9*datum.screenDy/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
-                    "y": {"signal": "datum.labelScreenY + 9*datum.screenDx/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
+                    "x": {"signal": f"datum.labelScreenX - (indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? {EDGE_DETAILED_LABEL_OFFSET} : {EDGE_SHORT_LABEL_OFFSET})*datum.screenDy/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
+                    "y": {"signal": f"datum.labelScreenY + (indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? {EDGE_DETAILED_LABEL_OFFSET} : {EDGE_SHORT_LABEL_OFFSET})*datum.screenDx/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
                     "align": {"value": "center"},
                     "baseline": {"value": "middle"},
                     "font": {"value": "Inter, Arial, sans-serif"},
@@ -1950,7 +2465,7 @@ def render_html(article: str, spec: dict) -> str:
 <script src="https://cdn.jsdelivr.net/npm/vega@5.33.1"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-tooltip@0.35.2/build/vega-tooltip.min.js"></script>
 <style>
-html,body{{height:100%;margin:0;background:#fbfaf7;color:#151915;font-family:Inter,Arial,sans-serif}}
+html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font-family:Inter,Arial,sans-serif}}
 #app{{width:min(100%,1200px);height:min(100%,720px);margin:0 auto;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box}}
 #topbar{{padding:14px 20px 8px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}}
 #topbar h1{{font-size:20px;line-height:1.2;font-weight:700;margin:0}}
@@ -1965,13 +2480,14 @@ html,body{{height:100%;margin:0;background:#fbfaf7;color:#151915;font-family:Int
 .legend-list{{list-style:none;margin:0;padding:0;display:grid;gap:8px}}
 .cluster-list{{grid-template-columns:1fr 1fr;column-gap:8px}}
 .legend-list li{{min-width:0;display:flex;align-items:center;gap:8px;font-size:12px;line-height:1.25}}
-.legend-dot{{--legend-color:#72806f;width:11px;height:11px;box-sizing:border-box;border-radius:50%;background:var(--legend-color);border:1px solid #fbfaf7;box-shadow:0 0 0 1px color-mix(in srgb,var(--legend-color) 75%,#777);flex:none}}
-.legend-ring{{width:14px;height:14px;box-sizing:border-box;border:2px solid #72806f;border-radius:50%;background:transparent;flex:none}}
-.legend-line{{width:30px;height:0;border-top:2.25px solid #72806f;flex:none}}
+.legend-dot{{--legend-color:{NOISE_COLOR};width:11px;height:11px;box-sizing:border-box;border-radius:50%;background:var(--legend-color);border:1px solid {BACKGROUND_COLOR};box-shadow:0 0 0 1px color-mix(in srgb,var(--legend-color) 75%,#777);flex:none}}
+.legend-ring{{width:14px;height:14px;box-sizing:border-box;border:2px solid {NOISE_COLOR};border-radius:50%;background:transparent;flex:none}}
+.legend-line{{width:30px;height:0;border-top:2.25px solid {TRAJECTORY_COLOR};flex:none}}
 .legend-line.thick{{border-top-width:4.45px}}
-.legend-line.edit-war{{border-top:2.25px solid #72806f;box-shadow:0 0 0 5px rgba(31,157,85,.24)}}
-.legend-arrow{{width:30px;flex:none;text-align:center;color:#72806f;font-size:23px;font-weight:800;line-height:10px}}
-.legend-revert-glyph{{width:30px;flex:none;text-align:center;color:#d64545;font-size:25px;font-weight:700;line-height:14px;text-shadow:0 0 2px #fff}}
+.legend-arc{{width:30px;height:10px;box-sizing:border-box;border:2px dashed {EXACT_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none}}
+.legend-partial{{width:30px;height:10px;box-sizing:border-box;border:2px dashed {PARTIAL_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none}}
+.legend-spiral{{width:30px;height:10px;box-sizing:border-box;border:2px dashed {EDIT_WAR_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none}}
+.legend-arrow{{width:30px;flex:none;text-align:center;color:{TRAJECTORY_COLOR};font-size:23px;font-weight:800;line-height:10px}}
 @media(max-width:760px){{#content{{grid-template-columns:minmax(0,1fr) 205px}}#legend{{padding:12px 10px}}.cluster-list{{grid-template-columns:1fr}}}}
 </style></head><body><main id="app">
 <header id="topbar"><h1>Meaningful Projection Space</h1></header>
@@ -1981,13 +2497,14 @@ html,body{{height:100%;margin:0;background:#fbfaf7;color:#151915;font-family:Int
 <h2>Legend</h2>
 <h3>Display</h3>
 <ul class="legend-list">
-<li><span class="legend-dot"></span><span>Revision point</span></li>
-<li><span class="legend-ring"></span><span>Temporal-section point</span></li>
+<li><span class="legend-dot"></span><span>Revision point (cluster colour)</span></li>
+<li><span class="legend-ring"></span><span>Temporal-section point (cluster colour)</span></li>
 <li><span class="legend-line"></span><span>Standard trajectory edge</span></li>
 <li><span class="legend-arrow">&#8594;</span><span>Revision direction</span></li>
-<li><span class="legend-line thick"></span><span>Repeated path</span></li>
-<li><span class="legend-revert-glyph">&#8630;</span><span>Exact revert target</span></li>
-<li><span class="legend-line edit-war"></span><span>Edit War</span></li>
+<li><span class="legend-line thick"></span><span>Repeated projected path</span></li>
+<li><span class="legend-arc"></span><span>Exact revert return</span></li>
+<li><span class="legend-partial"></span><span>Partial revert (selected text restored; unaffected text remains)</span></li>
+<li><span class="legend-spiral"></span><span>Edit War</span></li>
 </ul>
 <h3>Cluster</h3>
 <ul class="legend-list cluster-list">{cluster_legend}</ul>
@@ -2009,6 +2526,10 @@ let lastHeight=0;
 function sameIds(first,second){{
   return first.length===second.length&&first.every((value,index)=>value===second[index]);
 }}
+function normalizedLabelKey(value){{
+  return String(value||'').toLocaleLowerCase('en')
+    .replace(/[^a-z0-9]+/g,' ').trim();
+}}
 function renderedLabelItems(mode,...markNames){{
   const names=new Set(markNames);
   const blockedParents=new Set(view.signal('blockedParentLabelIds')||[]);
@@ -2022,7 +2543,13 @@ function renderedLabelItems(mode,...markNames){{
       if(datum&&datum.node_id&&
          Number.isFinite(bounds.x1)&&Number.isFinite(bounds.y1)&&
          Number.isFinite(bounds.x2)&&Number.isFinite(bounds.y2)){{
-        const kind=item.mark.name==='edgeLabels'?'edge':'parent';
+        const markName=item.mark.name;
+        const kind=markName==='semanticLabels'?'parent':'edge';
+        const variant=markName==='edgeDetailedMeasureLabels'
+          ? 'detailed'
+          : markName==='edgeShortMeasureLabels'
+            ? 'short'
+            : 'visible';
         const id=String(datum.node_id);
         const level=String(datum.level||'');
         const collisionBlocked=kind==='parent'
@@ -2035,16 +2562,20 @@ function renderedLabelItems(mode,...markNames){{
           if(Array.isArray(item.items))item.items.forEach(visit);
           return;
         }}
-        items.set(`${{kind}}:${{id}}`,{{
+        items.set(`${{kind}}:${{variant}}:${{id}}`,{{
           id,
           kind,
+          variant,
           level,
+          hasDetailed:Boolean(String(datum.detailed_description||'').trim()),
           parentId:datum.parent_id==null?'':String(datum.parent_id),
           ancestorIds:Array.isArray(datum.ancestor_ids)
             ? datum.ancestor_ids.map(String)
             : [],
+          labelKey:normalizedLabelKey(datum.label),
           priority:Number(datum.label_priority)||0,
           importance:Number(datum.importance)||0,
+          edgeScreenLength:Number(datum.screenLength)||0,
           x1:bounds.x1,
           y1:bounds.y1,
           x2:bounds.x2,
@@ -2110,11 +2641,7 @@ class LabelSpatialHash{{
 function collisionBlocks(){{
   const stableParents=new Set(view.signal('stableParentLabelIds')||[]);
   const stableEdges=new Set(view.signal('stableEdgeLabelIds')||[]);
-  const candidates=[
-    ...renderedLabelItems('collision','semanticLabels'),
-    ...renderedLabelItems('collision','edgeLabels')
-  ];
-  candidates.sort((first,second)=>{{
+  const compareCandidates=(first,second)=>{{
     const priorityDifference=second.priority-first.priority;
     if(priorityDifference)return priorityDifference;
     const firstStable=first.kind==='parent'?stableParents.has(first.id):stableEdges.has(first.id);
@@ -2123,20 +2650,62 @@ function collisionBlocks(){{
     const importanceDifference=second.importance-first.importance;
     if(importanceDifference)return importanceDifference;
     return `${{first.kind}}:${{first.id}}`.localeCompare(`${{second.kind}}:${{second.id}}`);
-  }});
+  }};
+  const parents=renderedLabelItems('collision','semanticLabels')
+    .sort(compareCandidates);
+  const shortEdges=renderedLabelItems(
+    'collision','edgeShortMeasureLabels'
+  ).sort(compareCandidates);
+  const detailedEdges=new Map(
+    renderedLabelItems('collision','edgeDetailedMeasureLabels')
+      .map(candidate=>[candidate.id,candidate])
+  );
   const occupied=new LabelSpatialHash();
+  const acceptedParentLabelKeys=new Set();
+  const acceptedShortEdgeLabelKeys=new Set();
   const blockedParents=[];
   const blockedEdges=[];
-  for(const candidate of candidates){{
+  const detailedEdgeIds=[];
+  for(const candidate of parents){{
     if(outsideViewport(candidate)||occupied.overlaps(candidate)){{
-      (candidate.kind==='parent'?blockedParents:blockedEdges).push(candidate.id);
+      blockedParents.push(candidate.id);
     }}else{{
       occupied.insert(candidate);
+      if(candidate.labelKey)acceptedParentLabelKeys.add(candidate.labelKey);
+    }}
+  }}
+  for(const shortCandidate of shortEdges){{
+    const detailedCandidate=detailedEdges.get(shortCandidate.id);
+    const detailedFits=detailedCandidate&&detailedCandidate.hasDetailed&&
+      shortCandidate.edgeScreenLength>={MIN_DETAILED_EDGE_SCREEN_LENGTH}&&
+      !outsideViewport(detailedCandidate)&&
+      !occupied.overlaps(detailedCandidate);
+    const shortTextIsRedundant=Boolean(shortCandidate.labelKey)&&(
+      acceptedParentLabelKeys.has(shortCandidate.labelKey)||
+      acceptedShortEdgeLabelKeys.has(shortCandidate.labelKey)
+    );
+    // A broad visible region label already explains repeated short edge text.
+    // Suppress that repetition, but let the edge return as its concrete full
+    // revision description as soon as zooming creates enough screen space.
+    if(detailedFits){{
+      occupied.insert(detailedCandidate);
+      detailedEdgeIds.push(shortCandidate.id);
+    }}else if(shortTextIsRedundant){{
+      blockedEdges.push(shortCandidate.id);
+    }}else if(!outsideViewport(shortCandidate)&&
+              !occupied.overlaps(shortCandidate)){{
+      occupied.insert(shortCandidate);
+      if(shortCandidate.labelKey){{
+        acceptedShortEdgeLabelKeys.add(shortCandidate.labelKey);
+      }}
+    }}else{{
+      blockedEdges.push(shortCandidate.id);
     }}
   }}
   return {{
     parentIds:Array.from(new Set(blockedParents)).sort(),
-    edgeIds:Array.from(new Set(blockedEdges)).sort()
+    edgeIds:Array.from(new Set(blockedEdges)).sort(),
+    detailedEdgeIds:Array.from(new Set(detailedEdgeIds)).sort()
   }};
 }}
 async function syncLabelStability(){{
@@ -2150,10 +2719,13 @@ async function syncLabelStability(){{
     let blocked=collisionBlocks();
     let currentBlockedParents=(view.signal('blockedParentLabelIds')||[]).slice().sort();
     let currentBlockedEdges=(view.signal('blockedEdgeLabelIds')||[]).slice().sort();
+    let currentDetailedEdges=(view.signal('detailedEdgeLabelIds')||[]).slice().sort();
     if(!sameIds(blocked.parentIds,currentBlockedParents)||
-       !sameIds(blocked.edgeIds,currentBlockedEdges)){{
+       !sameIds(blocked.edgeIds,currentBlockedEdges)||
+       !sameIds(blocked.detailedEdgeIds,currentDetailedEdges)){{
       view.signal('blockedParentLabelIds',blocked.parentIds);
       view.signal('blockedEdgeLabelIds',blocked.edgeIds);
+      view.signal('detailedEdgeLabelIds',blocked.detailedEdgeIds);
       await view.runAsync();
     }}
     let parentIds=renderedLabelIds('semanticLabels');
@@ -2170,10 +2742,12 @@ async function syncLabelStability(){{
     // it has sufficient room at its fixed anchor.
     const residual=collisionBlocks();
     if(!sameIds(residual.parentIds,blocked.parentIds)||
-       !sameIds(residual.edgeIds,blocked.edgeIds)){{
+       !sameIds(residual.edgeIds,blocked.edgeIds)||
+       !sameIds(residual.detailedEdgeIds,blocked.detailedEdgeIds)){{
       blocked=residual;
       view.signal('blockedParentLabelIds',blocked.parentIds);
       view.signal('blockedEdgeLabelIds',blocked.edgeIds);
+      view.signal('detailedEdgeLabelIds',blocked.detailedEdgeIds);
       await view.runAsync();
       parentIds=renderedLabelIds('semanticLabels');
       edgeIds=renderedLabelIds('edgeLabels');
@@ -2187,6 +2761,10 @@ async function syncLabelStability(){{
     vis.dataset.stableEdgeLabels=String(edgeIds.length);
     vis.dataset.blockedParentLabels=String(blocked.parentIds.length);
     vis.dataset.blockedEdgeLabels=String(blocked.edgeIds.length);
+    vis.dataset.detailedEdgeLabels=String(blocked.detailedEdgeIds.length);
+    vis.dataset.shortEdgeLabels=String(
+      Math.max(0,edgeIds.length-blocked.detailedEdgeIds.length)
+    );
   }}finally{{
     stabilitySyncing=false;
     if(stabilityPending){{
@@ -2228,6 +2806,24 @@ def source_sha256(paths: Iterable[Path]) -> str:
     return digest.hexdigest()
 
 
+def fixed_parent_label_sources_match(
+    payload: dict, projection_path: Path, keywords_path: Path
+) -> bool:
+    """Return whether a reviewed fixed label pyramid matches the layout.
+
+    Reviewed parent labels belong to the hierarchy geometry.  Edge-label text is
+    deliberately excluded: editorial corrections to individual trajectories
+    must not invalidate or regenerate the fixed macro/cluster/section pyramid.
+    ``keywords_path`` remains part of the signature for call-site compatibility.
+    """
+    marker = payload.get("fixed_parent_labels")
+    if not isinstance(marker, dict) or marker.get("status") != "reviewed":
+        return False
+    if not projection_path.exists():
+        return False
+    return marker.get("projection_sha256") == source_sha256([projection_path])
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build semantic-zoom hierarchy and Vega timecurve.")
     parser.add_argument("--projection", type=Path, required=True)
@@ -2261,6 +2857,23 @@ def main() -> int:
     projection = json.loads(projection_path.read_text(encoding="utf-8"))
     keywords = json.loads(keywords_path.read_text(encoding="utf-8"))
     points, pairs = validate_sources(projection, keywords)
+    embedding_path = projection_path.with_name(
+        projection_path.name.replace(
+            "_projection.json", "_revision_embeddings.npy"
+        )
+    )
+    semantic_vectors = None
+    if embedding_path.exists():
+        embeddings = np.load(embedding_path)
+        if len(embeddings) != len(points):
+            raise ValueError(
+                "Revisions-Embeddings passen nicht zu den Projektionspunkten: "
+                f"{len(embeddings)} statt {len(points)}."
+            )
+        semantic_vectors = {
+            str(point["revision_id"]): vector
+            for point, vector in zip(points, embeddings)
+        }
 
     labels_output = args.labels_output or projection_path.with_name(
         projection_path.stem.removesuffix("_projection") + "_semantic_zoom_labels.json"
@@ -2268,18 +2881,35 @@ def main() -> int:
     html_output = args.html_output or projection_path.with_name(
         projection_path.stem.removesuffix("_projection") + "_semantic_zoom.html"
     )
+    fixed_parent_labels = None
+    fixed_edge_label_overrides = None
+    if labels_output.exists():
+        existing_payload = json.loads(labels_output.read_text(encoding="utf-8"))
+        fixed_edge_label_overrides = existing_payload.get(
+            "fixed_edge_label_overrides"
+        )
+        if fixed_parent_label_sources_match(
+            existing_payload, projection_path, keywords_path
+        ):
+            fixed_parent_labels = existing_payload.get("fixed_parent_labels")
 
     xml_path = (args.xml or Path(article_paths(args.article)["xml_path"])).expanduser().resolve()
     revert_analysis = projection.get("edit_wars")
-    if not revert_analysis or not all(
-        "interval_mutual_revert_count" in point for point in points
+    if (
+        not revert_analysis
+        or revert_analysis.get("analysis_version") != REVERT_ANALYSIS_VERSION
+        or not all(
+            "interval_mutual_revert_count" in point for point in points
+        )
     ):
         full_history = load_revert_history(xml_path, include_text_changes=True)
         conflict_history, sampled_for_conflict = history_window_for_points(
             full_history, points
         )
         revert_analysis = analyze_reverts(
-            conflict_history, sampled_for_conflict
+            conflict_history,
+            sampled_for_conflict,
+            semantic_vectors=semantic_vectors,
         )
         for point, statistics in zip(
             points, revert_analysis["point_statistics"]
@@ -2367,14 +2997,27 @@ def main() -> int:
         "trajectory_width_encoding": TRAJECTORY_WIDTH_ENCODING,
         "edit_wars": revert_analysis,
         "pipeline_snapshot_id": SEMANTIC_ZOOM_SNAPSHOT_ID,
-        "source_sha256": source_sha256([Path(__file__), projection_path, keywords_path]),
+        "source_sha256": source_sha256(
+            [Path(__file__), projection_path, keywords_path]
+            + ([embedding_path] if embedding_path.exists() else [])
+        ),
         "label_system_prompt": None if args.no_llm else LABEL_SYSTEM_PROMPT,
         "macro_label_system_prompt": None if args.no_llm else MACRO_LABEL_SYSTEM_PROMPT,
+        "fixed_parent_labels": fixed_parent_labels,
+        "fixed_edge_label_overrides": fixed_edge_label_overrides,
         "word_counts_are_git_word_diff": word_counts is not None,
         "hierarchy": hierarchy,
     }
     labels_output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    html_output.write_text(render_html(args.article, build_vega_spec(args.article, projection, hierarchy)), encoding="utf-8")
+    html_output.write_text(
+        render_html(
+            args.article,
+            build_vega_spec(
+                args.article, projection, hierarchy, revert_analysis
+            ),
+        ),
+        encoding="utf-8",
+    )
     print(f"Label hierarchy: {labels_output}")
     print(f"Semantic zoom timecurve: {html_output}")
     print(format_label_pyramid(hierarchy))

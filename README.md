@@ -65,14 +65,24 @@ Für jede der 619 Kanten erhält `gpt-5.6-terra` die beiden vollständigen
 bereinigten Revisionstexte vor und nach der Änderung sowie Autor, Zeitstempel
 und Bearbeitungskommentar beider Revisionen. Ein vorberechneter Diff wird nicht
 übergeben; das Modell analysiert die beiden Volltexte direkt. Es erzeugt ein
-unteilbares Label mit zwei bis drei Wörtern und eine ausführliche Beschreibung
-der erkannten Änderung. Die Metadaten sind lediglich
+unteilbares Label mit zwei bis drei Wörtern, das bereits Objekt und
+Handlung beziehungsweise Ergebnis der konkreten Änderung nennt, sowie eine
+ausführliche Beschreibung der erkannten Änderung. Dadurch wird eine Kante beim
+Annähern inhaltlich genauer und wiederholt nicht nur ihr übergeordnetes Thema.
+Die Metadaten sind lediglich
 nicht vertrauenswürdiger Zusatzkontext; der tatsächliche Textunterschied bleibt
 maßgeblich. Wort-Diffs und Satzfenster werden nicht erzeugt oder gesendet.
 
 Die Modellantworten werden nach jeder Kante gecacht. Ein abgebrochener Lauf
 kann deshalb ohne erneute Aufrufe fortgesetzt werden. Beim späteren Zoomen
 finden keine API-Aufrufe statt.
+
+Bytegleiche bereinigte Revisionstexte werden deterministisch als
+`No Content Change` beschrieben und nicht an das Modell gesendet. Umgekehrt
+wird eine neutrale Modellantwort verworfen, sobald sich die beiden bereinigten
+Volltexte unterscheiden. Dadurch können Kurzlabel und Detailbeschreibung nicht
+mehr widersprüchlich behaupten, dass eine inhaltliche Änderung zugleich
+unverändert sei.
 
 Die übergeordneten Ebenen werden vor dem Rendern mit derselben OpenAI-API aus
 den gespeicherten Kantenlabels und Keywords ihres jeweiligen Bereichs erzeugt.
@@ -94,21 +104,46 @@ Die Hierarchie liefert Kandidaten und kartografische Prioritäten. Artikel-,
 Makro-, Cluster-, Abschnitts- und kurze Kantenlabels werden bei jedem Maßstab
 gemeinsam in Bildschirmkoordinaten geprüft. Abstrakte Labels haben Vorrang,
 danach füllen detailliertere Labels jeden ausreichend großen freien Bereich.
+Makrothemen besitzen keine grauen Flächen, Konturen oder Halo-Hintergründe;
+sichtbar bleiben nur ihre Labels. Die farbigen Clusterhüllen bleiben erhalten.
 Übergeordnete Labels besitzen eine
 feste Ankerposition; jedes Kantenlabel wird in der Mitte des aktuell sichtbaren
 Kantenabschnitts platziert. Alle Labels behalten eine konstante Schriftgröße.
+Jede sichtbare Kindebene muss mindestens einen neuen inhaltlichen Begriff oder
+eine konkrete Änderungsrichtung hinzufügen. Kantenkurzlabels nennen deshalb
+Gegenstand plus Handlung beziehungsweise Ergebnis; ihre ausführliche Variante
+ergänzt Autor, Zeitpunkt und vollständigen Umfang. Der finale Aufbau bricht ab,
+wenn ein Kindlabel gegenüber seinem Elternlabel keine zusätzliche Information
+liefert.
 Berühren sich zwei Textflächen, verschwindet das Label mit niedrigerer
 Priorität. Es erscheint wieder, sobald Zoomen oder Verschieben genügend Platz
 schafft. Ein Stabilitätsbonus verhindert Flackern bei kleinen Bewegungen.
-Auch textgleiche Artikel-, Makro-, Cluster- und Abschnittslabels bleiben eigene
-Kandidaten. Erst ihre tatsächliche räumliche Kollision entscheidet, welches
-Label sichtbar ist; bei ausreichend Platz können beide erscheinen.
+Textgleiche Artikel-, Makro-, Cluster-, Abschnitts- und Kantenlabels werden vor
+dem Rendern zusammengeführt. Bei identischem
+normalisiertem Text bleibt nur eine Beschriftung erhalten: Übergeordnete Themen
+haben Vorrang vor lokalen Details; zwischen gleichrangigen Kanten gewinnt die
+Revision mit der größeren Summe aus hinzugefügten und entfernten Wörtern.
+Das gilt getrennt für kurze und ausführliche Texte in beiden Zoomdarstellungen
+und unabhängig von der Kantengeometrie, also auch bei vollständig überlagerten
+Kanten. Semantischer Sprung, Revisionsabdeckung und stabile ID lösen
+Gleichstände.
+Vollständig überlagerte Kanten erhalten zusätzlich insgesamt nur ein Label,
+selbst wenn ihre Texte verschieden sind. Dabei gewinnt zuerst eine vorhandene
+ausführliche Erklärung, danach die größere Wortänderung, der Informationsumfang,
+die Labelkonfidenz und der semantische Sprung. Die übrigen Kanten bleiben als
+Geometrie und Revisionsereignisse erhalten.
 Jedes sichtbare Label besitzt eine vollständig deckende Textfüllung und eine
 vollständig deckende weiße 4-px-Kontur. Ausgeblendete Kollisionskandidaten
 werden ohne halbtransparente Zwischenphase entfernt.
-Jede eigenständige Revisionskante bleibt ebenfalls ein Labelkandidat. Ihr
-kurzes Kartenlabel wird bei jedem Maßstab geprüft; ab Zoomstufe 2 wird die
-ausführliche mehrzeilige Beschreibung verwendet.
+Jede eigenständige Revisionskante bleibt ebenfalls ein Labelkandidat. Es gibt
+keine feste Zoomschwelle: Die Kollisionsprüfung versucht zuerst die
+ausführliche mehrzeilige Beschreibung. Reicht der freie Bildschirmraum dafür
+nicht aus, wird an derselben Position das kurze Kartenlabel versucht. Erst
+wenn auch dieses nicht passt, wird die Kantenbeschriftung ausgeblendet.
+Übergeordnete Labels werden zuerst platziert und verdrängen daher beide
+Varianten. Die vollständigen Beschreibungen werden unabhängig von den kurzen
+Kartenlabels eingebunden, sodass redaktionell gewählte Kurzlabels erhalten
+bleiben.
 
 Revisionspunkte verwenden stabile HDBSCAN-Farben; Noise bleibt grau. Punkte,
 Abschnittsringe und Trajektorienlinien sind für die Detailansicht bewusst
@@ -116,19 +151,74 @@ kräftig dimensioniert. Auf jedem mindestens 34 Bildschirm-Pixel langen,
 sichtbaren Teilstück einer normalen Kante zeigt ein Pfeil die chronologische
 Revisionsrichtung. Wie bei Shaclens behält er beim Zoomen seine Bildschirmgröße
 und sitzt bis zu 30 px hinter dem Anfang des aktuell sichtbaren Liniensegments.
-Exakte Reverts erhalten keine Pfeile, damit Hin- und
-Rückbewegungen nicht durch überlagerte Pfeilspitzen unleserlich werden. Am
-Zielpunkt eines exakten Reverts ersetzt stattdessen ein aus einem zentrierten
-Kreisbogen und einer Pfeilspitze aufgebautes rotes Rücksprung-Glyph den
-normalen Revisionskreis; die zugehörige Kante endet dadurch direkt im Symbol
-und behält die reguläre Trajektorienfarbe. An diesem Punkt wird auch ein möglicher
-Abschnittsring unterdrückt. Da ein Revert häufig exakt auf der projizierten
-Position einer älteren Revision landet, werden dort auch alle koordinatengleichen
-normalen Kreise ausgeblendet und durch genau ein Glyph ersetzt. Ein kleines
-Quadrat in Hintergrundfarbe liegt zusätzlich zwischen
-Trajektoriengeometrie und Glyph; es maskiert mögliche Punkt- und Linienreste im
-offenen Zentrum. Bestätigte Edit-War-Kanten erhalten einen
-transparenten grünen Halo.
+Die festen Farben für Trajektorie, exakten Revert und Edit War werden aus
+denselben Farbkonstanten wie ihre Legendensymbole erzeugt. Punkt- und
+Abschnittsringfarben entsprechen der separat aufgeführten Clusterpalette.
+Bot-Kennzeichnungen sind dabei nur Audit-Metadaten. Reverts von automatisierten
+und menschlichen Konten werden für Richtungen, Sitzungen sowie Yasseri-M und
+Gandica-C gleich behandelt; aus der Edit-War-Erkennung wird kein Ereignis wegen
+eines Bot-Tags oder `bot` im Benutzernamen ausgeschlossen.
+Eine Edit-War-Sitzung beginnt bereits mit einer direkten Gegenänderung zwischen
+zwei Autoren: Die Änderung eines Autors führt die unmittelbar vorherige
+Änderung des anderen ganz oder teilweise in die frühere inhaltliche Richtung
+zurück. Beide Autoren müssen also nicht wechselseitig revertieren. Weitere
+lückenlos folgende Gegenänderungen dürfen auch mehr als zwei Autoren und damit
+mehrere Autorenpaare enthalten. Eine andere Revision dazwischen beendet die
+Sitzung; Zeit- oder lockere Revisionsfenster werden nicht verwendet. Ob die
+Beteiligten parallel auf der Diskussionsseite kommuniziert haben, lässt sich
+ohne deren separate Versionsgeschichte nicht feststellen und fließt daher
+nicht in die Erkennung ein.
+Neben identischen SHA1-Rücksprüngen zählen auch direkt aufeinanderfolgende
+partielle Gegenänderungen. Direkte Gegenänderungen werden gegenüber älteren
+Treffern bevorzugt und sowohl pro Textpassage als auch aggregiert über alle
+geänderten Passagen bewertet. Dafür sind mindestens 55 Prozent inverse
+Übereinstimmung und mindestens vier passende Wörter erforderlich. Wenn diese
+lexikalische Evidenz nicht reicht, kann eine Gegenbewegung in den vorhandenen
+hochdimensionalen Volltext-Embeddings den Revert belegen; dann müssen zusätzlich
+mindestens zwei Inhaltswörter der betroffenen Passagen übereinstimmen. Es gibt
+nur eine Edit-War-Kategorie. Die zweidimensionale Projektionsgeometrie ist kein
+Klassifikationssignal.
+
+**Partieller Revert:** Löscht beziehungsweise revidiert nur die fehlerhaften
+oder unerwünschten Teile einer Änderung; die korrekten und nicht betroffenen
+Teile bleiben bestehen. Die Rückführung kann in mehreren Teilstücken oder
+Revisionen erfolgen. Jede erkannte Teilrücknahme muss jedoch eine direkte
+inverse Textübereinstimmung mit dem Ausgangsbestand der jeweils betroffenen
+Passage zeigen. Eine bloße Rückbewegung in der zweidimensionalen Projektion
+reicht nicht als Nachweis. Eine direkte Gegenänderung und Rücknahmen mit bis
+zu fünf dazwischenliegenden Revisionen werden geprüft; bei sechs oder mehr
+Zwischenrevisionen wird kein partieller Revert mehr zugeordnet.
+Exakte Reverts erhalten auf der normalen Trajektorienkante keine Pfeile, damit
+Hin- und Rückbewegungen nicht durch überlagerte Pfeilspitzen unleserlich werden.
+Ein gestrichelter roter Rückbogen beginnt am Datenpunkt der rückgängig
+gemachten Änderung und endet an der neuen Revert-Revision. Bei einer Folge
+`Revision 1 → Revision 2 → zurück zu Revision 1` zeigt seine Pfeilspitze somit
+von Position 2 zurück zu Position 1. Ein zusätzliches Rücksprung-Glyph mit
+weißer Hintergrundmaske wird nicht mehr gezeichnet; der gestrichelte Rückbogen
+übernimmt die Kennzeichnung vollständig und der normale Revisionspunkt bleibt
+sichtbar. Die SHA1-Gleichheit entscheidet unabhängig davon, ob die betroffenen
+Revisionen von verschiedenen Autoren oder demselben Autor stammen; ein
+Selbst-Revert wird daher ebenfalls rot dargestellt, zählt allein aber nicht als
+Edit War. Falls Projektion oder gespeicherte Rundung einen exakten SHA1-Revert
+geringfügig neben der wiederhergestellten Revision platzieren, wird nur dieser
+exakte Revert-Punkt für die Anzeige auf die Koordinaten seiner
+`restored_revision_id` gesetzt. Partielle Reverts werden nicht verschoben.
+Alleinstehende partielle Textumkehrungen erhalten einen grünen,
+gestrichelten Rückbogen zum neuen partiellen Zustand. Innerhalb einer
+bestätigten Edit-War-Sitzung erscheinen sie stattdessen als Konfliktbögen.
+Alle bestätigten Edit Wars sind blau. Eine eigene visuelle
+Kategorie für Bot-Reverts gibt es nicht; Bot-Beteiligung beeinflusst weder die
+Farbe noch die statistische Bestimmung bestätigter Sitzungen.
+Die Edit-War-Kennzeichnung hat Vorrang vor eigenständigen roten exakten und
+grünen partiellen Revert-Bögen an derselben projizierten Verbindung.
+Der zugehörige blaue Konfliktbogen bleibt dort als einzige
+Revert-Kennzeichnung und wird über allen übrigen Rückbögen gezeichnet.
+Wiederholte Reverts derselben beiden projizierten Zustände
+werden paarweise mit größerem Bogenradius gezeichnet. Bei bestätigten Edit-War-
+Sitzungen entstehen dadurch gestrichelte und verschachtelte Hin-und-zurück-
+Bögen, die wie eine flache Spirale um die normale Trajektorie liegen. Die Bögen
+werden in Bildschirmkoordinaten berechnet und verändern die semantischen
+MDS-Positionen nicht.
 
 Reine Statusmeldungen ohne inhaltliche Änderung (`No content change`,
 `Unchanged content`, `Content unchanged`) werden nicht als Kartenlabels
@@ -227,6 +317,13 @@ python src/semantic_zoom.py \
 Der erste Lauf erzeugt die übergeordneten englischen Labels per API. Bei
 unveränderten Eingaben werden sie aus dem Hierarchie-JSON wiederverwendet und
 verursachen keine erneuten API-Kosten.
+
+Eine redaktionell geprüfte Labelpyramide kann im Hierarchie-JSON als fixiert
+markiert werden. Ihre Makro-, Cluster- und Abschnittslabels werden dann auch bei
+späteren Prompt- oder Logikänderungen unverändert übernommen. Die Fixierung
+bleibt auch bei redaktionellen Korrekturen einzelner Kantenlabels erhalten. Sie
+verfällt ausschließlich, wenn sich die Projektion und damit die geometrische
+Grundlage der Hierarchie inhaltlich ändert.
 
 ## Bedienung
 

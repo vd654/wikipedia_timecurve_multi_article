@@ -8,26 +8,38 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from semantic_zoom import (  # noqa: E402
+    EDIT_WAR_COLOR,
+    EXACT_REVERT_COLOR,
+    NOISE_COLOR,
+    PARTIAL_REVERT_COLOR,
+    TRAJECTORY_COLOR,
     LABEL_SYSTEM_PROMPT,
     MACRO_LABEL_SYSTEM_PROMPT,
     NodeLabel,
     NodeLabelBatch,
     build_hierarchy,
+    build_revert_arc_rows,
     build_vega_spec,
+    cached_llm_labels,
+    cached_macro_labels,
     cached_word_counts,
     chronological_runs,
     cluster_colour,
     cluster_hull_rows,
     cluster_label_colour,
+    content_focused_parent_label,
     convex_hull,
     deduplicate_label_rows,
     edge_phrase,
     fallback_label,
     format_label_pyramid,
     generate_labels,
+    hierarchy_specificity_issues,
     macro_hull_rows,
     parent_topic_label,
     render_html,
+    source_sha256,
+    snap_exact_revert_positions,
     spatial_macro_groups,
     valid_parent_label,
     validate_sources,
@@ -180,7 +192,7 @@ def test_edge_phrase_keeps_one_complete_phrase_of_at_most_four_words():
     assert edge_phrase(["  Currency   codes  "]) == "Currency codes"
 
 
-def test_neutral_edge_labels_only_ground_otherwise_empty_clusters():
+def test_neutral_edge_labels_do_not_create_false_cluster_topics():
     assert parent_topic_label("No content change") == ""
     assert parent_topic_label("Identical article text") == ""
     assert parent_topic_label("East Jerusalem capital") == "East Jerusalem capital"
@@ -204,10 +216,8 @@ def test_neutral_edge_labels_only_ground_otherwise_empty_clusters():
     assert hierarchy["edges"][0]["label"] == "No content change"
     assert hierarchy["edges"][0]["section_terms"] == []
     assert hierarchy["sections"] == []
-    assert all(
-        node["terms"] == ["No content change"]
-        for node in hierarchy["clusters"]
-    )
+    assert all(node["terms"] == [] for node in hierarchy["clusters"])
+    assert all(node["label"] == "" for node in hierarchy["clusters"])
 
 
 def test_parent_prompts_require_one_english_label():
@@ -216,6 +226,7 @@ def test_parent_prompts_require_one_english_label():
         assert "one English" in normalized
         assert "two to three words" in normalized
         assert "Never join, enumerate, or contrast" in normalized
+        assert "editing" in normalized
 
 
 def test_parent_label_validation_requires_two_to_three_words():
@@ -223,6 +234,169 @@ def test_parent_label_validation_requires_two_to_three_words():
     assert valid_parent_label("UN observer status")
     assert not valid_parent_label("Statehood")
     assert not valid_parent_label("Palestinian United Nations observer status")
+
+
+def test_parent_content_validation_rejects_editing_mechanics():
+    assert content_focused_parent_label("PLO Representation Claims")
+    assert not content_focused_parent_label("Em dash spacing")
+    assert not content_focused_parent_label("Tourism Capitalization")
+    assert not content_focused_parent_label("Palestine infobox details")
+    assert not content_focused_parent_label("Governance citations")
+    assert not content_focused_parent_label("Article Typography")
+    assert not content_focused_parent_label("Palestinian State Context")
+    assert not content_focused_parent_label("Palestinian Public Profile")
+
+
+def test_reviewed_fixed_labels_ignore_prompt_and_edge_label_changes(tmp_path):
+    projection_path = (tmp_path / "projection.json").resolve()
+    keywords_path = (tmp_path / "labels.json").resolve()
+    hierarchy_path = (tmp_path / "hierarchy.json").resolve()
+    projection_path.write_text('{"points": []}', encoding="utf-8")
+    keywords_path.write_text('{"revision_pairs": []}', encoding="utf-8")
+    hierarchy_path.write_text(json.dumps({
+        "projection": str(projection_path),
+        "revision_keywords": str(keywords_path),
+        "llm_provider": "different-provider",
+        "model": "different-model",
+        "label_system_prompt": "older prompt",
+        "fixed_parent_labels": {
+            "status": "reviewed",
+            "projection_sha256": source_sha256([projection_path]),
+            "revision_keywords_sha256": source_sha256([keywords_path]),
+        },
+        "hierarchy": {
+            "clusters": [{"node_id": "cluster-1", "label": "Reviewed Topic"}],
+            "sections": [],
+        },
+    }), encoding="utf-8")
+
+    assert cached_llm_labels(
+        hierarchy_path, projection_path, keywords_path, "new-model"
+    ) == {"cluster-1": "Reviewed Topic"}
+
+    keywords_path.write_text('{"revision_pairs": [1]}', encoding="utf-8")
+    assert cached_llm_labels(
+        hierarchy_path, projection_path, keywords_path, "new-model"
+    ) == {"cluster-1": "Reviewed Topic"}
+
+    projection_path.write_text('{"points": [1]}', encoding="utf-8")
+    assert cached_llm_labels(
+        hierarchy_path, projection_path, keywords_path, "new-model"
+    ) == {}
+
+
+def test_reviewed_fixed_macro_label_ignores_changed_edge_evidence(tmp_path):
+    projection_path = (tmp_path / "projection.json").resolve()
+    keywords_path = (tmp_path / "labels.json").resolve()
+    hierarchy_path = (tmp_path / "hierarchy.json").resolve()
+    projection_path.write_text('{"points": []}', encoding="utf-8")
+    keywords_path.write_text('{"revision_pairs": []}', encoding="utf-8")
+    hierarchy_path.write_text(json.dumps({
+        "projection": str(projection_path),
+        "revision_keywords": str(keywords_path),
+        "fixed_parent_labels": {
+            "status": "reviewed",
+            "projection_sha256": source_sha256([projection_path]),
+            "revision_keywords_sha256": source_sha256([keywords_path]),
+        },
+        "hierarchy": {
+            "macros": [{
+                "node_id": "macro-1",
+                "cluster_ids": [1],
+                "terms": ["old evidence"],
+                "child_labels": ["Old Topic"],
+                "label": "Reviewed Macro",
+            }],
+        },
+    }), encoding="utf-8")
+
+    macros = [{
+        "node_id": "macro-1",
+        "cluster_ids": [1],
+        "terms": ["new evidence"],
+        "child_labels": ["New Topic"],
+    }]
+    assert cached_macro_labels(
+        hierarchy_path, projection_path, keywords_path, "new-model", macros
+    ) == {"macro-1": "Reviewed Macro"}
+
+
+def test_neutral_only_cluster_has_no_thematic_label():
+    points = [
+        {"revision_id": "1", "mds": [0.0, 0.0], "cluster_id": 0,
+         "semantic_jump_from_previous": 0.0},
+        {"revision_id": "2", "mds": [0.0, 0.0], "cluster_id": 0,
+         "semantic_jump_from_previous": 0.0},
+    ]
+    projection = {"points": points}
+    labels = {"revision_pairs": [{
+        "previous_revision_id": "1",
+        "current_revision_id": "2",
+        "edge_label": "No Content Change",
+        "detailed_description": "The cleaned article content did not change.",
+    }]}
+
+    hierarchy = build_hierarchy(projection, labels, root_label="Palestine")
+
+    assert hierarchy["clusters"][0]["terms"] == []
+    assert hierarchy["clusters"][0]["label"] == ""
+
+
+def test_hierarchy_specificity_requires_each_child_to_add_information():
+    hierarchy = {
+        "roots": [{"node_id": "root", "label": "Palestine"}],
+        "macros": [{
+            "node_id": "macro-1", "parent_id": "root",
+            "label": "Statehood Recognition",
+        }],
+        "clusters": [{
+            "node_id": "cluster-1", "parent_id": "macro-1",
+            "label": "Statehood Recognition",
+        }],
+        "sections": [],
+        "edges": [{
+            "node_id": "edge-1", "parent_id": "cluster-1",
+            "label": "Vote Implications Added",
+            "detailed_description": (
+                "ExampleEditor added legal implications of the observer-state vote."
+            ),
+        }],
+    }
+
+    issues = hierarchy_specificity_issues(hierarchy)
+
+    assert issues == [{
+        "kind": "child_adds_no_specific_term",
+        "parent_id": "macro-1",
+        "parent_label": "Statehood Recognition",
+        "child_id": "cluster-1",
+        "child_label": "Statehood Recognition",
+    }]
+
+
+def test_hierarchy_specificity_rejects_broad_status_edge_labels():
+    hierarchy = {
+        "roots": [{"node_id": "root", "label": "Palestine"}],
+        "macros": [{
+            "node_id": "macro-1", "parent_id": "root",
+            "label": "UN Observer Status",
+        }],
+        "clusters": [],
+        "sections": [],
+        "edges": [{
+            "node_id": "edge-1", "parent_id": "root",
+            "label": "PLO Observer Status",
+            "detailed_description": (
+                "ExampleEditor added the year of the PLO observer designation."
+            ),
+        }],
+    }
+
+    assert hierarchy_specificity_issues(hierarchy) == [{
+        "kind": "edge_repeats_broad_topic",
+        "node_id": "edge-1",
+        "label": "PLO Observer Status",
+    }]
 
 
 def test_parent_label_generation_retries_invalid_word_count():
@@ -255,6 +429,40 @@ def test_parent_label_generation_retries_invalid_word_count():
     assert client.responses.parse.call_count == 2
     correction = client.responses.parse.call_args.kwargs["input"][1]["content"]
     assert "2 to 3 words" in correction
+
+
+def test_parent_label_generation_retries_editing_mechanics():
+    client = unittest.mock.Mock()
+    client.responses.parse.side_effect = [
+        unittest.mock.Mock(
+            output_parsed=NodeLabelBatch(labels=[
+                NodeLabel(node_id="section-1", label="Em dash spacing")
+            ]),
+            output_text="",
+        ),
+        unittest.mock.Mock(
+            output_parsed=NodeLabelBatch(labels=[
+                NodeLabel(node_id="section-1", label="PLO Representation Claims")
+            ]),
+            output_text="",
+        ),
+    ]
+    nodes = [{
+        "node_id": "section-1",
+        "level": "section",
+        "revision_count": 2,
+        "terms": ["Em dash spacing"],
+        "descriptions": [
+            "The sentence discusses UN representation and Jordanian claims."
+        ],
+    }]
+
+    assert generate_labels(client, "test-model", nodes) == {
+        "section-1": "PLO Representation Claims"
+    }
+    assert client.responses.parse.call_count == 2
+    correction = client.responses.parse.call_args.kwargs["input"][1]["content"]
+    assert "must not describe editing mechanics" in correction
 
 
 def test_noise_revisions_remain_leaf_edges_without_sections():
@@ -321,19 +529,21 @@ def test_terminal_label_pyramid_is_continuous_and_compact():
     assert "Topic" in output
 
 
-def test_exact_overlapping_edges_all_remain_label_candidates():
+def test_overlapping_edges_keep_only_the_larger_duplicate_label():
     projection = sample_projection()
     projection["points"][0]["mds"] = [0.0, 0.0]
     projection["points"][1]["mds"] = [1.0, 0.0]
     projection["points"][2]["mds"] = [0.0, 5e-14]
     hierarchy = build_hierarchy(projection, sample_keywords())
+    hierarchy["edges"][0]["label"] = "Smaller overlap change"
+    hierarchy["edges"][1]["label"] = "Larger overlap change"
     spec = build_vega_spec("Example", projection, hierarchy)
 
     label_rows = next(data for data in spec["data"] if data["name"] == "labels")["values"]
     edge_label_ids = {
         row["node_id"] for row in label_rows if row["level"] == "edge"
     }
-    assert "edge-1" in edge_label_ids
+    assert "edge-1" not in edge_label_ids
     assert "edge-2" in edge_label_ids
     rendered_edges = next(
         data for data in spec["data"] if data["name"] == "edges"
@@ -341,6 +551,41 @@ def test_exact_overlapping_edges_all_remain_label_candidates():
     assert len(rendered_edges) == 5
     assert rendered_edges[0]["overlap_count"] == 2
     assert rendered_edges[1]["overlap_count"] == 2
+
+
+def test_overlapping_edges_prefer_an_explicit_detailed_explanation():
+    rows = deduplicate_label_rows([
+        {
+            "node_id": "edge-1",
+            "level": "edge",
+            "label": "Explained change",
+            "display_label": ["A precise explanation of the revision"],
+            "detailed_description": "A precise explanation of the revision",
+            "label_priority": 1,
+            "change_magnitude": 5,
+            "importance": 0.5,
+            "edge_x": 0.0,
+            "edge_y": 0.0,
+            "edge_x2": 1.0,
+            "edge_y2": 1.0,
+        },
+        {
+            "node_id": "edge-2",
+            "level": "edge",
+            "label": "Larger unexplained change",
+            "display_label": "Larger unexplained change",
+            "detailed_description": "",
+            "label_priority": 1,
+            "change_magnitude": 12,
+            "importance": 0.9,
+            "edge_x": 1.0,
+            "edge_y": 1.0,
+            "edge_x2": 0.0,
+            "edge_y2": 0.0,
+        },
+    ])
+
+    assert [row["node_id"] for row in rows] == ["edge-1"]
 
 
 def test_detailed_edge_description_is_rendered_as_multiline_label():
@@ -357,13 +602,22 @@ def test_detailed_edge_description_is_rendered_as_multiline_label():
         data for data in spec["data"] if data["name"] == "labels"
     )["values"]
     edge_row = next(row for row in label_rows if row["node_id"] == "edge-1")
+    point_rows = next(
+        data for data in spec["data"] if data["name"] == "points"
+    )["values"]
 
     assert isinstance(edge_row["display_label"], list)
     assert len(edge_row["display_label"]) > 1
     assert " ".join(edge_row["display_label"]) == description
+    assert all("detailed_description" not in point for point in point_rows)
+    assert all(
+        row["level"] == "edge"
+        for row in label_rows
+        if row.get("detailed_description")
+    )
 
 
-def test_child_label_identical_to_ancestor_remains_a_map_candidate():
+def test_child_label_identical_to_ancestor_is_removed():
     projection = sample_projection()
     hierarchy = build_hierarchy(projection, sample_keywords())
     hierarchy["macros"][0]["label"] = "Shared parent label"
@@ -377,16 +631,8 @@ def test_child_label_identical_to_ancestor_remains_a_map_candidate():
     node_ids = {row["node_id"] for row in rows}
 
     assert hierarchy["macros"][0]["node_id"] in node_ids
-    assert hierarchy["clusters"][0]["node_id"] in node_ids
+    assert hierarchy["clusters"][0]["node_id"] not in node_ids
     assert hierarchy["clusters"][1]["node_id"] in node_ids
-    coincident_child = next(
-        row for row in rows
-        if row["node_id"] == hierarchy["clusters"][0]["node_id"]
-    )
-    assert max(
-        abs(coincident_child["label_dx"]),
-        abs(coincident_child["label_dy"]),
-    ) == 24
 
 
 def test_duplicate_labels_keep_highest_priority_before_importance():
@@ -412,7 +658,7 @@ def test_duplicate_labels_keep_highest_priority_before_importance():
     assert [row["node_id"] for row in rows] == ["macro-2"]
 
 
-def test_equal_priority_duplicate_labels_remain_map_candidates():
+def test_equal_priority_duplicate_parent_labels_keep_more_important_candidate():
     projection = sample_projection()
     hierarchy = build_hierarchy(projection, sample_keywords())
     first_macro = hierarchy["macros"][0]
@@ -436,10 +682,10 @@ def test_equal_priority_duplicate_labels_remain_map_candidates():
         if row["display_label"].casefold() == "palestinian statehood recognition"
     ]
 
-    assert [row["node_id"] for row in matching] == ["macro-1", "macro-2"]
+    assert [row["node_id"] for row in matching] == ["macro-2"]
 
 
-def test_equal_edge_labels_remain_distinct_candidates():
+def test_equal_edge_labels_keep_the_larger_textual_change():
     rows = deduplicate_label_rows([
         {
             "node_id": "edge-1",
@@ -448,6 +694,7 @@ def test_equal_edge_labels_remain_distinct_candidates():
             "display_label": "No content change",
             "label_priority": 1,
             "importance": 1.0,
+            "change_magnitude": 5,
         },
         {
             "node_id": "edge-2",
@@ -455,7 +702,64 @@ def test_equal_edge_labels_remain_distinct_candidates():
             "label": "No content change",
             "display_label": "No content change",
             "label_priority": 1,
+            "importance": 0.5,
+            "change_magnitude": 12,
+        },
+    ])
+
+    assert [row["node_id"] for row in rows] == ["edge-2"]
+
+
+def test_duplicate_detailed_edge_text_keeps_the_larger_textual_change():
+    rows = deduplicate_label_rows([
+        {
+            "node_id": "edge-1",
+            "level": "edge",
+            "label": "First short label",
+            "display_label": ["The same detailed explanation"],
+            "label_priority": 1,
             "importance": 2.0,
+            "change_magnitude": 5,
+        },
+        {
+            "node_id": "edge-2",
+            "level": "edge",
+            "label": "Second short label",
+            "display_label": ["The same detailed explanation"],
+            "label_priority": 1,
+            "importance": 1.0,
+            "change_magnitude": 12,
+        },
+    ])
+
+    assert [row["node_id"] for row in rows] == ["edge-2"]
+
+
+def test_equal_edge_labels_on_distinct_geometry_are_both_kept():
+    rows = deduplicate_label_rows([
+        {
+            "node_id": "edge-1",
+            "level": "edge",
+            "label": "Palestinian Demographics",
+            "display_label": ["First demographic change"],
+            "detailed_description": "First demographic change",
+            "label_priority": 1,
+            "edge_x": 0.0,
+            "edge_y": 0.0,
+            "edge_x2": 1.0,
+            "edge_y2": 1.0,
+        },
+        {
+            "node_id": "edge-2",
+            "level": "edge",
+            "label": "Palestinian Demographics",
+            "display_label": ["Second demographic change"],
+            "detailed_description": "Second demographic change",
+            "label_priority": 1,
+            "edge_x": 2.0,
+            "edge_y": 2.0,
+            "edge_x2": 3.0,
+            "edge_y2": 3.0,
         },
     ])
 
@@ -477,7 +781,7 @@ def test_no_content_change_labels_are_not_rendered():
     assert len(next(data for data in spec["data"] if data["name"] == "edges")["values"]) == 5
 
 
-def test_exact_revert_symbol_replaces_all_points_at_the_same_projection_position():
+def test_exact_revert_keeps_normal_points_at_the_same_projection_position():
     projection = sample_projection()
     projection["points"][2]["interval_exact_sha1_revert_count"] = 1
     projection["points"][0]["mds"] = list(projection["points"][2]["mds"])
@@ -485,18 +789,254 @@ def test_exact_revert_symbol_replaces_all_points_at_the_same_projection_position
 
     spec = build_vega_spec("Example", projection, hierarchy)
     point_rows = next(data for data in spec["data"] if data["name"] == "points")["values"]
-    glyph_rows = next(
-        data for data in spec["data"] if data["name"] == "exactRevertPoints"
-    )["values"]
+    normal_points = next(
+        data for data in spec["data"] if data["name"] == "normalRevisionPoints"
+    )
 
     shared_position = tuple(projection["points"][2]["mds"])
     coincident_rows = [
         row for row in point_rows if (row["x"], row["y"]) == shared_position
     ]
     assert len(coincident_rows) == 2
-    assert all(row["is_exact_revert_position"] for row in coincident_rows)
-    assert len(glyph_rows) == 1
-    assert (glyph_rows[0]["x"], glyph_rows[0]["y"]) == shared_position
+    assert normal_points == {"name": "normalRevisionPoints", "source": "points"}
+    assert not any(
+        data["name"] == "exactRevertPoints" for data in spec["data"]
+    )
+    assert not any(
+        mark.get("name", "").startswith("exactRevertGlyph")
+        for mark in spec["marks"]
+    )
+
+
+def test_revert_arc_rows_form_nested_edit_war_spiral():
+    point_rows = [
+        {"revision_id": "1", "x": 0.0, "y": 0.0},
+        {"revision_id": "2", "x": 1.0, "y": 0.0},
+        {"revision_id": "3", "x": 0.0, "y": 0.0},
+        {"revision_id": "4", "x": 1.0, "y": 0.0},
+    ]
+    analysis = {
+        "events": [
+            {
+                "revision_index": 1,
+                "revision_id": "2",
+                "reverted_revision_id": "1",
+                "restored_revision_id": "0",
+                "reverter": "Alice",
+                "reverted_editor": "Bob",
+                "pair": ["Alice", "Bob"],
+                "revert_kind": "exact_sha1",
+                "edit_war_session_id": "edit-war-1",
+                "involves_probable_bot": True,
+            },
+            {
+                "revision_index": 2,
+                "revision_id": "3",
+                "reverted_revision_id": "2",
+                "reverter": "Bob",
+                "reverted_editor": "Alice",
+                "pair": ["Alice", "Bob"],
+                "revert_kind": "partial_text",
+                "edit_war_session_id": "edit-war-1",
+            },
+            {
+                "revision_index": 3,
+                "revision_id": "4",
+                "reverted_revision_id": "3",
+                "reverter": "Alice",
+                "reverted_editor": "Bob",
+                "pair": ["Alice", "Bob"],
+                "revert_kind": "exact_sha1",
+                "edit_war_session_id": "edit-war-1",
+            },
+        ],
+        "edit_war_sessions": [
+            {"session_id": "edit-war-1", "event_count": 3}
+        ],
+    }
+
+    rows = build_revert_arc_rows(point_rows, analysis)
+
+    assert len(rows) == 3
+    assert [row["arc_rank"] for row in rows] == [0, 1, 2]
+    assert [row["arc_level"] for row in rows] == [0, 0, 1]
+    assert all(row["arc_count"] == 3 for row in rows)
+    assert all(row["is_edit_war"] for row in rows)
+    assert all(row["edit_war_label"] == "Edit War" for row in rows)
+    assert all("is_bot_edit_war" not in row for row in rows)
+    assert rows[0]["reverted_revision_id"] == "1"
+    assert rows[0]["restored_revision_id"] == "0"
+    assert (rows[0]["x"], rows[0]["y"]) == (0.0, 0.0)
+    assert (rows[0]["x2"], rows[0]["y2"]) == (1.0, 0.0)
+    assert (rows[1]["x"], rows[1]["y"]) == (1.0, 0.0)
+    assert (rows[1]["x2"], rows[1]["y2"]) == (0.0, 0.0)
+
+
+def test_exact_revert_position_snaps_to_restored_revision_only():
+    rows = [
+        {"revision_id": "1", "x": 0.0, "y": 0.0},
+        {"revision_id": "2", "x": 1.0, "y": 0.0},
+        {"revision_id": "3", "x": 0.03, "y": -0.02},
+        {"revision_id": "4", "x": 0.45, "y": 0.15},
+    ]
+    analysis = {
+        "events": [
+            {
+                "revision_id": "3",
+                "restored_revision_id": "1",
+                "revert_kind": "exact_sha1",
+            },
+            {
+                "revision_id": "4",
+                "restored_revision_id": None,
+                "revert_kind": "partial_text",
+            },
+        ]
+    }
+
+    snap_exact_revert_positions(rows, analysis)
+
+    assert (rows[2]["x"], rows[2]["y"]) == (0.0, 0.0)
+    assert rows[2]["exact_revert_restored_revision_id"] == "1"
+    assert rows[2]["projected_x_before_revert_snap"] == 0.03
+    assert rows[2]["projected_y_before_revert_snap"] == -0.02
+    assert (rows[3]["x"], rows[3]["y"]) == (0.45, 0.15)
+
+
+def test_standalone_partial_counter_edit_has_dashed_partial_arc():
+    point_rows = [
+        {"revision_id": "1", "x": 0.0, "y": 0.0},
+        {"revision_id": "2", "x": 1.0, "y": 0.0},
+        {"revision_id": "3", "x": 0.1, "y": 0.0},
+    ]
+    analysis = {
+        "events": [
+            {
+                "revision_index": 2,
+                "revision_id": "3",
+                "reverted_revision_id": "2",
+                "restored_revision_id": None,
+                "revert_kind": "partial_text",
+                "reverter": "Bob",
+                "reverted_editor": "Alice",
+                "pair": ["Alice", "Bob"],
+                "directly_reverts_previous_revision": True,
+            }
+        ]
+    }
+
+    rows = build_revert_arc_rows(point_rows, analysis)
+    assert len(rows) == 1
+    assert rows[0]["revert_kind"] == "partial_text"
+    assert rows[0]["revert_kind_label"] == "Partial revert"
+    assert rows[0]["is_edit_war"] is False
+    assert rows[0]["return_anchor_revision_id"] == "3"
+    assert (rows[0]["x"], rows[0]["x2"]) == (1.0, 0.1)
+
+
+def test_standalone_bot_partial_revert_uses_same_partial_arc_category():
+    point_rows = [
+        {"revision_id": "1", "x": 0.0, "y": 0.0},
+        {"revision_id": "2", "x": 1.0, "y": 0.0},
+        {"revision_id": "3", "x": 0.1, "y": 0.0},
+    ]
+    analysis = {
+        "events": [
+            {
+                "revision_index": 2,
+                "revision_id": "3",
+                "reverted_revision_id": "2",
+                "restored_revision_id": None,
+                "revert_kind": "partial_text",
+                "involves_probable_bot": True,
+            }
+        ]
+    }
+
+    rows = build_revert_arc_rows(point_rows, analysis)
+    assert len(rows) == 1
+    assert rows[0]["revert_kind_label"] == "Partial revert"
+    assert rows[0]["is_edit_war"] is False
+    assert "is_bot_edit_war" not in rows[0]
+
+
+def test_edit_war_exact_revert_uses_only_the_dashed_arc():
+    projection = sample_projection()
+    hierarchy = build_hierarchy(projection, sample_keywords())
+    analysis = {
+        "events": [
+            {
+                "revision_index": 2,
+                "revision_id": "102",
+                "reverted_revision_id": "101",
+                "restored_revision_id": "100",
+                "reverter": "Alice",
+                "reverted_editor": "Bob",
+                "pair": ["Alice", "Bob"],
+                "revert_kind": "exact_sha1",
+                "edit_war_session_id": "edit-war-1",
+            }
+        ],
+        "edit_war_sessions": [
+            {"session_id": "edit-war-1", "event_count": 3}
+        ],
+    }
+
+    spec = build_vega_spec("Example", projection, hierarchy, analysis)
+    arc_rows = next(
+        data for data in spec["data"] if data["name"] == "revertArcs"
+    )["values"]
+
+    assert len(arc_rows) == 1
+    assert arc_rows[0]["is_edit_war"] is True
+    assert not any(
+        mark.get("name", "").startswith("exactRevertGlyph")
+        for mark in spec["marks"]
+    )
+
+
+def test_edit_war_suppresses_only_revert_arcs_on_the_same_geometry():
+    projection = sample_projection()
+    hierarchy = build_hierarchy(projection, sample_keywords())
+    analysis = {
+        "events": [
+            {
+                "revision_index": 2,
+                "revision_id": "102",
+                "reverted_revision_id": "101",
+                "restored_revision_id": "100",
+                "revert_kind": "exact_sha1",
+            },
+            {
+                "revision_index": 4,
+                "revision_id": "104",
+                "reverted_revision_id": "103",
+                "restored_revision_id": "100",
+                "revert_kind": "exact_sha1",
+                "edit_war_session_id": "edit-war-1",
+            },
+            {
+                "revision_index": 3,
+                "revision_id": "100",
+                "reverted_revision_id": "103",
+                "restored_revision_id": None,
+                "revert_kind": "partial_text",
+            },
+        ],
+        "edit_war_sessions": [
+            {"session_id": "edit-war-1", "event_count": 3}
+        ],
+    }
+
+    spec = build_vega_spec("Example", projection, hierarchy, analysis)
+    arc_rows = next(
+        data for data in spec["data"] if data["name"] == "revertArcs"
+    )["values"]
+
+    assert len(arc_rows) == 2
+    assert [row["revision_id"] for row in arc_rows] == ["102", "104"]
+    assert arc_rows[0]["is_edit_war"] is False
+    assert arc_rows[1]["is_edit_war"] is True
 
 
 def test_vega_spec_uses_continuous_cartographic_label_decluttering():
@@ -527,12 +1067,46 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     })
     hierarchy = build_hierarchy(projection, sample_keywords())
     hierarchy["sections"][0]["label"] = "Distinct section label"
-    spec = build_vega_spec("Example", projection, hierarchy)
+    revert_analysis = {
+        "events": [
+            {
+                "revision_index": 2,
+                "revision_id": "102",
+                "reverted_revision_id": "101",
+                "restored_revision_id": "100",
+                "reverter": "Alice",
+                "reverted_editor": "Bob",
+                "pair": ["Alice", "Bob"],
+                "revert_kind": "exact_sha1",
+            },
+            {
+                "revision_index": 3,
+                "revision_id": "103",
+                "reverted_revision_id": "102",
+                "restored_revision_id": None,
+                "reverter": "Bob",
+                "reverted_editor": "Alice",
+                "pair": ["Alice", "Bob"],
+                "revert_kind": "partial_text",
+                "edit_war_session_id": "edit-war-1",
+                "involves_probable_bot": True,
+            },
+        ],
+        "edit_war_sessions": [
+            {"session_id": "edit-war-1", "event_count": 2}
+        ],
+    }
+    spec = build_vega_spec(
+        "Example", projection, hierarchy, revert_analysis
+    )
     assert any(signal["name"] == "zoomLevel" for signal in spec["signals"])
     signals = {signal["name"]: signal for signal in spec["signals"]}
     assert signals["minViewScale"]["value"] == 0.01
     assert signals["maxViewScale"]["value"] == 50.0
     assert signals["viewScale"]["update"] == "span(xext)/span(xdom)"
+    assert signals["rootOnlyOverview"]["update"] == (
+        "viewScale <= minViewScale * 1.001"
+    )
     assert "edgeDetailBlend" not in signals
     zoom_update = signals["zoom"]["on"][0]["update"]
     assert "viewScale/maxViewScale" in zoom_update
@@ -584,70 +1158,77 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     normal_point_data = next(
         data for data in spec["data"] if data["name"] == "normalRevisionPoints"
     )
-    exact_point_data = next(
-        data for data in spec["data"] if data["name"] == "exactRevertPoints"
-    )
-    assert normal_point_data["transform"][0]["expr"] == (
-        "!datum.is_exact_revert_position"
-    )
-    assert "source" not in exact_point_data
-    assert len(exact_point_data["values"]) == 1
-    assert exact_point_data["values"][0]["exact_revert_position_count"] == 1
-    exact_revert_mask = next(
-        mark for mark in spec["marks"] if mark.get("name") == "exactRevertGlyphMasks"
-    )
-    exact_revert_arc = next(
-        mark for mark in spec["marks"] if mark.get("name") == "exactRevertGlyphArcs"
-    )
-    exact_revert_head = next(
-        mark for mark in spec["marks"] if mark.get("name") == "exactRevertGlyphHeads"
-    )
-    assert exact_revert_mask["type"] == "symbol"
-    assert exact_revert_mask["from"] == {"data": "exactRevertPoints"}
-    assert exact_revert_mask["encode"]["update"]["shape"] == {"value": "square"}
-    assert exact_revert_mask["encode"]["update"]["size"] == {"value": 196}
-    assert exact_revert_mask["encode"]["update"]["fill"] == {"value": "#fbfaf7"}
-    assert exact_revert_mask["zindex"] < exact_revert_arc["zindex"]
-    assert exact_revert_arc["type"] == "arc"
-    assert exact_revert_arc["from"] == {"data": "exactRevertPoints"}
-    assert exact_revert_arc["encode"]["update"]["innerRadius"] == {"value": 6.2}
-    assert exact_revert_arc["encode"]["update"]["outerRadius"] == {"value": 9.4}
-    assert exact_revert_arc["encode"]["update"]["fill"] == {
-        "value": "#d64545"
+    assert normal_point_data == {
+        "name": "normalRevisionPoints", "source": "points"
     }
-    assert "Exact revert" in exact_revert_arc["encode"]["enter"]["tooltip"]["signal"]
-    assert exact_revert_head["type"] == "symbol"
-    assert exact_revert_head["from"] == {"data": "exactRevertPoints"}
-    assert exact_revert_head["encode"]["update"]["shape"] == {
+    assert not any(
+        data["name"] == "exactRevertPoints" for data in spec["data"]
+    )
+    assert not any(
+        mark.get("name", "").startswith("exactRevertGlyph")
+        for mark in spec["marks"]
+    )
+    revert_arc_data = next(
+        data for data in spec["data"] if data["name"] == "revertArcs"
+    )
+    assert len(revert_arc_data["values"]) == 2
+    assert revert_arc_data["values"][0]["is_edit_war"] is False
+    assert revert_arc_data["values"][1]["is_edit_war"] is True
+    assert revert_arc_data["values"][1]["edit_war_label"] == "Edit War"
+    assert all(
+        "is_bot_edit_war" not in row for row in revert_arc_data["values"]
+    )
+    assert revert_arc_data["values"][0]["revision_id"] == "102"
+    assert revert_arc_data["values"][0]["reverted_revision_id"] == "101"
+    assert revert_arc_data["values"][0]["return_anchor_revision_id"] == "100"
+    assert revert_arc_data["values"][0]["target_overlap_count"] == 2
+    revert_geometry = next(
+        data for data in spec["data"] if data["name"] == "revertArcGeometry"
+    )
+    geometry_fields = {
+        transform.get("as"): transform.get("expr")
+        for transform in revert_geometry["transform"]
+        if transform.get("as")
+    }
+    assert geometry_fields["screenLength"] == (
+        "sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2))"
+    )
+    assert "datum.arc_level" in geometry_fields["arcHeight"]
+    assert "datum.is_edit_war" in geometry_fields["arcHeight"]
+    assert "datum.revert_kind==='exact_sha1'" in geometry_fields["arcHeight"]
+    assert "datum.screenLength*0.12" in geometry_fields["arcHeight"]
+    assert "min(95,max(10" in geometry_fields["arcHeight"]
+    assert " Q" in geometry_fields["arcPath"]
+    assert sum(edge["is_edit_war"] for edge in rendered_edges) == 2
+    revert_arc_mark = next(
+        mark for mark in spec["marks"] if mark.get("name") == "revertArcPaths"
+    )
+    assert revert_arc_mark["type"] == "path"
+    assert revert_arc_mark["from"] == {"data": "revertArcGeometry"}
+    assert revert_arc_mark["encode"]["update"]["path"] == {
+        "field": "arcPath"
+    }
+    assert revert_arc_mark["encode"]["update"]["strokeDash"] == {
+        "value": [8, 5]
+    }
+    assert EDIT_WAR_COLOR in revert_arc_mark["encode"]["update"]["stroke"]["signal"]
+    assert EXACT_REVERT_COLOR in revert_arc_mark["encode"]["update"]["stroke"]["signal"]
+    revert_arrow_mark = next(
+        mark for mark in spec["marks"]
+        if mark.get("name") == "revertArcDirectionArrows"
+    )
+    assert revert_arrow_mark["from"] == {"data": "revertArcGeometry"}
+    assert revert_arrow_mark["encode"]["update"]["shape"] == {
         "value": "triangle-right"
     }
-    assert exact_revert_head["encode"]["update"]["size"] == {"value": 42}
-    assert exact_revert_head["encode"]["update"]["fill"] == {
-        "value": "#d64545"
+    assert revert_arrow_mark["encode"]["update"]["angle"] == {
+        "field": "arrowAngle"
     }
-    assert exact_revert_arc["zindex"] < 3
-    assert exact_revert_head["zindex"] < 3
-    edit_war_data = next(
-        data for data in spec["data"] if data["name"] == "editWarEdges"
-    )
-    assert edit_war_data["transform"][0]["expr"] == "datum.is_edit_war"
-    assert all(data["name"] != "editWarArrowEdges" for data in spec["data"])
-    assert sum(edge["is_edit_war"] for edge in rendered_edges) == 2
-    edit_war_mark = next(
-        mark for mark in spec["marks"] if mark.get("name") == "editWarHalo"
-    )
-    assert edit_war_mark["from"] == {"data": "editWarEdges"}
-    assert edit_war_mark["encode"]["update"]["stroke"] == {"value": "#1f9d55"}
-    assert "strokeDash" not in edit_war_mark["encode"]["update"]
-    assert edit_war_mark["encode"]["update"]["strokeOpacity"] == {"value": 0.24}
-    assert "10" in edit_war_mark["encode"]["update"]["strokeWidth"]["signal"]
     mark_names = [mark.get("name") for mark in spec["marks"]]
-    assert mark_names.index("editWarHalo") < mark_names.index("trajectory")
+    assert mark_names.index("trajectory") < mark_names.index("revertArcPaths")
+    assert "editWarHalo" not in mark_names
     assert "exactRevertTrajectory" not in mark_names
-    assert "tooltip" not in edit_war_mark["encode"]["update"]
-    assert all(
-        mark.get("name") != "editWarDirectionArrows" for mark in spec["marks"]
-    )
+    assert "tooltip" in revert_arc_mark["encode"]["enter"]
     arrow_data = next(
         data for data in spec["data"] if data["name"] == "visibleDirectionArrows"
     )
@@ -694,13 +1275,13 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert arrow_mark["encode"]["update"]["fill"] == {
         "signal": (
             "datum.same_cluster ? "
-            "scale('clusterColor', datum.cluster_id) : '#72806f'"
+            f"scale('clusterColor', datum.cluster_id) : '{TRAJECTORY_COLOR}'"
         )
     }
     assert len(next(data for data in spec["data"] if data["name"] == "edges")["values"]) == 5
     colour_scale = next(scale for scale in spec["scales"] if scale["name"] == "clusterColor")
     assert colour_scale["domain"] == [-1, 0, 1]
-    assert colour_scale["range"] == ["#8a8a8a", cluster_colour(0), cluster_colour(1)]
+    assert colour_scale["range"] == [NOISE_COLOR, cluster_colour(0), cluster_colour(1)]
     point_mark = next(mark for mark in spec["marks"] if mark.get("name") == "revisionPoints")
     assert point_mark["from"] == {"data": "normalRevisionPoints"}
     assert point_mark["encode"]["update"]["fill"] == {
@@ -717,7 +1298,7 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
         data for data in spec["data"] if data["name"] == "labelledSectionPoints"
     )
     assert section_point_data["transform"][0]["expr"] == (
-        "datum.labelled_section_point && !datum.is_exact_revert_position"
+        "datum.labelled_section_point"
     )
     section_point_mark = next(
         mark for mark in spec["marks"] if mark.get("name") == "sectionPointHighlights"
@@ -738,6 +1319,9 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert "datum.level==='endpoint'" in visible["transform"][0]["expr"]
     assert "datum.level==='cluster'" in visible["transform"][0]["expr"]
     assert "datum.level==='section'" in visible["transform"][0]["expr"]
+    assert "rootOnlyOverview ? datum.level==='root'" in (
+        visible["transform"][0]["expr"]
+    )
     assert "!zooming" not in visible["transform"][0]["expr"]
     assert "zoomLevel" not in json.dumps(visible["transform"])
     assert "width-95" in visible["transform"][2]["expr"]
@@ -794,11 +1378,12 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert text_mark["encode"]["update"]["strokeWidth"] == {"value": 4}
     assert text_mark["encode"]["update"]["strokeOpacity"] == {"value": 1}
     assert text_mark["encode"]["update"]["fontWeight"] == {"value": 700}
-    assert "datum.level==='root' ? 28" in (
-        text_mark["encode"]["update"]["fontSize"]["signal"]
-    )
+    parent_font_size = text_mark["encode"]["update"]["fontSize"]["signal"]
+    assert "datum.level==='root' ? 28" in parent_font_size
+    assert "datum.level==='cluster' ? 16" in parent_font_size
+    assert "datum.level==='section' ? 12" in parent_font_size
     hull_data = next(data for data in spec["data"] if data["name"] == "clusterHulls")
-    assert {row["cluster_id"] for row in hull_data["values"]} == {0}
+    assert {row["cluster_id"] for row in hull_data["values"]} <= {0}
     hull_mark = next(mark for mark in spec["marks"] if mark.get("name") == "clusterRegions")
     assert hull_mark["from"]["facet"]["data"] == "clusterHulls"
     data_names = {data["name"] for data in spec["data"]}
@@ -809,6 +1394,8 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert "sectionRegions" not in mark_names
     assert "sectionRegionCorridors" not in mark_names
     assert "sectionRegionPointCaps" not in mark_names
+    assert "macroHulls" not in data_names
+    assert "macroRegions" not in mark_names
     assert "transform" not in text_mark
     assert text_mark["from"]["data"] == "visibleParentLabels"
     assert text_mark["key"] == "node_id"
@@ -818,7 +1405,10 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert "semanticLabelHalos" not in mark_names
     edge_text = next(mark for mark in spec["marks"] if mark.get("name") == "edgeLabels")
     assert edge_text["encode"]["update"]["text"] == {
-        "signal": "zoomLevel>=2 ? datum.display_label : datum.label"
+        "signal": (
+            "indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? "
+            "datum.display_label : datum.label"
+        )
     }
     assert edge_text["encode"]["update"]["lineHeight"] == {"value": 10}
     assert "tooltip" not in edge_text["encode"]["update"]
@@ -835,6 +1425,7 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert "transform" not in edge_text
     edge_candidates = next(data for data in spec["data"] if data["name"] == "visibleEdgeLabels")
     assert edge_candidates["transform"][0]["expr"] == "datum.level==='edge'"
+    assert edge_candidates["transform"][1]["expr"] == "!rootOnlyOverview"
     assert not any(
         "zoomLevel" in transform.get("expr", "")
         for transform in edge_candidates["transform"]
@@ -849,6 +1440,9 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert transforms_by_field["screenY1"]["expr"] == "scale('yscale', datum.edge_y)"
     assert transforms_by_field["screenX2"]["expr"] == "scale('xscale', datum.edge_x2)"
     assert transforms_by_field["screenY2"]["expr"] == "scale('yscale', datum.edge_y2)"
+    assert transforms_by_field["screenLength"]["expr"] == (
+        "sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2))"
+    )
     assert transforms_by_field["clipT0"]["expr"] == "max(0,datum.xClipMin,datum.yClipMin)"
     assert transforms_by_field["clipT1"]["expr"] == "min(1,datum.xClipMax,datum.yClipMax)"
     assert any(
@@ -881,9 +1475,13 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert "stableParentPlacements" not in signal_values
     assert signal_values["blockedParentLabelIds"] == []
     assert signal_values["blockedEdgeLabelIds"] == []
+    assert signal_values["detailedEdgeLabelIds"] == []
     assert "coveredParentLabelIds" not in signal_values
     assert edge_text["encode"]["update"]["text"] == {
-        "signal": "zoomLevel>=2 ? datum.display_label : datum.label"
+        "signal": (
+            "indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? "
+            "datum.display_label : datum.label"
+        )
     }
     assert edge_text["encode"]["update"]["align"]["value"] == "center"
     assert edge_text["encode"]["update"]["baseline"]["value"] == "middle"
@@ -898,6 +1496,43 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert "semanticLabelAnchors" not in mark_names
     assert "stableSemanticLabels" not in mark_names
     assert "stableSemanticLabelHalos" not in mark_names
+    short_measure = next(
+        mark for mark in spec["marks"]
+        if mark.get("name") == "edgeShortMeasureLabels"
+    )
+    detailed_measure = next(
+        mark for mark in spec["marks"]
+        if mark.get("name") == "edgeDetailedMeasureLabels"
+    )
+    assert short_measure["encode"]["update"]["text"] == {"field": "label"}
+    assert detailed_measure["encode"]["update"]["text"] == {
+        "field": "display_label"
+    }
+    assert short_measure["encode"]["update"]["opacity"] == {"value": 0}
+    assert detailed_measure["encode"]["update"]["opacity"] == {"value": 0}
+    assert short_measure["from"]["data"] == "visibleEdgeLabels"
+    assert detailed_measure["from"]["data"] == "visibleEdgeLabels"
+    assert "- 28*datum.screenDy" in (
+        detailed_measure["encode"]["update"]["x"]["signal"]
+    )
+    assert "? 28 : 9" in edge_text["encode"]["update"]["x"]["signal"]
+    detail_leader = next(
+        mark for mark in spec["marks"]
+        if mark.get("name") == "edgeDetailLeaders"
+    )
+    assert detail_leader["from"]["data"] == "visibleEdgeLabels"
+    assert detail_leader["encode"]["update"]["x"] == {
+        "field": "labelScreenX"
+    }
+    assert "datum.screenLength" in (
+        detail_leader["encode"]["update"]["x2"]["signal"]
+    )
+    assert "detailedEdgeLabelIds" in (
+        detail_leader["encode"]["update"]["strokeOpacity"]["signal"]
+    )
+    assert "blockedEdgeLabelIds" in (
+        detail_leader["encode"]["update"]["strokeOpacity"]["signal"]
+    )
     assert root_row["label_dx"] == 0
     assert root_row["label_dy"] == 0
     assert root_row["label_align"] == "center"
@@ -933,17 +1568,22 @@ def test_html_has_no_interactive_model_call():
     page = render_html("Example", build_vega_spec("Example", projection, hierarchy))
     assert "fetch(" not in page
     assert "OpenAI" not in page
-    assert '"name":"editWarHalo"' in page
+    assert '"name":"editWarHalo"' not in page
     assert '"name":"editWarDirectionArrows"' not in page
+    assert '"name":"revertArcs"' in page
+    assert '"name":"revertArcGeometry"' in page
+    assert '"name":"revertArcPaths"' in page
+    assert '"name":"revertArcDirectionArrows"' in page
     assert '"name":"directionArrows"' in page
     assert '"name":"visibleDirectionArrows"' in page
-    assert '"name":"exactRevertGlyphMasks"' in page
-    assert '"name":"exactRevertGlyphArcs"' in page
-    assert '"name":"exactRevertGlyphHeads"' in page
+    assert '"name":"exactRevertPoints"' not in page
+    assert '"name":"exactRevertGlyphMasks"' not in page
+    assert '"name":"exactRevertGlyphArcs"' not in page
+    assert '"name":"exactRevertGlyphHeads"' not in page
     assert '"name":"exactRevertTrajectory"' not in page
     assert "!datum.has_exact_revert" in page
     assert '"name":"editWarTrajectory"' not in page
-    assert '"strokeDash":{"value":[8,5]}' not in page
+    assert '"strokeDash":{"value":[8,5]}' in page
     assert "vega.parse(spec)" in page
     assert "renderer:'svg'" in page
     assert "transition:opacity" not in page
@@ -960,9 +1600,16 @@ def test_html_has_no_interactive_model_call():
     assert 'id="legend"' in page
     assert "grid-template-columns:minmax(0,1fr) 250px" in page
     assert "Standard trajectory edge" in page
-    assert '<span>Repeated path</span>' in page
-    assert '<span>Exact revert target</span>' in page
+    assert '<span>Repeated projected path</span>' in page
+    assert '<span>Exact revert revision</span>' not in page
+    assert '<span>Exact revert return</span>' in page
+    assert (
+        '<span>Partial revert (selected text restored; unaffected text remains)</span>'
+        in page
+    )
     assert '<span>Edit War</span>' in page
+    assert '<span>Edit War Bots</span>' not in page
+    assert ".legend-spiral.bot" not in page
     assert "Temporal-section point" in page
     assert "<h2>Legend</h2>" in page
     assert "Cluster 1" in page
@@ -975,14 +1622,29 @@ def test_html_has_no_interactive_model_call():
     assert "stableEdgeLabelIds" in page
     assert "blockedParentLabelIds" in page
     assert "blockedEdgeLabelIds" in page
+    assert "detailedEdgeLabelIds" in page
     assert "coveredParentLabelIds" not in page
     assert "renderedLabelItems" in page
+    assert "normalizedLabelKey" in page
     assert "boxesOverlap" in page
     assert "const labelCollisionPadding=4" in page
     assert "mode==='collision'" in page
     assert "outsideViewport" in page
     assert "class LabelSpatialHash" in page
     assert "occupied.overlaps(candidate)" in page
+    assert "edgeShortMeasureLabels" in page
+    assert "edgeDetailedMeasureLabels" in page
+    assert "detailedCandidate.hasDetailed" in page
+    assert "shortCandidate.edgeScreenLength>=72" in page
+    assert "edgeScreenLength:Number(datum.screenLength)||0" in page
+    assert "edgeDetailLeaders" in page
+    assert "acceptedParentLabelKeys" in page
+    assert "acceptedShortEdgeLabelKeys" in page
+    assert "shortTextIsRedundant" in page
+    assert "if(detailedFits)" in page
+    assert "occupied.overlaps(detailedCandidate)" in page
+    assert "occupied.overlaps(shortCandidate)" in page
+    assert "zoomLevel>=2 ? datum.display_label" not in page
     assert "collisionBlocks" in page
     assert "hierarchyParentBlocks" not in page
     assert "detailChildThreshold" not in page
@@ -996,6 +1658,8 @@ def test_html_has_no_interactive_model_call():
     assert "vis.dataset.stableEdgeLabels" in page
     assert "vis.dataset.blockedParentLabels" in page
     assert "vis.dataset.blockedEdgeLabels" in page
+    assert "vis.dataset.detailedEdgeLabels" in page
+    assert "vis.dataset.shortEdgeLabels" in page
     assert "view.addSignalListener('zooming'" in page
     assert "view.addSignalListener('zoomLevel'" in page
     assert "view.addSignalListener('down'" in page
@@ -1003,8 +1667,49 @@ def test_html_has_no_interactive_model_call():
     assert "Scrollen zum Zoomen" not in page
 
 
+def test_legend_colours_match_the_visual_encodings():
+    projection = sample_projection()
+    hierarchy = build_hierarchy(projection, sample_keywords())
+    spec = build_vega_spec("Example", projection, hierarchy)
+    page = render_html("Example", spec)
+
+    trajectory = next(
+        mark for mark in spec["marks"] if mark.get("name") == "trajectory"
+    )
+    revert_paths = next(
+        mark for mark in spec["marks"] if mark.get("name") == "revertArcPaths"
+    )
+    revert_signal = revert_paths["encode"]["update"]["stroke"]["signal"]
+
+    assert trajectory["encode"]["update"]["stroke"] == {
+        "value": TRAJECTORY_COLOR
+    }
+    assert all(
+        colour in revert_signal
+        for colour in (
+            EXACT_REVERT_COLOR,
+            PARTIAL_REVERT_COLOR,
+            EDIT_WAR_COLOR,
+        )
+    )
+    assert f"border-top:2.25px solid {TRAJECTORY_COLOR}" in page
+    assert f"border:2px dashed {EXACT_REVERT_COLOR}" in page
+    assert f"border:2px dashed {PARTIAL_REVERT_COLOR}" in page
+    assert f"border:2px dashed {EDIT_WAR_COLOR}" in page
+    assert (
+        ".legend-spiral{width:30px;height:10px;box-sizing:border-box;"
+        f"border:2px dashed {EDIT_WAR_COLOR};border-bottom:0;"
+        "border-radius:50% 50% 0 0;flex:none}"
+    ) in page
+    assert f"--legend-color:{NOISE_COLOR}" in page
+    assert "Revision point (cluster colour)" in page
+    assert "Temporal-section point (cluster colour)" in page
+    for cluster_id in {-1, 0, 1}:
+        assert f'--legend-color:{cluster_colour(cluster_id)}' in page
+
+
 def test_cluster_colours_match_original_timecurve_palette():
-    assert cluster_colour(-1) == "#8a8a8a"
+    assert cluster_colour(-1) == NOISE_COLOR
     assert cluster_colour(0) == "#d32222"
     assert cluster_colour(1) == "#507ae2"
     assert cluster_colour(0) != cluster_colour(1)

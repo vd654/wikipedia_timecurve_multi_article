@@ -9,13 +9,19 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import OUTPUT_DIR, add_pipeline_args, article_paths, article_slug
 from output_utils import next_numbered_path
-from revert_detection import analyze_reverts, probable_bot
+from revert_detection import (
+    analyze_reverts,
+    history_window_for_points,
+    load_revert_history,
+    probable_bot,
+)
 from text_cleaning import extract_plain_sections
 
 
@@ -622,7 +628,21 @@ def main() -> int:
         cluster_labels,
         cluster_probabilities,
     )
-    revert_analysis = analyze_reverts(history, revisions)
+    semantic_vectors = {
+        str(revision["revision_id"]): vector
+        for revision, vector in zip(revisions, revision_vectors)
+    }
+    full_revert_history = load_revert_history(
+        Path(paths["xml_path"]), include_text_changes=True
+    )
+    conflict_history, sampled_for_conflict = history_window_for_points(
+        full_revert_history, revisions
+    )
+    revert_analysis = analyze_reverts(
+        conflict_history,
+        sampled_for_conflict,
+        semantic_vectors=semantic_vectors,
+    )
     for point, statistics in zip(points, revert_analysis["point_statistics"]):
         point.update(statistics)
 

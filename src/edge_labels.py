@@ -31,9 +31,16 @@ from revision_keywords import (
 )
 
 
-PROMPT_VERSION = "full-revision-metadata-label-and-description-v8"
+PROMPT_VERSION = "full-revision-metadata-label-and-description-v10"
 MIN_LABEL_WORDS = 2
 MAX_LABEL_WORDS = 3
+NO_CONTENT_LABELS = {
+    "no content change",
+    "no cleaned text change",
+    "no content difference",
+    "unchanged content",
+    "content unchanged",
+}
 SYSTEM_PROMPT = f"""You analyze the transition between two consecutive versions of the
 same Wikipedia article and return two complementary outputs: a compact map label and a
 most-detailed factual description.
@@ -58,11 +65,16 @@ identified. Never infer an editor's intention merely from their identity.
 
 Return exactly these two values:
 1. edge_label: one intact English label of {MIN_LABEL_WORDS} to {MAX_LABEL_WORDS} words.
-   It must identify the specific subject, claim, event, institution, person, place, policy,
-   or article section affected by the change. It should explain what the change is about
-   and also be suitable as grounded evidence for labeling a cluster of related revisions.
-   Do not name the editing operation and do not use generic labels such as change, update,
-   revision, addition, removal, text edit, or miscellaneous.
+   It must summarize the concrete difference, not merely repeat the broad subject of the
+   affected passage. Prefer a compact object-plus-action or object-plus-result phrase that
+   makes the direction of the edit clear, such as "Vote Implications Added", "Capital
+   Designation Removed", or "Treaty Rights Reworded". It must be more specific than a
+   likely parent topic label and also be suitable as grounded evidence for labeling a
+   cluster of related revisions. Never return a bare umbrella topic ending in "Status",
+   "Statehood", "Sovereignty", or "Formation", such as "UN Observer Status", "PLO
+   Observer Status", or "Palestinian Statehood"; identify the actual changed claim and
+   direction instead. Do not use generic labels
+   such as change, update, revision, text edit, or miscellaneous by themselves.
    If analysis establishes that the cleaned article content is identical, use the label
    "No Content Change" and state only who made the revision, when, and that the supplied
    cleaned article content did not change.
@@ -102,7 +114,33 @@ def normalise_label(value: str) -> str:
 
 def valid_label(value: str) -> bool:
     words = normalise_label(value).split()
-    return MIN_LABEL_WORDS <= len(words) <= MAX_LABEL_WORDS
+    folded = re.sub(r"[^\w]+", " ", normalise_label(value).casefold()).strip()
+    broad_topic = (
+        folded.endswith((" status", " statehood", " sovereignty", " formation"))
+        or folded == "un observer state"
+    )
+    return (
+        MIN_LABEL_WORDS <= len(words) <= MAX_LABEL_WORDS
+        and not broad_topic
+    )
+
+
+def no_content_label(value: str) -> bool:
+    key = re.sub(r"[^\w]+", " ", normalise_label(value).casefold()).strip()
+    return key in NO_CONTENT_LABELS
+
+
+def description_claims_no_content_change(value: str) -> bool:
+    folded = normalise_label(value).casefold()
+    return any(
+        phrase in folded
+        for phrase in (
+            "did not change",
+            "no change to the cleaned article content",
+            "cleaned article content was unchanged",
+            "cleaned article content is identical",
+        )
+    )
 
 
 def valid_description(value: str, current: dict | None = None) -> bool:
@@ -129,6 +167,19 @@ def revision_metadata(revision: dict) -> dict[str, str]:
         "author": str(revision.get("author", "")),
         "timestamp": str(revision.get("timestamp", "")),
         "comment": str(revision.get("comment", "")),
+    }
+
+
+def unchanged_revision_result(current: dict) -> dict[str, str]:
+    """Describe byte-identical cleaned revisions without asking the model."""
+    author = normalise_label(str(current.get("author") or "Unknown editor"))
+    timestamp = normalise_label(str(current.get("timestamp") or "unknown time"))
+    return {
+        "edge_label": "No Content Change",
+        "detailed_description": (
+            f"On {timestamp}, {author} made a revision, and the supplied cleaned "
+            "article content did not change."
+        ),
     }
 
 
@@ -169,6 +220,8 @@ def request_edge_label(
         previous = {"text": previous}
     if isinstance(current, str):
         current = {"text": current}
+    if str(previous.get("text", "")) == str(current.get("text", "")):
+        return unchanged_revision_result(current)
     prompt = build_prompt(previous, current)
     for attempt in range(3):
         response = client.responses.parse(
@@ -190,8 +243,19 @@ def request_edge_label(
                 response.output_parsed.detailed_description
             ),
         }
-        if valid_label(result["edge_label"]) and valid_description(
-            result["detailed_description"], current
+        contradicts_full_text = (
+            str(previous.get("text", "")) != str(current.get("text", ""))
+            and (
+                no_content_label(result["edge_label"])
+                or description_claims_no_content_change(
+                    result["detailed_description"]
+                )
+            )
+        )
+        if (
+            valid_label(result["edge_label"])
+            and valid_description(result["detailed_description"], current)
+            and not contradicts_full_text
         ):
             return result
         prompt += (
@@ -199,7 +263,11 @@ def request_edge_label(
             f"{MAX_LABEL_WORDS} words and detailed_description must be one complete "
             "factual sentence of at most 360 characters ending in punctuation. It must "
             "name the current author and exact timestamp and must never mention, quote, "
-            "or paraphrase an edit comment, edit summary, or metadata; return both fields."
+            "or paraphrase an edit comment, edit summary, or metadata. When the two "
+            "cleaned revisions differ, neither field may claim that content is unchanged; "
+            "the edge_label must name the concrete changed claim plus its direction and "
+            "must not be a bare umbrella topic ending in Status, Statehood, "
+            "Sovereignty, or Formation; return both fields."
         )
     raise RuntimeError("Das Modell lieferte kein gültiges Label mit Beschreibung.")
 
@@ -256,6 +324,27 @@ def generate_edge_labels(
         zip(revisions, revisions[1:]), start=1
     ):
         key = cache_key(previous, current, model)
+        if str(previous.get("text", "")) == str(current.get("text", "")):
+            result = unchanged_revision_result(current)
+            entries[key] = {
+                "previous_revision_id": previous["revision_id"],
+                "current_revision_id": current["revision_id"],
+                **result,
+            }
+            write_json(cache_path, cache)
+            results.append({
+                "previous_revision_id": previous["revision_id"],
+                "current_revision_id": current["revision_id"],
+                **result,
+            })
+            print(
+                f"[{index}/{pair_count}] {previous['revision_id']} -> "
+                f"{current['revision_id']} (deterministic unchanged)",
+                flush=True,
+            )
+            print(f"  LABEL: {result['edge_label']}", flush=True)
+            print(f"  DETAIL: {result['detailed_description']}", flush=True)
+            continue
         cached = None if refresh_cache else entries.get(key)
         source = "cache" if cached else LLM_PROVIDER
         print(

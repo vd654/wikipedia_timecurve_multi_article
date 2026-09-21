@@ -1,0 +1,32 @@
+{
+  "article": "Palestine",
+  "reason": "Replace detail-edge labels that exactly repeat a macro label with the concrete change established by the stored description.",
+  "revision_pairs": [
+    {"current_revision_id": "527471316", "edge_label": "Legal Subsections Added"},
+    {"current_revision_id": "528143930", "edge_label": "Charter Passage Removed"},
+    {"current_revision_id": "537599338", "edge_label": "Transitional Phrases Removed"},
+    {"current_revision_id": "540017769", "edge_label": "Statehood Event Added"},
+    {"current_revision_id": "541240119", "edge_label": "Infobox Events Separated"},
+    {"current_revision_id": "546404002", "edge_label": "Sovereign Qualification Removed"},
+    {"current_revision_id": "546954674", "edge_label": "Recognition Quantifier Removed"},
+    {"current_revision_id": "565282056", "edge_label": "Proclamation Definition Added"},
+    {"current_revision_id": "566687333", "edge_label": "State Classification Removed"},
+    {"current_revision_id": "569092403", "edge_label": "State Definition Restored"},
+    {"current_revision_id": "572489938", "edge_label": "Partial Recognition Added"},
+    {"current_revision_id": "572834318", "edge_label": "Limited Recognition Added"},
+    {"current_revision_id": "576256448", "edge_label": "Sovereign Term Removed"},
+    {"current_revision_id": "576258074", "edge_label": "Sovereign Term Restored"},
+    {"current_revision_id": "576962094", "edge_label": "Sovereignty Assertion Removed"},
+    {"current_revision_id": "576984565", "edge_label": "Independence Phrase Substituted"},
+    {"current_revision_id": "576993592", "edge_label": "Sovereignty Assertion Restored"},
+    {"current_revision_id": "577005448", "edge_label": "Purportedly Qualifier Added"},
+    {"current_revision_id": "579849305", "edge_label": "Immediate Sovereignty Removed"},
+    {"current_revision_id": "580859447", "edge_label": "Territorial Claim Expanded"},
+    {"current_revision_id": "588486623", "edge_label": "De Jure Added"},
+    {"current_revision_id": "589611784", "edge_label": "De Jure Removed"},
+    {"current_revision_id": "592390402", "edge_label": "De Facto Substituted"},
+    {"current_revision_id": "592638236", "edge_label": "De Jure Restored"},
+    {"current_revision_id": "601561526", "edge_label": "Sovereign Term Added"},
+    {"current_revision_id": "617105808", "edge_label": "Formation Label Substituted"}
+  ]
+}

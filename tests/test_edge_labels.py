@@ -82,6 +82,43 @@ def test_system_prompt_contains_detailed_description_one_shot_example():
     assert "Do not copy any unsupported detail" in edge_labels.SYSTEM_PROMPT
 
 
+def test_short_edge_label_must_explain_a_more_specific_change():
+    normalized = " ".join(edge_labels.SYSTEM_PROMPT.split())
+    assert "not merely repeat the broad subject" in normalized
+    assert "object-plus-action or object-plus-result" in normalized
+    assert '"Vote Implications Added"' in normalized
+    assert "more specific than a likely parent topic label" in normalized
+    assert 'Never return a bare umbrella topic ending in "Status"' in normalized
+
+
+def test_broad_status_topic_is_not_a_valid_edge_label():
+    assert not edge_labels.valid_label("UN Observer Status")
+    assert not edge_labels.valid_label("PLO Observer Status")
+    assert not edge_labels.valid_label("Palestine Recognition Status")
+    assert not edge_labels.valid_label("UN Observer State")
+    assert not edge_labels.valid_label("Palestinian Statehood")
+    assert not edge_labels.valid_label("Palestinian Sovereignty")
+    assert not edge_labels.valid_label("Palestinian State Formation")
+    assert edge_labels.valid_label("Vote Tally Corrected")
+
+
+def test_request_retries_a_broad_status_topic():
+    client = unittest.mock.Mock()
+    client.responses.parse.side_effect = [
+        parsed("UN Observer Status"),
+        parsed("Vote Tally Corrected"),
+    ]
+
+    result = edge_labels.request_edge_label(
+        client, "test-model", "earlier tally", "corrected tally"
+    )
+
+    assert result["edge_label"] == "Vote Tally Corrected"
+    assert client.responses.parse.call_count == 2
+    correction = client.responses.parse.call_args.kwargs["input"][1]["content"]
+    assert "must not be a bare umbrella topic ending in Status" in correction
+
+
 def test_system_prompt_forbids_meaningless_edit_comment_meta_commentary():
     assert "Never mention" in edge_labels.SYSTEM_PROMPT
     assert "quote, paraphrase, describe, or refer to an edit comment" in edge_labels.SYSTEM_PROMPT
@@ -156,12 +193,37 @@ def test_request_retries_a_label_longer_than_three_words():
     assert "2 to 3 words" in correction
 
 
-def test_identical_cleaned_revisions_are_still_analyzed_with_metadata():
+def test_changed_cleaned_revisions_reject_false_no_content_result():
     client = unittest.mock.Mock()
-    client.responses.parse.return_value = parsed(
-        "No Content Change",
-        "ExampleEditor made no change to the cleaned article content on t2.",
+    client.responses.parse.side_effect = [
+        parsed(
+            "No Content Change",
+            "On t2, ExampleEditor made a revision, and the cleaned article content did not change.",
+        ),
+        parsed(
+            "Capital Claim Removed",
+            "On t2, ExampleEditor removed the capital claim.",
+        ),
+    ]
+    previous = {"text": "Earlier capital claim.", "timestamp": "t1"}
+    current = {
+        "text": "Revised article.",
+        "author": "ExampleEditor",
+        "timestamp": "t2",
+    }
+
+    result = edge_labels.request_edge_label(
+        client, "test-model", previous, current
     )
+
+    assert result["edge_label"] == "Capital Claim Removed"
+    assert client.responses.parse.call_count == 2
+    correction = client.responses.parse.call_args.kwargs["input"][1]["content"]
+    assert "neither field may claim that content is unchanged" in correction
+
+
+def test_identical_cleaned_revisions_are_resolved_without_model_call():
+    client = unittest.mock.Mock()
 
     result = edge_labels.request_edge_label(
         client,
@@ -171,10 +233,11 @@ def test_identical_cleaned_revisions_are_still_analyzed_with_metadata():
     )
 
     assert result["edge_label"] == "No Content Change"
-    client.responses.parse.assert_called_once()
-    prompt = client.responses.parse.call_args.kwargs["input"][1]["content"]
-    assert "ExampleEditor" in prompt
-    assert "null edit" in prompt
+    client.responses.parse.assert_not_called()
+    assert result["detailed_description"] == (
+        "On t2, ExampleEditor made a revision, and the supplied cleaned article "
+        "content did not change."
+    )
 
 
 def test_cache_and_result_store_label_and_detailed_description(tmp_path):
