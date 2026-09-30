@@ -10,34 +10,32 @@ from rapidfuzz.distance import Levenshtein
 from text_cleaning import affected_sentence_window, sentence_window_at_position
 
 EDIT_WAR_MIN_EVENTS = 2
-REVERT_ANALYSIS_VERSION = "2026-09-18-repeated-counter-reverts-v5"
-PARTIAL_REVERT_MIN_SCORE = 0.72
-DIRECT_PARTIAL_REVERT_MIN_SCORE = 0.55
-PARTIAL_REVERT_MIN_MATCHED_TOKENS = 4
-PARTIAL_REVERT_MAX_INTERVENING_REVISIONS = 5
-SEMANTIC_REVERT_MAX_DIRECTION_COSINE = -0.55
-SEMANTIC_REVERT_MAX_RETURN_RATIO = 0.8
-SEMANTIC_REVERT_MIN_SHARED_TOPIC_TOKENS = 2
+REVERT_ANALYSIS_VERSION = "2026-09-30-three-point-edit-war-phases-v9"
+PARTIAL_REVERT_MAX_DIRECTION_COSINE = -0.98
+PARTIAL_REVERT_MIN_OUTGOING_COSINE = 0.98
+PARTIAL_REVERT_MAX_OUTGOING_STEPS = 2
+SEMANTIC_REVERT_MAX_DIRECTION_COSINE = -0.98
+SEMANTIC_REVERT_MAX_RETURN_RATIO = 0.3
 PARTIAL_REVERT_MAX_EVIDENCE_CHARS = 360
 PARTIAL_REVERT_MAX_SENTENCE_CHARS = 2_000
 EDIT_WAR_DEFINITION = (
     "Ein Edit War liegt bei mindestens zwei unmittelbar verketteten "
-    "Gegenänderungen zwischen mindestens zwei Autoren vor: Jede Revision führt "
-    "die unmittelbar vorherige Änderung eines anderen Autors ganz oder "
-    "teilweise in die frühere inhaltliche Richtung zurück. Ein einzelner "
+    "Gegenänderungsphasen zwischen mindestens zwei Autoren vor. Eine "
+    "Ausgangsphase darf bis zu drei aufeinanderfolgende Trajektorienpunkte "
+    "umfassen; die Gegenphase schließt unmittelbar an und führt sie ganz oder "
+    "teilweise zurück. Ein einzelner "
     "Revert und Selbst-Reverts gelten nicht als Edit War. "
     "Ob parallel auf der "
     "Diskussionsseite kommuniziert wurde, ist ohne deren Versionsgeschichte "
     "nicht feststellbar."
 )
 PARTIAL_REVERT_DEFINITION = (
-    "Ein partieller Revert führt einzelne geänderte Textpassagen direkt in "
-    "Richtung ihres Zustands vor der rückgängig gemachten Änderung zurück. "
-    "Die Rückführung kann über mehrere Teilstücke oder Revisionen erfolgen; "
-    "nicht betroffene beziehungsweise korrekte Teile bleiben bestehen. Jede "
-    "erkannte Teilrücknahme benötigt eine inverse textliche Übereinstimmung "
-    "mit dem Ausgangsbestand der betroffenen Passage. Eine bloße geometrische "
-    "Rückbewegung in der zweidimensionalen Projektion genügt nicht."
+    "Ein partieller Revert beginnt mit einem Trajektorienschritt in eine "
+    "Richtung. Eine oder mehrere unmittelbar folgende Revisionen führen die "
+    "sichtbare zweidimensionale Trajektorie schrittweise in die Gegenrichtung "
+    "zurück. Jeder Rückführungsschritt muss den Abstand zum Ausgangspunkt "
+    "verkleinern; eine Mindestzahl übereinstimmender Inhaltswörter wird nicht "
+    "verlangt."
 )
 
 
@@ -284,71 +282,12 @@ def detect_sha1_reverts(revisions: list[dict]) -> list[dict]:
     return events
 
 
-def _counter_overlap(left: list[str], right: list[str]) -> int:
-    return sum((Counter(left) & Counter(right)).values())
-
-
-def _reversal_unit_score(earlier: dict, later: dict) -> tuple[float, int]:
-    """Measure how completely a later passage reverses an earlier passage."""
-    matched = (
-        _counter_overlap(earlier["added_tokens"], later["removed_tokens"])
-        + _counter_overlap(earlier["removed_tokens"], later["added_tokens"])
-    )
-    earlier_size = len(earlier["added_tokens"]) + len(earlier["removed_tokens"])
-    later_size = len(later["added_tokens"]) + len(later["removed_tokens"])
-    if not matched or not earlier_size or not later_size:
-        return 0.0, 0
-    precision = matched / later_size
-    recall = matched / earlier_size
-    score = 2 * precision * recall / (precision + recall)
-    return float(score), matched
-
-
 def _signature_tokens(signature: dict, key: str) -> list[str]:
     return [
         token
         for unit in signature.get("units", [])
         for token in unit.get(key, [])
     ]
-
-
-def _signature_reversal_score(
-    earlier_signature: dict, later_signature: dict
-) -> tuple[float, int]:
-    """Measure an inverse change across every changed passage in two revisions."""
-    earlier_added = _signature_tokens(earlier_signature, "added_tokens")
-    earlier_removed = _signature_tokens(earlier_signature, "removed_tokens")
-    later_added = _signature_tokens(later_signature, "added_tokens")
-    later_removed = _signature_tokens(later_signature, "removed_tokens")
-    return _reversal_unit_score(
-        {"added_tokens": earlier_added, "removed_tokens": earlier_removed},
-        {"added_tokens": later_added, "removed_tokens": later_removed},
-    )
-
-
-def _best_signature_reversal(
-    earlier_signature: dict, later_signature: dict
-) -> tuple[float, int, list[dict], list[dict]]:
-    """Return the strongest unit-level or aggregate inverse-change evidence."""
-    earlier_units = earlier_signature.get("units", [])
-    later_units = later_signature.get("units", [])
-    best = (0.0, 0, [], [])
-    for earlier_unit in earlier_units:
-        for later_unit in later_units:
-            score, matched = _reversal_unit_score(earlier_unit, later_unit)
-            candidate = (score, matched, [earlier_unit], [later_unit])
-            if candidate[:2] > best[:2]:
-                best = candidate
-    aggregate_score, aggregate_matched = _signature_reversal_score(
-        earlier_signature, later_signature
-    )
-    aggregate = (
-        aggregate_score,
-        aggregate_matched,
-        list(earlier_units),
-        list(later_units),
-    )
-    return aggregate if aggregate[:2] > best[:2] else best
 
 
 def _change_evidence(earlier_units: list[dict], later_units: list[dict]) -> tuple[list[str], list[str]]:
@@ -370,116 +309,197 @@ def _change_evidence(earlier_units: list[dict], later_units: list[dict]) -> tupl
     return evidence, sentences
 
 
-def detect_partial_text_reverts(
+def detect_partial_trajectory_reverts(
     revisions: list[dict],
+    trajectory_vectors: dict[str, object] | None,
     *,
-    max_intervening_revisions: int = (
-        PARTIAL_REVERT_MAX_INTERVENING_REVISIONS
-    ),
-    min_score: float = PARTIAL_REVERT_MIN_SCORE,
-    direct_min_score: float = DIRECT_PARTIAL_REVERT_MIN_SCORE,
-    min_matched_tokens: int = PARTIAL_REVERT_MIN_MATCHED_TOKENS,
+    max_direction_cosine: float = PARTIAL_REVERT_MAX_DIRECTION_COSINE,
+    min_outgoing_cosine: float = PARTIAL_REVERT_MIN_OUTGOING_COSINE,
+    max_outgoing_steps: int = PARTIAL_REVERT_MAX_OUTGOING_STEPS,
 ) -> list[dict]:
-    """Detect near-reverts, prioritising an adjacent inverse content change."""
-    events = []
-    for later_index in range(1, len(revisions)):
-        later = revisions[later_index]
-        later_signature = later.get("change_signature", {})
-        later_units = later_signature.get("units", [])
-        if not later_units:
-            continue
-        best = None
+    """Detect consecutive piecewise returns in the visible 2D trajectory.
 
-        # A direct counter-edit is authoritative for session continuity. Do not
-        # let a slightly stronger but older passage match hide it.
-        direct_index = later_index - 1
-        direct = revisions[direct_index]
-        if later["user"] != direct["user"]:
-            score, matched, earlier_evidence, later_evidence = (
-                _best_signature_reversal(
-                    direct.get("change_signature", {}), later_signature
-                )
-            )
-            if score >= direct_min_score and matched >= min_matched_tokens:
-                best = (
-                    score,
-                    matched,
-                    direct_index,
-                    earlier_evidence,
-                    later_evidence,
-                )
+    An outgoing phase may contain one or two aligned steps (two or three
+    points). Every immediately following return step must point almost opposite
+    to the phase's aggregate vector and reduce its endpoint's distance to the
+    phase origin. The longest qualifying outgoing phase wins for each return.
+    """
+    if not trajectory_vectors:
+        return []
 
-        direct_match = best is not None
-        for earlier_index in range(later_index - 2, 0, -1):
-            if direct_match:
-                break
-            earlier = revisions[earlier_index]
-            intervening_revision_count = later_index - earlier_index - 1
-            if intervening_revision_count > max_intervening_revisions:
-                break
-            if later["user"] == earlier["user"]:
-                continue
-            score, matched, earlier_evidence, later_evidence = (
-                _best_signature_reversal(
-                    earlier.get("change_signature", {}), later_signature
-                )
+    candidates = []
+    for start_index in range(len(revisions) - 2):
+        try:
+            start_vector = _vector(
+                trajectory_vectors[str(revisions[start_index]["revision_id"])]
             )
-            candidate = (
-                score,
-                matched,
-                -(intervening_revision_count + 1),
-                earlier_index,
-                earlier_evidence,
-                later_evidence,
+            first_outgoing_vector = _vector(
+                trajectory_vectors[
+                    str(revisions[start_index + 1]["revision_id"])
+                ]
             )
-            if best is None or candidate[:4] > best[:4]:
-                best = candidate
-        if best is None:
+        except KeyError:
             continue
-        if len(best) == 5:
-            score, matched, earlier_index, earlier_evidence, later_evidence = best
-            required_score = direct_min_score
-        else:
-            (
-                score,
-                matched,
-                _,
-                earlier_index,
-                earlier_evidence,
-                later_evidence,
-            ) = best
-            required_score = min_score
-        if score < required_score or matched < min_matched_tokens:
-            continue
-        earlier = revisions[earlier_index]
-        evidence, sentences = _change_evidence(
-            earlier_evidence, later_evidence
+
+        first_outgoing = _vector_subtract(
+            first_outgoing_vector, start_vector
         )
-        events.append({
-            "revision_index": later_index,
-            "revision_id": later["revision_id"],
-            "timestamp": later["timestamp"],
-            "reverter": later["user"],
-            "reverted_editor": earlier["user"],
-            "reverted_revision_id": earlier["revision_id"],
-            "reverted_revision_index": earlier_index,
-            "directly_reverts_previous_revision": (
-                earlier_index == later_index - 1
-            ),
-            "restored_revision_id": None,
-            "restored_revision_index": None,
-            "intervening_revision_count": later_index - earlier_index - 1,
-            "pair": list(editor_pair(later["user"], earlier["user"])),
-            "revert_kind": "partial_text",
-            "reversal_score": score,
-            "matched_content_token_count": matched,
-            "conflict_passages": evidence,
-            "conflict_sentences": sentences,
-            "involves_probable_bot": bool(
-                later.get("probable_bot") or earlier.get("probable_bot")
-            ),
-        })
-    return events
+        if _vector_norm(first_outgoing) <= 1e-12:
+            continue
+
+        outgoing_end_indices = [start_index + 1]
+        previous_outgoing_vector = first_outgoing_vector
+        for outgoing_end_index in range(
+            start_index + 2,
+            min(len(revisions), start_index + max_outgoing_steps + 1),
+        ):
+            try:
+                next_outgoing_vector = _vector(
+                    trajectory_vectors[
+                        str(revisions[outgoing_end_index]["revision_id"])
+                    ]
+                )
+            except KeyError:
+                break
+            next_outgoing_step = _vector_subtract(
+                next_outgoing_vector, previous_outgoing_vector
+            )
+            alignment = _direction_cosine(
+                first_outgoing, next_outgoing_step
+            )
+            if alignment is None or alignment < min_outgoing_cosine:
+                break
+            outgoing_end_indices.append(outgoing_end_index)
+            previous_outgoing_vector = next_outgoing_vector
+
+        for outgoing_end_index in reversed(outgoing_end_indices):
+            changed = revisions[outgoing_end_index]
+            try:
+                changed_vector = _vector(
+                    trajectory_vectors[str(changed["revision_id"])]
+                )
+            except KeyError:
+                continue
+            outgoing = _vector_subtract(changed_vector, start_vector)
+            outgoing_distance = _vector_norm(outgoing)
+            return_indices = []
+            direction_cosines = []
+            previous_vector = changed_vector
+            previous_distance = outgoing_distance
+            current_index = outgoing_end_index + 1
+            while current_index < len(revisions):
+                current = revisions[current_index]
+                try:
+                    current_vector = _vector(
+                        trajectory_vectors[str(current["revision_id"])]
+                    )
+                except KeyError:
+                    break
+                return_step = _vector_subtract(
+                    current_vector, previous_vector
+                )
+                direction_cosine = _direction_cosine(
+                    outgoing, return_step
+                )
+                current_distance = _vector_norm(
+                    _vector_subtract(current_vector, start_vector)
+                )
+                if (
+                    direction_cosine is None
+                    or direction_cosine > max_direction_cosine
+                    or current_distance >= previous_distance - 1e-12
+                ):
+                    break
+                return_indices.append(current_index)
+                direction_cosines.append(float(direction_cosine))
+                previous_vector = current_vector
+                previous_distance = current_distance
+                current_index += 1
+
+            if not return_indices:
+                continue
+
+            final_return = revisions[return_indices[-1]]
+            outgoing_indices = list(
+                range(start_index, outgoing_end_index + 1)
+            )
+            return_path_indices = [outgoing_end_index, *return_indices]
+            full_path_indices = [*outgoing_indices, *return_indices]
+            evidence, sentences = _change_evidence(
+                [
+                    unit
+                    for index in range(start_index + 1, outgoing_end_index + 1)
+                    for unit in revisions[index].get(
+                        "change_signature", {}
+                    ).get("units", [])
+                ],
+                [
+                    unit
+                    for index in return_indices
+                    for unit in revisions[index].get(
+                        "change_signature", {}
+                    ).get("units", [])
+                ],
+            )
+            return_ratio = previous_distance / outgoing_distance
+            candidates.append({
+                "revision_index": return_indices[-1],
+                "revision_id": final_return["revision_id"],
+                "timestamp": final_return["timestamp"],
+                "reverter": final_return["user"],
+                "reverted_editor": changed["user"],
+                "reverted_revision_id": changed["revision_id"],
+                "reverted_revision_index": outgoing_end_index,
+                "directly_reverts_previous_revision": True,
+                "restored_revision_id": revisions[start_index]["revision_id"],
+                "restored_revision_index": start_index,
+                "intervening_revision_count": 0,
+                "pair": list(editor_pair(final_return["user"], changed["user"])),
+                "revert_kind": "partial_trajectory",
+                "reversal_score": float(max(0.0, 1.0 - return_ratio)),
+                "trajectory_direction_cosine": max(direction_cosines),
+                "trajectory_return_ratio": float(return_ratio),
+                "trajectory_outgoing_path_revision_ids": [
+                    revisions[index]["revision_id"]
+                    for index in outgoing_indices
+                ],
+                "trajectory_path_revision_ids": [
+                    revisions[index]["revision_id"]
+                    for index in return_path_indices
+                ],
+                "trajectory_full_path_revision_ids": [
+                    revisions[index]["revision_id"]
+                    for index in full_path_indices
+                ],
+                "trajectory_outgoing_point_count": len(outgoing_indices),
+                "trajectory_return_revision_count": len(return_indices),
+                "trajectory_start_revision_index": start_index,
+                "trajectory_first_return_revision_index": return_indices[0],
+                "trajectory_final_revision_id": final_return["revision_id"],
+                "trajectory_final_revision_index": return_indices[-1],
+                "conflict_passages": evidence,
+                "conflict_sentences": sentences,
+                "involves_probable_bot": any(
+                    revisions[index].get("probable_bot")
+                    for index in full_path_indices
+                ),
+            })
+            break
+
+    best_by_return_start = {}
+    for event in candidates:
+        key = int(event["trajectory_first_return_revision_index"])
+        rank = (
+            int(event["trajectory_outgoing_point_count"]),
+            int(event["trajectory_return_revision_count"]),
+        )
+        current = best_by_return_start.get(key)
+        if current is None or rank > current[0]:
+            best_by_return_start[key] = (rank, event)
+    return sorted(
+        (item[1] for item in best_by_return_start.values()),
+        key=lambda event: (event["revision_index"], event["revision_id"]),
+    )
 
 
 def _vector(values) -> list[float]:
@@ -513,13 +533,13 @@ def detect_semantic_counter_reverts(
     *,
     max_direction_cosine: float = SEMANTIC_REVERT_MAX_DIRECTION_COSINE,
     max_return_ratio: float = SEMANTIC_REVERT_MAX_RETURN_RATIO,
-    min_shared_topic_tokens: int = SEMANTIC_REVERT_MIN_SHARED_TOPIC_TOKENS,
 ) -> list[dict]:
     """Detect adjacent semantic A→B→A' counter-movements in full vectors.
 
-    High-dimensional revision embeddings are used only as supporting evidence;
-    changed-passage topic overlap is mandatory. The two-dimensional display
-    projection is never used for classification.
+    High-dimensional revision embeddings determine the counter-movement and
+    return distance. Shared changed-passage tokens are retained as diagnostic
+    information, but are not a classification threshold. The two-dimensional
+    display projection is never used for classification.
     """
     if not semantic_vectors:
         return []
@@ -553,8 +573,6 @@ def detect_semantic_counter_reverts(
             _signature_topic_tokens(previous_signature)
             & _signature_topic_tokens(current_signature)
         )
-        if len(shared_topic_tokens) < min_shared_topic_tokens:
-            continue
         evidence, sentences = _change_evidence(
             list(previous_signature.get("units", [])),
             list(current_signature.get("units", [])),
@@ -703,12 +721,12 @@ def detect_edit_war_sessions(
 ) -> list[dict]:
     """Group uninterrupted direct counter-edits into edit-war sessions.
 
-    Every event must directly undo the immediately preceding article revision.
-    Eligible events form one session only while their revision indexes and
-    editor-to-editor revert chain are consecutive. At least two linked events
-    and two different authors are required; self-reverts never count. A run
-    may contain more than one editor pair. No time-window, projected/geometric,
-    or talk-page evidence is used at this stage.
+    Every event or compound counter-phase must begin immediately after its
+    outgoing phase. Eligible events form one session only while phase
+    boundaries and the editor-to-editor revert chain are consecutive. At least
+    two linked events and two different authors are required; self-reverts
+    never count. A run may contain more than one editor pair. No time window or
+    talk-page evidence is used at this stage.
     """
     eligible = []
     for event in events:
@@ -735,10 +753,15 @@ def detect_edit_war_sessions(
     for event in ordered:
         if current:
             previous = current[-1]
-            revision_gap = (
-                int(event["revision_index"])
-                - int(previous["revision_index"])
-            )
+            previous_end_index = int(previous.get(
+                "trajectory_final_revision_index",
+                previous["revision_index"],
+            ))
+            current_counter_start_index = int(event.get(
+                "trajectory_first_return_revision_index",
+                event["revision_index"],
+            ))
+            revision_gap = current_counter_start_index - previous_end_index
             chain_continues = (
                 revision_gap == 1
                 and event["reverted_editor"] == previous["reverter"]
@@ -782,8 +805,14 @@ def detect_edit_war_sessions(
             "editor_pairs": [list(pair) for pair in editor_pairs],
             "events": session_events,
             "event_count": len(session_events),
-            "start_revision_index": session_events[0]["revision_index"],
-            "end_revision_index": session_events[-1]["revision_index"],
+            "start_revision_index": session_events[0].get(
+                "trajectory_start_revision_index",
+                session_events[0]["revision_index"],
+            ),
+            "end_revision_index": session_events[-1].get(
+                "trajectory_final_revision_index",
+                session_events[-1]["revision_index"],
+            ),
             "start_timestamp": session_events[0]["timestamp"],
             "end_timestamp": session_events[-1]["timestamp"],
             "local_gandica_c": float(
@@ -827,10 +856,13 @@ def analyze_reverts(
 ) -> dict:
     """Return full-history revert evidence aligned to sampled curve points."""
     exact_events = detect_sha1_reverts(history)
-    partial_events = (
-        detect_partial_text_reverts(history)
-        if any(revision.get("change_signature") for revision in history)
-        else []
+    trajectory_vectors = {
+        str(revision["revision_id"]): revision["mds"]
+        for revision in sampled
+        if revision.get("mds") is not None
+    }
+    partial_events = detect_partial_trajectory_reverts(
+        history, trajectory_vectors
     )
     semantic_events = detect_semantic_counter_reverts(
         history, semantic_vectors
@@ -861,7 +893,9 @@ def analyze_reverts(
         ]
         interval_partial_events = [
             event for event in interval_events
-            if event.get("revert_kind") in {"partial_text", "semantic_text"}
+            if event.get("revert_kind") in {
+                "partial_trajectory", "semantic_text"
+            }
         ]
         measure = yasseri_m_measure(history[:cutoff + 1], prefix_events)
         conflict = gandica_c_measure(prefix_events)
@@ -930,13 +964,13 @@ def analyze_reverts(
     return {
         "analysis_version": REVERT_ANALYSIS_VERSION,
         "method": (
-            "exact SHA1, inverse passage-diff, and high-dimensional semantic "
-            "counter-movement conflict"
+            "exact SHA1, consecutive 2D trajectory returns, and "
+            "high-dimensional semantic counter-movement conflict"
         ),
         "definition": (
             "A revision is a revert when it restores an earlier SHA1 state or "
-            "directly counters the preceding changed content lexically or "
-            "semantically in the same changed topic."
+            "directly returns from the preceding visible 2D trajectory step "
+            "or semantically counters the preceding change."
         ),
         "partial_revert_definition": PARTIAL_REVERT_DEFINITION,
         "edit_war_definition": EDIT_WAR_DEFINITION,
@@ -945,7 +979,13 @@ def analyze_reverts(
             event.get("revert_kind") == "exact_sha1" for event in events
         ),
         "partial_text_revert_count": sum(
-            event.get("revert_kind") in {"partial_text", "semantic_text"}
+            event.get("revert_kind") in {
+                "partial_trajectory", "semantic_text"
+            }
+            for event in events
+        ),
+        "partial_trajectory_revert_count": sum(
+            event.get("revert_kind") == "partial_trajectory"
             for event in events
         ),
         "semantic_text_revert_count": sum(
@@ -963,30 +1003,31 @@ def analyze_reverts(
             "requires_consecutive_revision_indexes": True,
             "requires_direct_revert_of_previous_revision": True,
             "requires_editor_chain_continuity": True,
-            "proximity_rule": "strictly_consecutive_revisions",
+            "proximity_rule": "strictly_consecutive_trajectory_phases",
             "talk_page_activity_checked": False,
-            "partial_revert_min_score": PARTIAL_REVERT_MIN_SCORE,
-            "direct_partial_revert_min_score": DIRECT_PARTIAL_REVERT_MIN_SCORE,
-            "partial_revert_min_matched_tokens": PARTIAL_REVERT_MIN_MATCHED_TOKENS,
-            "partial_revert_max_intervening_revisions": (
-                PARTIAL_REVERT_MAX_INTERVENING_REVISIONS
+            "partial_revert_detection_basis": "visible_2d_trajectory",
+            "partial_revert_max_direction_cosine": (
+                PARTIAL_REVERT_MAX_DIRECTION_COSINE
             ),
-            "partial_revert_scope": (
-                "best unit-level or aggregate inverse changed passages"
+            "partial_revert_min_outgoing_cosine": (
+                PARTIAL_REVERT_MIN_OUTGOING_COSINE
             ),
+            "partial_revert_max_outgoing_points": (
+                PARTIAL_REVERT_MAX_OUTGOING_STEPS + 1
+            ),
+            "partial_revert_min_matched_tokens": None,
+            "partial_revert_requires_consecutive_revisions": True,
             "partial_revert_allows_piecewise_return": True,
-            "partial_revert_requires_inverse_passage_return": True,
-            "partial_revert_preserves_unaffected_text": True,
+            "partial_revert_requires_monotonic_return": True,
             "semantic_revert_max_direction_cosine": (
                 SEMANTIC_REVERT_MAX_DIRECTION_COSINE
             ),
             "semantic_revert_max_return_ratio": (
                 SEMANTIC_REVERT_MAX_RETURN_RATIO
             ),
-            "semantic_revert_min_shared_topic_tokens": (
-                SEMANTIC_REVERT_MIN_SHARED_TOPIC_TOKENS
-            ),
-            "display_projection_used_for_detection": False,
+            "semantic_revert_requires_shared_topic_tokens": False,
+            "display_projection_used_for_partial_revert_detection": True,
+            "display_projection_used_for_semantic_revert_detection": False,
             "exclude_probable_bots": False,
         },
         "probable_bot_revert_count": sum(

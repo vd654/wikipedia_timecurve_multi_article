@@ -934,6 +934,67 @@ def test_standalone_partial_counter_edit_has_dashed_partial_arc():
     assert (rows[0]["x"], rows[0]["x2"]) == (1.0, 0.1)
 
 
+def test_piecewise_partial_revert_draws_every_consecutive_return_segment():
+    point_rows = [
+        {"revision_id": "1", "x": 0.0, "y": 0.0},
+        {"revision_id": "2", "x": 1.0, "y": 0.0},
+        {"revision_id": "3", "x": 0.7, "y": 0.0},
+        {"revision_id": "4", "x": 0.3, "y": 0.0},
+    ]
+    analysis = {
+        "events": [{
+            "revision_index": 2,
+            "revision_id": "3",
+            "reverted_revision_id": "2",
+            "restored_revision_id": "1",
+            "revert_kind": "partial_trajectory",
+            "trajectory_path_revision_ids": ["2", "3", "4"],
+        }]
+    }
+
+    rows = build_revert_arc_rows(point_rows, analysis)
+
+    assert len(rows) == 2
+    assert [(row["x"], row["x2"]) for row in rows] == [
+        (1.0, 0.7),
+        (0.7, 0.3),
+    ]
+    assert [row["return_anchor_revision_id"] for row in rows] == ["3", "4"]
+
+
+def test_edit_war_draws_outgoing_and_return_segments_of_compound_phase():
+    point_rows = [
+        {"revision_id": "1", "x": 0.0, "y": 0.0},
+        {"revision_id": "2", "x": 0.5, "y": 0.0},
+        {"revision_id": "3", "x": 1.0, "y": 0.0},
+        {"revision_id": "4", "x": 0.7, "y": 0.0},
+        {"revision_id": "5", "x": 0.3, "y": 0.0},
+    ]
+    analysis = {
+        "events": [{
+            "revision_index": 4,
+            "revision_id": "5",
+            "reverted_revision_id": "3",
+            "revert_kind": "partial_trajectory",
+            "trajectory_path_revision_ids": ["3", "4", "5"],
+            "trajectory_full_path_revision_ids": ["1", "2", "3", "4", "5"],
+            "edit_war_session_id": "edit-war-1",
+        }],
+        "edit_war_sessions": [{"session_id": "edit-war-1", "event_count": 2}],
+    }
+
+    rows = build_revert_arc_rows(point_rows, analysis)
+
+    assert len(rows) == 4
+    assert all(row["is_edit_war"] for row in rows)
+    assert [(row["x"], row["x2"]) for row in rows] == [
+        (0.0, 0.5),
+        (0.5, 1.0),
+        (1.0, 0.7),
+        (0.7, 0.3),
+    ]
+
+
 def test_standalone_bot_partial_revert_uses_same_partial_arc_category():
     point_rows = [
         {"revision_id": "1", "x": 0.0, "y": 0.0},

@@ -1343,47 +1343,68 @@ def build_revert_arc_rows(
             if revert_kind == "exact_sha1" and restored_point is not None
             else source_id
         )
-        source_key = (
-            round(float(undone_point["x"]), 12),
-            round(float(undone_point["y"]), 12),
-        )
-        target_key = (
-            round(float(return_anchor["x"]), 12),
-            round(float(return_anchor["y"]), 12),
-        )
         pair = [str(editor) for editor in event.get("pair", []) if editor]
-        rows.append({
-            "arc_id": f"revert-{event_order + 1}-{source_id}-{target_id}",
-            "event_order": int(event.get("revision_index", event_order)),
-            # Start at the undone change and point back to the resulting
-            # revert revision, matching the chronological return direction.
-            "x": undone_point["x"],
-            "y": undone_point["y"],
-            "x2": return_anchor["x"],
-            "y2": return_anchor["y"],
-            "revision_id": source_id,
-            "reverted_revision_id": target_id,
-            "restored_revision_id": restored_id,
-            "return_anchor_revision_id": return_anchor_id,
-            "source_overlap_count": coordinate_counts[source_key],
-            "target_overlap_count": coordinate_counts[target_key],
-            "reverter": reverter,
-            "reverted_editor": reverted_editor,
-            "pair_text": " ↔ ".join(pair),
-            "revert_kind": revert_kind,
-            "revert_kind_label": (
-                "Exact revert"
-                if event.get("revert_kind") == "exact_sha1"
-                else "Partial revert"
-            ),
-            "reversal_score": float(event.get("reversal_score", 1.0)),
-            "session_id": session_id,
-            "is_edit_war": is_edit_war,
-            "edit_war_label": "Edit War" if is_edit_war else "",
-            "session_event_count": session_sizes.get(
-                session_id, 0
-            ),
-        })
+        trajectory_path = (
+            event.get("trajectory_full_path_revision_ids", [])
+            if is_edit_war
+            else event.get("trajectory_path_revision_ids", [])
+        )
+        path_ids = [
+            str(revision_id)
+            for revision_id in trajectory_path
+            if str(revision_id) in points_by_revision
+        ]
+        segment_ids = (
+            list(zip(path_ids, path_ids[1:]))
+            if revert_kind == "partial_trajectory" and len(path_ids) >= 2
+            else [(target_id, return_anchor_id)]
+        )
+        for segment_index, (segment_start_id, segment_end_id) in enumerate(
+            segment_ids
+        ):
+            segment_start = points_by_revision[segment_start_id]
+            segment_end = points_by_revision[segment_end_id]
+            source_key = (
+                round(float(segment_start["x"]), 12),
+                round(float(segment_start["y"]), 12),
+            )
+            target_key = (
+                round(float(segment_end["x"]), 12),
+                round(float(segment_end["y"]), 12),
+            )
+            rows.append({
+                "arc_id": (
+                    f"revert-{event_order + 1}-{source_id}-{target_id}-"
+                    f"segment-{segment_index + 1}"
+                ),
+                "event_order": int(event.get("revision_index", event_order)),
+                "segment_order": segment_index,
+                # Every partial-return segment follows chronological movement.
+                "x": segment_start["x"],
+                "y": segment_start["y"],
+                "x2": segment_end["x"],
+                "y2": segment_end["y"],
+                "revision_id": source_id,
+                "reverted_revision_id": target_id,
+                "restored_revision_id": restored_id,
+                "return_anchor_revision_id": segment_end_id,
+                "source_overlap_count": coordinate_counts[source_key],
+                "target_overlap_count": coordinate_counts[target_key],
+                "reverter": reverter,
+                "reverted_editor": reverted_editor,
+                "pair_text": " ↔ ".join(pair),
+                "revert_kind": revert_kind,
+                "revert_kind_label": (
+                    "Exact revert"
+                    if event.get("revert_kind") == "exact_sha1"
+                    else "Partial revert"
+                ),
+                "reversal_score": float(event.get("reversal_score", 1.0)),
+                "session_id": session_id,
+                "is_edit_war": is_edit_war,
+                "edit_war_label": "Edit War" if is_edit_war else "",
+                "session_event_count": session_sizes.get(session_id, 0),
+            })
 
     # Edit War is the highest-priority encoding only when the blue arc marks
     # the same projected connection. A shared endpoint is insufficient: many

@@ -7,11 +7,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from revert_detection import (  # noqa: E402
     PARTIAL_REVERT_DEFINITION,
-    PARTIAL_REVERT_MAX_INTERVENING_REVISIONS,
     analyze_reverts,
     build_change_signature,
     detect_edit_war_sessions,
-    detect_partial_text_reverts,
+    detect_partial_trajectory_reverts,
     detect_semantic_counter_reverts,
     detect_sha1_reverts,
     gandica_c_measure,
@@ -84,8 +83,10 @@ def test_conflict_is_marked_when_the_revert_pair_becomes_mutual():
     assert analysis["partial_revert_definition"] == PARTIAL_REVERT_DEFINITION
     parameters = analysis["edit_war_session_parameters"]
     assert parameters["partial_revert_allows_piecewise_return"] is True
-    assert parameters["partial_revert_requires_inverse_passage_return"] is True
-    assert parameters["partial_revert_preserves_unaffected_text"] is True
+    assert parameters["partial_revert_detection_basis"] == "visible_2d_trajectory"
+    assert parameters["partial_revert_requires_consecutive_revisions"] is True
+    assert parameters["partial_revert_requires_monotonic_return"] is True
+    assert parameters["partial_revert_min_matched_tokens"] is None
     statistics = analysis["point_statistics"]
     assert statistics[2]["interval_mutual_revert_count"] == 0
     assert statistics[2]["interval_exact_sha1_revert_count"] == 1
@@ -142,40 +143,27 @@ def test_edit_war_session_accepts_an_uninterrupted_back_and_forth():
     ) == 3
 
 
-def test_inverse_passage_diffs_detect_partial_reverts_and_form_a_session():
-    states = [
-        "The article describes limited territorial recognition by international institutions.",
-        "The article describes full sovereign recognition by international institutions.",
-        "The article describes limited territorial recognition by international institutions.",
-        "The article describes full sovereign recognition by international institutions.",
-        "The article describes limited territorial recognition by international institutions.",
-    ]
+def test_consecutive_2d_counter_steps_detect_partial_reverts_and_form_a_session():
     users = ["Initial", "Alice", "Bob", "Alice", "Bob"]
-    history = []
-    for index, (text, user) in enumerate(zip(states, users)):
-        row = revision(index, f"unique-{index}", user)
-        row["change_signature"] = (
-            build_change_signature(states[index - 1], text)
-            if index else {"units": []}
-        )
-        history.append(row)
+    coordinates = [[0.0, 0.0], [1.0, 0.0], [0.2, 0.0], [1.0, 0.0], [0.2, 0.0]]
+    history = [
+        {**revision(index, f"unique-{index}", user), "mds": coordinate}
+        for index, (user, coordinate) in enumerate(zip(users, coordinates))
+    ]
+    vectors = {
+        row["revision_id"]: row["mds"] for row in history
+    }
 
-    events = detect_partial_text_reverts(history)
+    events = detect_partial_trajectory_reverts(history, vectors)
     analysis = analyze_reverts(history, history)
 
     assert len(events) == 3
-    assert all(event["revert_kind"] == "partial_text" for event in events)
-    assert all(event["reversal_score"] >= 0.72 for event in events)
+    assert all(event["revert_kind"] == "partial_trajectory" for event in events)
+    assert all(event["trajectory_direction_cosine"] == -1.0 for event in events)
     assert analysis["partial_text_revert_count"] == 3
     assert analysis["confirmed_edit_war_session_count"] == 1
     session = analysis["edit_war_sessions"][0]
-    assert session["revert_kinds"] == ["partial_text"]
-    assert session["conflict_passages"]
-    assert session["conflict_sentences"]
-    assert any(
-        "international institutions" in sentence
-        for sentence in session["conflict_sentences"]
-    )
+    assert session["revert_kinds"] == ["partial_trajectory"]
 
 
 def test_two_consecutive_partial_counter_reverts_form_an_edit_war():
@@ -187,7 +175,7 @@ def test_two_consecutive_partial_counter_reverts_form_an_edit_war():
             "reverter": "Bob",
             "reverted_editor": "Alice",
             "pair": ["Alice", "Bob"],
-            "revert_kind": "partial_text",
+            "revert_kind": "partial_trajectory",
             "reversal_score": 0.78,
             "directly_reverts_previous_revision": True,
         },
@@ -198,7 +186,7 @@ def test_two_consecutive_partial_counter_reverts_form_an_edit_war():
             "reverter": "Carol",
             "reverted_editor": "Bob",
             "pair": ["Bob", "Carol"],
-            "revert_kind": "partial_text",
+            "revert_kind": "partial_trajectory",
             "reversal_score": 0.81,
             "directly_reverts_previous_revision": True,
         },
@@ -208,7 +196,7 @@ def test_two_consecutive_partial_counter_reverts_form_an_edit_war():
 
     assert len(sessions) == 1
     assert sessions[0]["participants"] == ["Alice", "Bob", "Carol"]
-    assert sessions[0]["revert_kinds"] == ["partial_text"]
+    assert sessions[0]["revert_kinds"] == ["partial_trajectory"]
     assert sessions[0]["event_count"] == 2
 
 
@@ -220,7 +208,7 @@ def test_one_direct_partial_counter_edit_is_not_an_edit_war():
         "reverter": "Bob",
         "reverted_editor": "Alice",
         "pair": ["Alice", "Bob"],
-        "revert_kind": "partial_text",
+        "revert_kind": "partial_trajectory",
         "reversal_score": 0.78,
         "directly_reverts_previous_revision": True,
     }]
@@ -231,90 +219,79 @@ def test_one_direct_partial_counter_edit_is_not_an_edit_war():
     assert "edit_war_session_id" not in events[0]
 
 
-def test_partial_revert_aggregates_inverse_changes_across_passages():
+def test_partial_revert_can_return_across_multiple_consecutive_2d_steps():
     history = [
         revision(0, "state-0", "Initial"),
         revision(1, "state-1", "Alice"),
         revision(2, "state-2", "Bob"),
+        revision(3, "state-3", "Bob"),
     ]
-    history[1]["change_signature"] = {"units": [
-        {
-            "added_tokens": ["alpha", "beta"],
-            "removed_tokens": [],
-            "added_text": "alpha beta",
-            "removed_text": "",
-        },
-        {
-            "added_tokens": ["gamma", "delta"],
-            "removed_tokens": [],
-            "added_text": "gamma delta",
-            "removed_text": "",
-        },
-    ]}
-    history[2]["change_signature"] = {"units": [
-        {
-            "added_tokens": [],
-            "removed_tokens": ["alpha", "beta"],
-            "added_text": "",
-            "removed_text": "alpha beta",
-        },
-        {
-            "added_tokens": [],
-            "removed_tokens": ["gamma", "delta"],
-            "added_text": "",
-            "removed_text": "gamma delta",
-        },
-    ]}
+    vectors = {
+        "100": [0.0, 0.0],
+        "101": [1.0, 0.0],
+        "102": [0.7, 0.0],
+        "103": [0.3, 0.0],
+    }
 
-    events = detect_partial_text_reverts(history)
+    events = detect_partial_trajectory_reverts(history, vectors)
 
     assert len(events) == 1
-    assert events[0]["revision_id"] == "102"
+    assert events[0]["revision_id"] == "103"
     assert events[0]["directly_reverts_previous_revision"] is True
-    assert events[0]["matched_content_token_count"] == 4
-    assert events[0]["reversal_score"] == 1.0
+    assert events[0]["trajectory_path_revision_ids"] == ["101", "102", "103"]
+    assert events[0]["trajectory_return_revision_count"] == 2
+    assert events[0]["trajectory_return_ratio"] == 0.3
 
 
-def test_partial_revert_allows_at_most_five_intervening_revisions():
-    def history_with_intervening(count):
-        rows = [revision(0, "state-0", "Initial")]
-        changed = revision(1, "state-1", "Alice")
-        changed["change_signature"] = {"units": [{
-            "added_tokens": ["alpha", "beta", "gamma", "delta"],
-            "removed_tokens": [],
-            "added_text": "alpha beta gamma delta",
-            "removed_text": "",
-        }]}
-        rows.append(changed)
-        for offset in range(count):
-            filler = revision(2 + offset, f"filler-{offset}", "Bob")
-            filler["change_signature"] = {"units": [{
-                "added_tokens": [f"filler{offset}"],
-                "removed_tokens": [],
-                "added_text": f"filler{offset}",
-                "removed_text": "",
-            }]}
-            rows.append(filler)
-        reverted = revision(2 + count, "reverted", "Carol")
-        reverted["change_signature"] = {"units": [{
-            "added_tokens": [],
-            "removed_tokens": ["alpha", "beta", "gamma", "delta"],
-            "added_text": "",
-            "removed_text": "alpha beta gamma delta",
-        }]}
-        rows.append(reverted)
-        return rows
+def test_partial_revert_does_not_skip_an_intervening_non_return_step():
+    history = [
+        revision(0, "state-0", "Initial"),
+        revision(1, "state-1", "Alice"),
+        revision(2, "state-2", "Bob"),
+        revision(3, "state-3", "Carol"),
+    ]
+    vectors = {
+        "100": [0.0, 0.0],
+        "101": [1.0, 0.0],
+        "102": [1.0, 0.2],
+        "103": [0.2, 0.0],
+    }
 
-    allowed = detect_partial_text_reverts(history_with_intervening(5))
-    rejected = detect_partial_text_reverts(history_with_intervening(6))
-
-    assert PARTIAL_REVERT_MAX_INTERVENING_REVISIONS == 5
-    assert len(allowed) == 1
-    assert allowed[0]["intervening_revision_count"] == 5
-    assert rejected == []
+    assert detect_partial_trajectory_reverts(history, vectors) == []
 
 
-def test_semantic_counter_revert_requires_direction_return_and_shared_topic():
+def test_partial_revert_can_follow_a_three_point_outgoing_phase():
+    history = [
+        revision(0, "state-0", "Initial"),
+        revision(1, "state-1", "Alice"),
+        revision(2, "state-2", "Alice"),
+        revision(3, "state-3", "Bob"),
+        revision(4, "state-4", "Bob"),
+    ]
+    vectors = {
+        "100": [0.0, 0.0],
+        "101": [0.5, 0.0],
+        "102": [1.0, 0.0],
+        "103": [0.7, 0.0],
+        "104": [0.3, 0.0],
+    }
+
+    events = detect_partial_trajectory_reverts(history, vectors)
+
+    assert len(events) == 1
+    assert events[0]["trajectory_outgoing_path_revision_ids"] == [
+        "100", "101", "102"
+    ]
+    assert events[0]["trajectory_path_revision_ids"] == [
+        "102", "103", "104"
+    ]
+    assert events[0]["trajectory_full_path_revision_ids"] == [
+        "100", "101", "102", "103", "104"
+    ]
+    assert events[0]["trajectory_outgoing_point_count"] == 3
+
+
+def test_semantic_counter_revert_requires_direction_and_close_return_only():
     history = [
         revision(0, "state-0", "Initial"),
         revision(1, "state-1", "Alice"),
@@ -327,9 +304,9 @@ def test_semantic_counter_revert_requires_direction_return_and_shared_topic():
         "removed_text": "earlier wording",
     }]}
     history[2]["change_signature"] = {"units": [{
-        "added_tokens": ["palestine", "status", "different", "phrasing"],
+        "added_tokens": ["completely", "different", "phrasing"],
         "removed_tokens": ["new", "terms"],
-        "added_text": "Palestine status different phrasing",
+        "added_text": "Completely different phrasing",
         "removed_text": "new terms",
     }]}
     vectors = {
@@ -345,7 +322,39 @@ def test_semantic_counter_revert_requires_direction_return_and_shared_topic():
     assert events[0]["revert_kind"] == "semantic_text"
     assert events[0]["directly_reverts_previous_revision"] is True
     assert events[0]["semantic_direction_cosine"] < -0.99
-    assert events[0]["shared_topic_token_count"] == 2
+    assert events[0]["semantic_return_ratio"] <= 0.3
+    assert events[0]["shared_topic_token_count"] == 0
+
+
+def test_semantic_counter_revert_rejects_more_than_30_percent_rest_distance():
+    history = [
+        revision(0, "state-0", "Initial"),
+        revision(1, "state-1", "Alice"),
+        revision(2, "state-2", "Bob"),
+    ]
+    vectors = {
+        "100": [0.0, 0.0],
+        "101": [1.0, 0.0],
+        "102": [0.6, 0.0],
+    }
+
+    assert detect_semantic_counter_reverts(history, vectors) == []
+
+
+def test_semantic_counter_revert_rejects_cosine_above_minus_098():
+    history = [
+        revision(0, "state-0", "Initial"),
+        revision(1, "state-1", "Alice"),
+        revision(2, "state-2", "Bob"),
+    ]
+    vectors = {
+        "100": [0.0, 0.0],
+        "101": [1.0, 0.0],
+        # Counter-direction cosine is -0.96 and the return ratio is about 0.283.
+        "102": [0.04, 0.28],
+    }
+
+    assert detect_semantic_counter_reverts(history, vectors) == []
 
 
 def test_change_signature_keeps_both_affected_sentences_for_an_insertion():
@@ -460,3 +469,39 @@ def test_edit_war_session_can_include_more_than_one_editor_pair():
         ["Bob", "Carol"],
     ]
     assert all(event.get("edit_war_session_id") for event in events)
+
+
+def test_edit_war_links_consecutive_compound_trajectory_phases():
+    events = [
+        {
+            "revision_index": 4,
+            "revision_id": "104",
+            "timestamp": "2020-01-01T00:04:00Z",
+            "reverter": "Bob",
+            "reverted_editor": "Alice",
+            "pair": ["Alice", "Bob"],
+            "directly_reverts_previous_revision": True,
+            "trajectory_start_revision_index": 0,
+            "trajectory_first_return_revision_index": 3,
+            "trajectory_final_revision_index": 4,
+        },
+        {
+            "revision_index": 7,
+            "revision_id": "107",
+            "timestamp": "2020-01-01T00:07:00Z",
+            "reverter": "Carol",
+            "reverted_editor": "Bob",
+            "pair": ["Bob", "Carol"],
+            "directly_reverts_previous_revision": True,
+            "trajectory_start_revision_index": 4,
+            "trajectory_first_return_revision_index": 5,
+            "trajectory_final_revision_index": 7,
+        },
+    ]
+
+    sessions = detect_edit_war_sessions(events)
+
+    assert len(sessions) == 1
+    assert sessions[0]["participants"] == ["Alice", "Bob", "Carol"]
+    assert sessions[0]["start_revision_index"] == 0
+    assert sessions[0]["end_revision_index"] == 7
