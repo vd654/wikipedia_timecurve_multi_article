@@ -52,6 +52,13 @@ NOISE_COLOR = "#8a8a8a"
 EXACT_REVERT_COLOR = "#d64545"
 PARTIAL_REVERT_COLOR = "#00875a"
 EDIT_WAR_COLOR = "#2457d6"
+REVERT_ARC_STROKE_WIDTH = 1.6
+EDIT_WAR_ARC_STROKE_WIDTH = 2.0
+REVERT_ARC_STROKE_OPACITY = 0.45
+EDIT_WAR_ARC_STROKE_OPACITY = 0.45
+REVERT_ARROW_OPACITY = 0.45
+REVISION_POINT_SIZE = 80
+SECTION_POINT_HIGHLIGHT_SIZE = 180
 EDGE_SHORT_LABEL_OFFSET = 9
 EDGE_DETAILED_LABEL_OFFSET = 28
 # A full revision description is only useful once its own edge is visibly
@@ -2257,10 +2264,18 @@ def build_vega_spec(
                             )
                         },
                         "strokeOpacity": {
-                            "signal": "datum.is_edit_war ? 0.9 : 0.78"
+                            "signal": (
+                                "datum.is_edit_war ? "
+                                f"{EDIT_WAR_ARC_STROKE_OPACITY} : "
+                                f"{REVERT_ARC_STROKE_OPACITY}"
+                            )
                         },
                         "strokeWidth": {
-                            "signal": "datum.is_edit_war ? 2.5 : 2"
+                            "signal": (
+                                "datum.is_edit_war ? "
+                                f"{EDIT_WAR_ARC_STROKE_WIDTH} : "
+                                f"{REVERT_ARC_STROKE_WIDTH}"
+                            )
                         },
                         "strokeDash": {"value": [8, 5]},
                         "strokeCap": {"value": "round"},
@@ -2287,9 +2302,9 @@ def build_vega_spec(
                             f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}')"
                         )
                     },
-                    "fillOpacity": {"value": 0.96},
+                    "fillOpacity": {"value": REVERT_ARROW_OPACITY},
                     "stroke": {"value": BACKGROUND_COLOR},
-                    "strokeOpacity": {"value": 0.96},
+                    "strokeOpacity": {"value": REVERT_ARROW_OPACITY},
                     "strokeWidth": {"value": 0.8},
                 }},
             },
@@ -2325,7 +2340,7 @@ def build_vega_spec(
                     "tooltip": {"signal": "{'Revision ID': datum.revision_id, 'Timestamp': datum.timestamp, 'Author': datum.author, 'Cluster': datum.cluster_label}"}
                 }, "update": {
                     "x": {"scale": "xscale", "field": "x"}, "y": {"scale": "yscale", "field": "y"},
-                    "size": {"value": 120},
+                    "size": {"value": REVISION_POINT_SIZE},
                     "fill": {"scale": "clusterColor", "field": "cluster_id"},
                     "fillOpacity": {"signal": "0.62 + 0.24*min(zoomLevel/4,1)"},
                     "stroke": {"value": BACKGROUND_COLOR}, "strokeWidth": {"value": 1.2},
@@ -2338,7 +2353,7 @@ def build_vega_spec(
                 "encode": {"update": {
                     "x": {"scale": "xscale", "field": "x"},
                     "y": {"scale": "yscale", "field": "y"},
-                    "size": {"value": 270},
+                    "size": {"value": SECTION_POINT_HIGHLIGHT_SIZE},
                     "fillOpacity": {"value": 0},
                     "stroke": {"scale": "clusterColor", "field": "cluster_id"},
                     "strokeOpacity": {"value": 0.92},
@@ -2501,13 +2516,13 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 .legend-list{{list-style:none;margin:0;padding:0;display:grid;gap:8px}}
 .cluster-list{{grid-template-columns:1fr 1fr;column-gap:8px}}
 .legend-list li{{min-width:0;display:flex;align-items:center;gap:8px;font-size:12px;line-height:1.25}}
-.legend-dot{{--legend-color:{NOISE_COLOR};width:11px;height:11px;box-sizing:border-box;border-radius:50%;background:var(--legend-color);border:1px solid {BACKGROUND_COLOR};box-shadow:0 0 0 1px color-mix(in srgb,var(--legend-color) 75%,#777);flex:none}}
-.legend-ring{{width:14px;height:14px;box-sizing:border-box;border:2px solid {NOISE_COLOR};border-radius:50%;background:transparent;flex:none}}
+.legend-dot{{--legend-color:{NOISE_COLOR};width:10px;height:10px;box-sizing:border-box;border-radius:50%;background:var(--legend-color);border:1px solid {BACKGROUND_COLOR};box-shadow:0 0 0 1px color-mix(in srgb,var(--legend-color) 75%,#777);flex:none}}
+.legend-ring{{width:12px;height:12px;box-sizing:border-box;border:2px solid {NOISE_COLOR};border-radius:50%;background:transparent;flex:none}}
 .legend-line{{width:30px;height:0;border-top:2.25px solid {TRAJECTORY_COLOR};flex:none}}
 .legend-line.thick{{border-top-width:4.45px}}
-.legend-arc{{width:30px;height:10px;box-sizing:border-box;border:2px dashed {EXACT_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none}}
-.legend-partial{{width:30px;height:10px;box-sizing:border-box;border:2px dashed {PARTIAL_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none}}
-.legend-spiral{{width:30px;height:10px;box-sizing:border-box;border:2px dashed {EDIT_WAR_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none}}
+.legend-arc{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dashed {EXACT_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
+.legend-partial{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dashed {PARTIAL_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
+.legend-spiral{{width:30px;height:10px;box-sizing:border-box;border:{EDIT_WAR_ARC_STROKE_WIDTH}px dashed {EDIT_WAR_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{EDIT_WAR_ARC_STROKE_OPACITY}}}
 .legend-arrow{{width:30px;flex:none;text-align:center;color:{TRAJECTORY_COLOR};font-size:23px;font-weight:800;line-height:10px}}
 @media(max-width:760px){{#content{{grid-template-columns:minmax(0,1fr) 205px}}#legend{{padding:12px 10px}}.cluster-list{{grid-template-columns:1fr}}}}
 </style></head><body><main id="app">

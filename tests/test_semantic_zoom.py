@@ -9,9 +9,16 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from semantic_zoom import (  # noqa: E402
     EDIT_WAR_COLOR,
+    EDIT_WAR_ARC_STROKE_WIDTH,
+    EDIT_WAR_ARC_STROKE_OPACITY,
     EXACT_REVERT_COLOR,
     NOISE_COLOR,
     PARTIAL_REVERT_COLOR,
+    REVERT_ARC_STROKE_WIDTH,
+    REVERT_ARC_STROKE_OPACITY,
+    REVERT_ARROW_OPACITY,
+    REVISION_POINT_SIZE,
+    SECTION_POINT_HIGHLIGHT_SIZE,
     TRAJECTORY_COLOR,
     LABEL_SYSTEM_PROMPT,
     MACRO_LABEL_SYSTEM_PROMPT,
@@ -1274,6 +1281,18 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     }
     assert EDIT_WAR_COLOR in revert_arc_mark["encode"]["update"]["stroke"]["signal"]
     assert EXACT_REVERT_COLOR in revert_arc_mark["encode"]["update"]["stroke"]["signal"]
+    assert revert_arc_mark["encode"]["update"]["strokeWidth"] == {
+        "signal": (
+            f"datum.is_edit_war ? {EDIT_WAR_ARC_STROKE_WIDTH} : "
+            f"{REVERT_ARC_STROKE_WIDTH}"
+        )
+    }
+    assert revert_arc_mark["encode"]["update"]["strokeOpacity"] == {
+        "signal": (
+            f"datum.is_edit_war ? {EDIT_WAR_ARC_STROKE_OPACITY} : "
+            f"{REVERT_ARC_STROKE_OPACITY}"
+        )
+    }
     revert_arrow_mark = next(
         mark for mark in spec["marks"]
         if mark.get("name") == "revertArcDirectionArrows"
@@ -1281,6 +1300,12 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert revert_arrow_mark["from"] == {"data": "revertArcGeometry"}
     assert revert_arrow_mark["encode"]["update"]["shape"] == {
         "value": "triangle-right"
+    }
+    assert revert_arrow_mark["encode"]["update"]["fillOpacity"] == {
+        "value": REVERT_ARROW_OPACITY
+    }
+    assert revert_arrow_mark["encode"]["update"]["strokeOpacity"] == {
+        "value": REVERT_ARROW_OPACITY
     }
     assert revert_arrow_mark["encode"]["update"]["angle"] == {
         "field": "arrowAngle"
@@ -1365,9 +1390,13 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
         mark for mark in spec["marks"] if mark.get("name") == "sectionPointHighlights"
     )
     assert section_point_mark["interactive"] is False
-    assert point_mark["encode"]["update"]["size"] == {"value": 120}
+    assert point_mark["encode"]["update"]["size"] == {
+        "value": REVISION_POINT_SIZE
+    }
     assert point_mark["encode"]["update"]["strokeWidth"] == {"value": 1.2}
-    assert section_point_mark["encode"]["update"]["size"] == {"value": 270}
+    assert section_point_mark["encode"]["update"]["size"] == {
+        "value": SECTION_POINT_HIGHLIGHT_SIZE
+    }
     assert section_point_mark["encode"]["update"]["fillOpacity"] == {"value": 0}
     assert section_point_mark["encode"]["update"]["stroke"] == {
         "scale": "clusterColor", "field": "cluster_id"
@@ -1611,8 +1640,12 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
         mark for mark in spec["marks"]
         if mark.get("name") == "sectionPointHighlights"
     )
-    assert revision_points["encode"]["update"]["size"] == {"value": 120}
-    assert section_highlights["encode"]["update"]["size"] == {"value": 270}
+    assert revision_points["encode"]["update"]["size"] == {
+        "value": REVISION_POINT_SIZE
+    }
+    assert section_highlights["encode"]["update"]["size"] == {
+        "value": SECTION_POINT_HIGHLIGHT_SIZE
+    }
     assert not any(mark.get("name") in {"rootCenterMark", "clusterCenterMarks"} for mark in spec["marks"])
     assert "+3/−1 words" not in json.dumps(spec, ensure_ascii=False)
     assert all(
@@ -1754,13 +1787,16 @@ def test_legend_colours_match_the_visual_encodings():
         )
     )
     assert f"border-top:2.25px solid {TRAJECTORY_COLOR}" in page
-    assert f"border:2px dashed {EXACT_REVERT_COLOR}" in page
-    assert f"border:2px dashed {PARTIAL_REVERT_COLOR}" in page
-    assert f"border:2px dashed {EDIT_WAR_COLOR}" in page
+    assert f"border:{REVERT_ARC_STROKE_WIDTH}px dashed {EXACT_REVERT_COLOR}" in page
+    assert f"border:{REVERT_ARC_STROKE_WIDTH}px dashed {PARTIAL_REVERT_COLOR}" in page
+    assert f"border:{EDIT_WAR_ARC_STROKE_WIDTH}px dashed {EDIT_WAR_COLOR}" in page
+    assert f"opacity:{REVERT_ARC_STROKE_OPACITY}" in page
+    assert f"opacity:{EDIT_WAR_ARC_STROKE_OPACITY}" in page
     assert (
         ".legend-spiral{width:30px;height:10px;box-sizing:border-box;"
-        f"border:2px dashed {EDIT_WAR_COLOR};border-bottom:0;"
-        "border-radius:50% 50% 0 0;flex:none}"
+        f"border:{EDIT_WAR_ARC_STROKE_WIDTH}px dashed {EDIT_WAR_COLOR};border-bottom:0;"
+        "border-radius:50% 50% 0 0;flex:none;"
+        f"opacity:{EDIT_WAR_ARC_STROKE_OPACITY}}}"
     ) in page
     assert f"--legend-color:{NOISE_COLOR}" in page
     assert "Revision point (cluster colour)" in page
