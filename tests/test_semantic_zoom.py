@@ -778,13 +778,17 @@ def test_no_content_change_labels_are_not_rendered():
     hierarchy = build_hierarchy(projection, sample_keywords())
     hierarchy["edges"][0]["label"] = "No content change"
     hierarchy["sections"][0]["label"] = "Unchanged content"
+    hierarchy["clusters"][0]["label"] = "Content unchanged"
 
     spec = build_vega_spec("Example", projection, hierarchy)
     labels = next(data for data in spec["data"] if data["name"] == "labels")["values"]
     rendered_labels = {row["label"].casefold() for row in labels}
+    page = render_html("Example", spec)
 
     assert "no content change" not in rendered_labels
     assert "unchanged content" not in rendered_labels
+    assert "content unchanged" not in rendered_labels
+    assert "<span>Content unchanged</span>" in page
     assert len(next(data for data in spec["data"] if data["name"] == "edges")["values"]) == 5
 
 
@@ -1706,8 +1710,12 @@ def test_html_has_no_interactive_model_call():
     assert ".legend-spiral.bot" not in page
     assert "Temporal-section point" in page
     assert "<h2>Legend</h2>" in page
-    assert "Cluster 1" in page
-    assert "Cluster 2" in page
+    cluster_labels = [
+        node["label"] for node in hierarchy["clusters"] if node.get("label")
+    ]
+    assert cluster_labels
+    assert all(f"<span>{label}</span>" in page for label in cluster_labels)
+    assert "<span>Cluster 1</span>" not in page
     assert "Noise" in page
     assert "renderedLabelIds('macroLabels')" not in page
     assert "renderedLabelIds('semanticLabels')" in page
@@ -1803,6 +1811,30 @@ def test_legend_colours_match_the_visual_encodings():
     assert "Temporal-section point (cluster colour)" in page
     for cluster_id in {-1, 0, 1}:
         assert f'--legend-color:{cluster_colour(cluster_id)}' in page
+
+
+def test_cluster_legend_uses_semantic_labels_and_falls_back_for_unlabelled_cluster():
+    projection = sample_projection()
+    hierarchy = build_hierarchy(projection, sample_keywords())
+    spec = build_vega_spec("Example", projection, hierarchy)
+    labels = next(data for data in spec["data"] if data["name"] == "labels")
+    labels["values"] = [
+        row for row in labels["values"]
+        if not (row.get("level") == "cluster" and row.get("cluster_id") == 1)
+    ]
+    legend = next(data for data in spec["data"] if data["name"] == "clusterLegend")
+    legend["values"] = [
+        row for row in legend["values"] if row.get("cluster_id") != 1
+    ]
+
+    page = render_html("Example", spec)
+    first_cluster = next(
+        node for node in hierarchy["clusters"] if node["cluster_id"] == 0
+    )
+
+    assert f"<span>{first_cluster['label']}</span>" in page
+    assert "<span>Cluster 2</span>" in page
+    assert "<span>Noise</span>" in page
 
 
 def test_cluster_colours_match_original_timecurve_palette():

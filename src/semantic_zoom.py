@@ -1632,6 +1632,23 @@ def build_vega_spec(
     x_extent = _finite_extent(xs)
     y_extent = _finite_extent(ys)
     cluster_ids = sorted({row["cluster_id"] for row in point_rows})
+    hierarchy_cluster_labels = {
+        int(node["cluster_id"]): str(node.get("label") or "").strip()
+        for node in hierarchy.get("clusters", [])
+        if node.get("cluster_id") is not None
+    }
+    cluster_legend_rows = [
+        {
+            "cluster_id": cluster_id,
+            "label": (
+                "Noise"
+                if cluster_id == -1
+                else hierarchy_cluster_labels.get(cluster_id)
+                or f"Cluster {cluster_id + 1}"
+            ),
+        }
+        for cluster_id in cluster_ids
+    ]
     hull_rows = cluster_hull_rows(point_rows)
     hierarchy_nodes = (
         hierarchy.get("macros", []) + hierarchy["clusters"]
@@ -2111,6 +2128,10 @@ def build_vega_spec(
                 {"type": "filter", "expr": "datum.same_cluster"},
             ]},
             {"name": "labels", "values": label_rows},
+            # Legend names intentionally retain status labels such as
+            # "Unchanged Content" even though those labels are suppressed on
+            # the map itself to avoid visual clutter.
+            {"name": "clusterLegend", "values": cluster_legend_rows},
             {"name": "clusterHulls", "values": hull_rows},
             {"name": "visibleParentLabels", "source": "labels", "transform": [
                 {"type": "filter", "expr": "rootOnlyOverview ? datum.level==='root' : (datum.level==='root' || datum.level==='macro' || datum.level==='endpoint' || datum.level==='cluster' || datum.level==='section')"},
@@ -2483,11 +2504,46 @@ def render_html(article: str, spec: dict) -> str:
         scale for scale in spec.get("scales", [])
         if scale.get("name") == "clusterColor"
     )
+    data_by_name = {
+        data.get("name"): data.get("values", [])
+        for data in spec.get("data", [])
+    }
+    semantic_cluster_labels = {
+        int(row["cluster_id"]): str(row.get("label") or "").strip()
+        for row in data_by_name.get("labels", [])
+        if row.get("level") == "cluster"
+        and row.get("cluster_id") is not None
+        and str(row.get("label") or "").strip()
+    }
+    legend_cluster_labels = {
+        int(row["cluster_id"]): str(row.get("label") or "").strip()
+        for row in data_by_name.get("clusterLegend", [])
+        if row.get("cluster_id") is not None
+        and str(row.get("label") or "").strip()
+    }
+    point_cluster_labels = {
+        int(row["cluster_id"]): str(row.get("cluster_label") or "").strip()
+        for row in data_by_name.get("points", [])
+        if row.get("cluster_id") is not None
+        and str(row.get("cluster_label") or "").strip()
+    }
+
+    def cluster_legend_label(cluster_id: object) -> str:
+        numeric_id = int(cluster_id)
+        if numeric_id == -1:
+            return "Noise"
+        return (
+            legend_cluster_labels.get(numeric_id)
+            or semantic_cluster_labels.get(numeric_id)
+            or point_cluster_labels.get(numeric_id)
+            or f"Cluster {numeric_id + 1}"
+        )
+
     cluster_legend = "".join(
         (
             '<li><span class="legend-dot" style="--legend-color:'
             f'{html.escape(str(colour))}"></span><span>'
-            f'{"Noise" if int(cluster_id) == -1 else f"Cluster {int(cluster_id) + 1}"}'
+            f'{html.escape(cluster_legend_label(cluster_id))}'
             "</span></li>"
         )
         for cluster_id, colour in zip(
@@ -2514,7 +2570,7 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 #legend h2{{font-size:17px;margin:0 0 15px}}
 #legend h3{{font-size:12px;line-height:1.2;letter-spacing:.06em;text-transform:uppercase;color:#687068;margin:18px 0 9px}}
 .legend-list{{list-style:none;margin:0;padding:0;display:grid;gap:8px}}
-.cluster-list{{grid-template-columns:1fr 1fr;column-gap:8px}}
+.cluster-list{{grid-template-columns:1fr;gap:7px}}
 .legend-list li{{min-width:0;display:flex;align-items:center;gap:8px;font-size:12px;line-height:1.25}}
 .legend-dot{{--legend-color:{NOISE_COLOR};width:10px;height:10px;box-sizing:border-box;border-radius:50%;background:var(--legend-color);border:1px solid {BACKGROUND_COLOR};box-shadow:0 0 0 1px color-mix(in srgb,var(--legend-color) 75%,#777);flex:none}}
 .legend-ring{{width:12px;height:12px;box-sizing:border-box;border:2px solid {NOISE_COLOR};border-radius:50%;background:transparent;flex:none}}
