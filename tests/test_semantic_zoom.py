@@ -8,10 +8,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from semantic_zoom import (  # noqa: E402
+    CLUSTER_SELECTION_TARGET_SIZE,
     EDIT_WAR_COLOR,
     EDIT_WAR_ARC_STROKE_WIDTH,
     EDIT_WAR_ARC_STROKE_OPACITY,
     EXACT_REVERT_COLOR,
+    MACRO_COLOURS,
+    MAX_MACRO_COLOURS,
+    MIN_DETAILED_EDGE_SCREEN_LENGTH,
     NOISE_COLOR,
     PARTIAL_REVERT_COLOR,
     REVERT_ARC_STROKE_WIDTH,
@@ -34,6 +38,7 @@ from semantic_zoom import (  # noqa: E402
     cluster_colour,
     cluster_hull_rows,
     cluster_label_colour,
+    cluster_region_rows,
     content_focused_parent_label,
     convex_hull,
     deduplicate_label_rows,
@@ -42,8 +47,10 @@ from semantic_zoom import (  # noqa: E402
     format_label_pyramid,
     generate_labels,
     hierarchy_specificity_issues,
+    macro_colour,
     macro_hull_rows,
     parent_topic_label,
+    point_in_polygon,
     render_html,
     source_sha256,
     snap_exact_revert_positions,
@@ -788,7 +795,7 @@ def test_no_content_change_labels_are_not_rendered():
     assert "no content change" not in rendered_labels
     assert "unchanged content" not in rendered_labels
     assert "content unchanged" not in rendered_labels
-    assert "<span>Content unchanged</span>" in page
+    assert "<span>Content unchanged</span>" not in page
     assert len(next(data for data in spec["data"] if data["name"] == "edges")["values"]) == 5
 
 
@@ -1191,10 +1198,27 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
         "macroOpacity", "clusterOpacity", "sectionOpacity", "edgeOpacity",
     }
     assert any(signal["name"] == "zooming" for signal in spec["signals"])
+    assert signals["selectedMacro"]["value"] is None
+    selected_events = json.dumps(signals["selectedMacro"]["on"])
+    assert "@revisionPoints:click" in selected_events
+    assert "@clusterSelectionTargets:click" in selected_events
+    assert "@clusterRegionShape:click" in selected_events
+    assert "@clusterRegionCorridor:click" in selected_events
+    assert "@clusterRegionPointCap:click" not in selected_events
+    assert "@semanticLabels:click" in selected_events
+    assert "zoomLevel" not in selected_events
+    assert "rootOnlyOverview" not in selected_events
+    assert "Escape" in selected_events
     assert spec["autosize"] == "none"
     trajectory = next(mark for mark in spec["marks"] if mark.get("name") == "trajectory")
     assert trajectory["type"] == "rule"
-    assert trajectory["encode"]["update"]["strokeOpacity"] == {"value": 0.42}
+    trajectory_opacity = trajectory["encode"]["update"]["strokeOpacity"]["signal"]
+    assert "selectedMacro" in trajectory_opacity
+    assert "source_colour_group" in trajectory_opacity
+    assert "target_colour_group" in trajectory_opacity
+    assert "source_context_colour_groups" in trajectory_opacity
+    assert "target_context_colour_groups" in trajectory_opacity
+    assert "0.42 : 0.045" in trajectory_opacity
     width_signal = trajectory["encode"]["update"]["strokeWidth"]["signal"]
     assert "datum.has_exact_revert" not in width_signal
     assert "datum.overlap_count" in width_signal
@@ -1211,18 +1235,24 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert rendered_edges[1]["has_exact_revert"] is True
     assert rendered_edges[1]["exact_revert_count"] == 1
     assert rendered_edges[1]["partial_revert_count"] == 1
+    assert all("source_colour_group" in edge for edge in rendered_edges)
+    assert all("target_colour_group" in edge for edge in rendered_edges)
+    assert all("source_context_colour_groups" in edge for edge in rendered_edges)
+    assert all("target_context_colour_groups" in edge for edge in rendered_edges)
     assert all("edge_relevance" not in edge for edge in rendered_edges)
     assert all("semantic_jump_percentile" not in edge for edge in rendered_edges)
     intra_edges = next(data for data in spec["data"] if data["name"] == "intraClusterEdges")
     assert intra_edges["transform"][0]["expr"] == "datum.same_cluster"
     intra_mark = next(mark for mark in spec["marks"] if mark.get("name") == "intraClusterTrajectory")
     assert intra_mark["encode"]["update"]["stroke"] == {
-        "scale": "clusterColor", "field": "cluster_id"
+        "scale": "macroColor", "field": "colour_group"
     }
     assert intra_mark["encode"]["update"]["strokeWidth"] == {
         "signal": width_signal
     }
-    assert intra_mark["encode"]["update"]["strokeOpacity"] == {"value": 0.52}
+    intra_opacity = intra_mark["encode"]["update"]["strokeOpacity"]["signal"]
+    assert "selectedMacro" in intra_opacity
+    assert "0.52 : 0.05" in intra_opacity
     exact_revert_data = next(
         data for data in spec["data"] if data["name"] == "exactRevertEdges"
     )
@@ -1254,6 +1284,8 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert revert_arc_data["values"][0]["reverted_revision_id"] == "101"
     assert revert_arc_data["values"][0]["return_anchor_revision_id"] == "100"
     assert revert_arc_data["values"][0]["target_overlap_count"] == 2
+    assert all("source_colour_group" in row for row in revert_arc_data["values"])
+    assert all("target_colour_group" in row for row in revert_arc_data["values"])
     revert_geometry = next(
         data for data in spec["data"] if data["name"] == "revertArcGeometry"
     )
@@ -1291,12 +1323,12 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
             f"{REVERT_ARC_STROKE_WIDTH}"
         )
     }
-    assert revert_arc_mark["encode"]["update"]["strokeOpacity"] == {
-        "signal": (
-            f"datum.is_edit_war ? {EDIT_WAR_ARC_STROKE_OPACITY} : "
-            f"{REVERT_ARC_STROKE_OPACITY}"
-        )
-    }
+    revert_opacity = revert_arc_mark["encode"]["update"]["strokeOpacity"]["signal"]
+    assert "selectedMacro" in revert_opacity
+    assert "source_colour_group" in revert_opacity
+    assert "source_context_colour_groups" in revert_opacity
+    assert "target_context_colour_groups" in revert_opacity
+    assert f"{REVERT_ARC_STROKE_OPACITY} : 0.05" in revert_opacity
     revert_arrow_mark = next(
         mark for mark in spec["marks"]
         if mark.get("name") == "revertArcDirectionArrows"
@@ -1305,12 +1337,13 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert revert_arrow_mark["encode"]["update"]["shape"] == {
         "value": "triangle-right"
     }
-    assert revert_arrow_mark["encode"]["update"]["fillOpacity"] == {
-        "value": REVERT_ARROW_OPACITY
-    }
-    assert revert_arrow_mark["encode"]["update"]["strokeOpacity"] == {
-        "value": REVERT_ARROW_OPACITY
-    }
+    revert_arrow_opacity = revert_arrow_mark["encode"]["update"]["fillOpacity"]["signal"]
+    assert "selectedMacro" in revert_arrow_opacity
+    assert f"{REVERT_ARROW_OPACITY} : 0.05" in revert_arrow_opacity
+    assert (
+        revert_arrow_mark["encode"]["update"]["strokeOpacity"]["signal"]
+        == revert_arrow_opacity
+    )
     assert revert_arrow_mark["encode"]["update"]["angle"] == {
         "field": "arrowAngle"
     }
@@ -1361,27 +1394,70 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert arrow_mark["encode"]["update"]["shape"] == {"value": "triangle-right"}
     assert arrow_mark["encode"]["update"]["angle"] == {"field": "arrowAngle"}
     assert arrow_mark["encode"]["update"]["size"] == {"value": 58}
-    assert arrow_mark["encode"]["update"]["fillOpacity"] == {"value": 0.9}
+    arrow_opacity = arrow_mark["encode"]["update"]["fillOpacity"]["signal"]
+    assert "selectedMacro" in arrow_opacity
+    assert "source_context_colour_groups" in arrow_opacity
+    assert "target_context_colour_groups" in arrow_opacity
+    assert "0.9 : 0.08" in arrow_opacity
     assert arrow_mark["encode"]["update"]["fill"] == {
         "signal": (
             "datum.same_cluster ? "
-            f"scale('clusterColor', datum.cluster_id) : '{TRAJECTORY_COLOR}'"
+            f"scale('macroColor', datum.colour_group) : '{TRAJECTORY_COLOR}'"
         )
     }
     assert len(next(data for data in spec["data"] if data["name"] == "edges")["values"]) == 5
-    colour_scale = next(scale for scale in spec["scales"] if scale["name"] == "clusterColor")
-    assert colour_scale["domain"] == [-1, 0, 1]
-    assert colour_scale["range"] == [NOISE_COLOR, cluster_colour(0), cluster_colour(1)]
+    colour_scale = next(scale for scale in spec["scales"] if scale["name"] == "macroColor")
+    assert colour_scale["domain"] == ["noise", "macro-1"]
+    assert colour_scale["range"] == [NOISE_COLOR, macro_colour("macro-1")]
+    point_rows = next(
+        data for data in spec["data"] if data["name"] == "points"
+    )["values"]
+    assert all(
+        row["nearby_colour_group"] == row["colour_group"]
+        for row in point_rows
+        if row["colour_group"] != "noise"
+    )
+    assert all(
+        row["nearby_colour_group"] == "macro-1"
+        for row in point_rows
+        if row["colour_group"] == "noise"
+    )
+    assert all(
+        "macro-1" in row["context_colour_groups"]
+        for row in point_rows
+        if row["colour_group"] == "noise"
+    )
     point_mark = next(mark for mark in spec["marks"] if mark.get("name") == "revisionPoints")
     assert point_mark["from"] == {"data": "normalRevisionPoints"}
     assert point_mark["encode"]["update"]["fill"] == {
-        "scale": "clusterColor", "field": "cluster_id"
+        "scale": "macroColor", "field": "colour_group"
     }
+    point_fill_opacity = point_mark["encode"]["update"]["fillOpacity"]["signal"]
+    assert "selectedMacro" in point_fill_opacity
+    assert "datum.colour_group==='noise'" in point_fill_opacity
+    assert "indexof(datum.context_colour_groups,selectedMacro)>=0" in point_fill_opacity
+    assert "? 1 : (selectedMacro===null" in point_fill_opacity
+    point_stroke_opacity = point_mark["encode"]["update"]["strokeOpacity"]["signal"]
+    assert "indexof(datum.context_colour_groups,selectedMacro)>=0" in point_stroke_opacity
     point_tooltip = point_mark["encode"]["enter"]["tooltip"]["signal"]
     assert point_tooltip == (
         "{'Revision ID': datum.revision_id, 'Timestamp': datum.timestamp, "
         "'Author': datum.author, 'Cluster': datum.cluster_label}"
     )
+    selection_target = next(
+        mark for mark in spec["marks"]
+        if mark.get("name") == "clusterSelectionTargets"
+    )
+    assert selection_target["from"] == {"data": "normalRevisionPoints"}
+    assert selection_target["zindex"] == 10
+    assert selection_target["encode"]["update"]["size"] == {
+        "value": CLUSTER_SELECTION_TARGET_SIZE
+    }
+    assert selection_target["encode"]["update"]["fillOpacity"] == {
+        "value": 0.001
+    }
+    assert "zoomLevel" not in json.dumps(selection_target)
+    assert "rootOnlyOverview" not in json.dumps(selection_target)
     trajectory_mark = next(mark for mark in spec["marks"] if mark.get("name") == "trajectory")
     assert "tooltip" not in trajectory_mark["encode"]["update"]
     section_point_data = next(
@@ -1394,6 +1470,7 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
         mark for mark in spec["marks"] if mark.get("name") == "sectionPointHighlights"
     )
     assert section_point_mark["interactive"] is False
+    assert point_mark["encode"]["update"]["shape"] == {"value": "circle"}
     assert point_mark["encode"]["update"]["size"] == {
         "value": REVISION_POINT_SIZE
     }
@@ -1403,9 +1480,12 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     }
     assert section_point_mark["encode"]["update"]["fillOpacity"] == {"value": 0}
     assert section_point_mark["encode"]["update"]["stroke"] == {
-        "scale": "clusterColor", "field": "cluster_id"
+        "scale": "macroColor", "field": "colour_group"
     }
-    assert section_point_mark["encode"]["update"]["strokeOpacity"] == {"value": 0.92}
+    section_opacity = section_point_mark["encode"]["update"]["strokeOpacity"]["signal"]
+    assert "selectedMacro" in section_opacity
+    assert "indexof(datum.context_colour_groups,selectedMacro)>=0" in section_opacity
+    assert "0.92 : 0.05" in section_opacity
     assert section_point_mark["encode"]["update"]["strokeWidth"] == {"value": 2.6}
     visible = next(data for data in spec["data"] if data["name"] == "visibleParentLabels")
     assert "datum.level==='root'" in visible["transform"][0]["expr"]
@@ -1418,7 +1498,8 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     )
     assert "!zooming" not in visible["transform"][0]["expr"]
     assert "zoomLevel" not in json.dumps(visible["transform"])
-    assert "width-95" in visible["transform"][2]["expr"]
+    assert any("width-95" in transform.get("expr", "") for transform in visible["transform"])
+    assert any("selectedMacro" in transform.get("expr", "") for transform in visible["transform"])
     assert all(
         "blockedParentLabelIds" not in transform.get("expr", "")
         for transform in visible["transform"]
@@ -1450,6 +1531,17 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert edge_row["parent_id"] == hierarchy["edges"][0]["parent_id"]
     assert edge_row["parent_id"] in edge_row["ancestor_ids"]
     assert "root" in edge_row["ancestor_ids"]
+    assert edge_row["colour_group"] is not None
+    assert edge_row["display_line_count"] == (
+        len(edge_row["display_label"])
+        if isinstance(edge_row["display_label"], list)
+        else 1
+    )
+    focus_filter = visible["transform"][1]["expr"]
+    assert "datum.colour_group===selectedMacro" in focus_filter
+    assert "datum.level==='cluster'" in focus_filter
+    assert "datum.level==='endpoint'" in focus_filter
+    assert "datum.level==='section'" not in focus_filter
     assert root_row["label_priority"] > max(
         row["label_priority"] for row in endpoint_rows
     )
@@ -1482,6 +1574,10 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert hull_mark["from"]["facet"]["data"] == "clusterHulls"
     data_names = {data["name"] for data in spec["data"]}
     mark_names = {mark.get("name") for mark in spec["marks"]}
+    assert "clusterCorridors" in data_names
+    assert "clusterCorridorPoints" not in data_names
+    assert "clusterRegionCorridor" in mark_names
+    assert "clusterRegionPointCap" not in mark_names
     assert "sectionHulls" not in data_names
     assert "sectionCorridors" not in data_names
     assert "sectionRegionPoints" not in data_names
@@ -1498,18 +1594,16 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert "rootLabel" not in mark_names
     assert "semanticLabelHalos" not in mark_names
     edge_text = next(mark for mark in spec["marks"] if mark.get("name") == "edgeLabels")
-    assert edge_text["encode"]["update"]["text"] == {
-        "signal": (
-            "indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? "
-            "datum.display_label : datum.label"
-        )
-    }
+    edge_text_signal = edge_text["encode"]["update"]["text"]["signal"]
+    assert "selectedMacro!==null" not in edge_text_signal
+    assert "detailedEdgeLabelIds" in edge_text_signal
+    assert "datum.display_label : datum.label" in edge_text_signal
     assert edge_text["encode"]["update"]["lineHeight"] == {"value": 10}
-    assert "tooltip" not in edge_text["encode"]["update"]
+    assert "Full description" in edge_text["encode"]["update"]["tooltip"]["signal"]
     assert "datum.labelScreenX" in edge_text["encode"]["update"]["x"]["signal"]
     assert "datum.labelScreenY" in edge_text["encode"]["update"]["y"]["signal"]
-    assert "datum.screenDy" in edge_text["encode"]["update"]["x"]["signal"]
-    assert "datum.screenDx" in edge_text["encode"]["update"]["y"]["signal"]
+    assert "datum.labelUnitX" in edge_text["encode"]["update"]["x"]["signal"]
+    assert "datum.labelUnitY" in edge_text["encode"]["update"]["y"]["signal"]
     assert edge_text["from"]["data"] == "visibleEdgeLabels"
     assert edge_text["key"] == "node_id"
     assert "edgeLabelHalos" not in mark_names
@@ -1520,6 +1614,7 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     edge_candidates = next(data for data in spec["data"] if data["name"] == "visibleEdgeLabels")
     assert edge_candidates["transform"][0]["expr"] == "datum.level==='edge'"
     assert edge_candidates["transform"][1]["expr"] == "!rootOnlyOverview"
+    assert "context_colour_groups" in edge_candidates["transform"][2]["expr"]
     assert not any(
         "zoomLevel" in transform.get("expr", "")
         for transform in edge_candidates["transform"]
@@ -1537,6 +1632,13 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert transforms_by_field["screenLength"]["expr"] == (
         "sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2))"
     )
+    assert "datum.label_dx" in transforms_by_field["labelUnitX"]["expr"]
+    assert "datum.label_dy" in transforms_by_field["labelUnitY"]["expr"]
+    assert "datum.screenLength>=1" in transforms_by_field["labelUnitX"]["expr"]
+    assert "min(170,width/2)" in edge_text["encode"]["update"]["x"]["signal"]
+    assert "datum.display_line_count" in edge_text["encode"]["update"]["y"]["signal"]
+    assert "selectedMacro!==null" not in edge_text["encode"]["update"]["opacity"]["signal"]
+    assert "blockedEdgeLabelIds" in edge_text["encode"]["update"]["opacity"]["signal"]
     assert transforms_by_field["clipT0"]["expr"] == "max(0,datum.xClipMin,datum.yClipMin)"
     assert transforms_by_field["clipT1"]["expr"] == "min(1,datum.xClipMax,datum.yClipMax)"
     assert any(
@@ -1571,12 +1673,7 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert signal_values["blockedEdgeLabelIds"] == []
     assert signal_values["detailedEdgeLabelIds"] == []
     assert "coveredParentLabelIds" not in signal_values
-    assert edge_text["encode"]["update"]["text"] == {
-        "signal": (
-            "indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? "
-            "datum.display_label : datum.label"
-        )
-    }
+    assert "selectedMacro!==null" not in edge_text["encode"]["update"]["text"]["signal"]
     assert edge_text["encode"]["update"]["align"]["value"] == "center"
     assert edge_text["encode"]["update"]["baseline"]["value"] == "middle"
     assert "angle" not in edge_text["encode"]["update"]
@@ -1606,10 +1703,11 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert detailed_measure["encode"]["update"]["opacity"] == {"value": 0}
     assert short_measure["from"]["data"] == "visibleEdgeLabels"
     assert detailed_measure["from"]["data"] == "visibleEdgeLabels"
-    assert "- 28*datum.screenDy" in (
+    assert "28*datum.labelUnitX" in (
         detailed_measure["encode"]["update"]["x"]["signal"]
     )
-    assert "? 28 : 9" in edge_text["encode"]["update"]["x"]["signal"]
+    assert "selectedMacro!==null" not in edge_text["encode"]["update"]["x"]["signal"]
+    assert "9*datum.labelUnitX" in edge_text["encode"]["update"]["x"]["signal"]
     detail_leader = next(
         mark for mark in spec["marks"]
         if mark.get("name") == "edgeDetailLeaders"
@@ -1618,7 +1716,7 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert detail_leader["encode"]["update"]["x"] == {
         "field": "labelScreenX"
     }
-    assert "datum.screenLength" in (
+    assert "datum.labelUnitX" in (
         detail_leader["encode"]["update"]["x2"]["signal"]
     )
     assert "detailedEdgeLabelIds" in (
@@ -1644,6 +1742,9 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
         mark for mark in spec["marks"]
         if mark.get("name") == "sectionPointHighlights"
     )
+    assert revision_points["encode"]["update"]["shape"] == {
+        "value": "circle"
+    }
     assert revision_points["encode"]["update"]["size"] == {
         "value": REVISION_POINT_SIZE
     }
@@ -1710,11 +1811,11 @@ def test_html_has_no_interactive_model_call():
     assert ".legend-spiral.bot" not in page
     assert "Temporal-section point" in page
     assert "<h2>Legend</h2>" in page
-    cluster_labels = [
-        node["label"] for node in hierarchy["clusters"] if node.get("label")
+    macro_labels = [
+        node["label"] for node in hierarchy["macros"] if node.get("label")
     ]
-    assert cluster_labels
-    assert all(f"<span>{label}</span>" in page for label in cluster_labels)
+    assert macro_labels
+    assert all(f"<span>{label}</span>" in page for label in macro_labels)
     assert "<span>Cluster 1</span>" not in page
     assert "Noise" in page
     assert "renderedLabelIds('macroLabels')" not in page
@@ -1737,8 +1838,14 @@ def test_html_has_no_interactive_model_call():
     assert "edgeShortMeasureLabels" in page
     assert "edgeDetailedMeasureLabels" in page
     assert "detailedCandidate.hasDetailed" in page
-    assert "shortCandidate.edgeScreenLength>=72" in page
+    assert (
+        f"shortCandidate.edgeScreenLength>={MIN_DETAILED_EDGE_SCREEN_LENGTH}"
+        in page
+    )
     assert "edgeScreenLength:Number(datum.screenLength)||0" in page
+    assert "const focusMode=Boolean(view.signal('selectedMacro'))" not in page
+    assert "if(focusMode)" not in page
+    assert "Full description" in page
     assert "edgeDetailLeaders" in page
     assert "acceptedParentLabelKeys" in page
     assert "acceptedShortEdgeLabelKeys" in page
@@ -1765,6 +1872,17 @@ def test_html_has_no_interactive_model_call():
     assert "view.addSignalListener('zooming'" in page
     assert "view.addSignalListener('zoomLevel'" in page
     assert "view.addSignalListener('down'" in page
+    assert "view.addSignalListener('selectedMacro'" in page
+    assert "class=\"macro-filter\"" in page
+    assert "data-colour-group=\"macro-1\"" in page
+    assert "aria-pressed=\"false\"" in page
+    assert "Select a group to reveal its clusters" in page
+    assert "button.addEventListener('click'" in page
+    assert "vis.dataset.selectedMacro" in page
+    assert "min-height:46px" in page
+    assert "padding:9px 10px" in page
+    assert "view.signal('blockedParentLabelIds',[])" in page
+    assert "view.signal('stableParentLabelIds',[])" in page
     assert "Zoom 1.0×" not in page
     assert "Scrollen zum Zoomen" not in page
 
@@ -1807,33 +1925,23 @@ def test_legend_colours_match_the_visual_encodings():
         f"opacity:{EDIT_WAR_ARC_STROKE_OPACITY}}}"
     ) in page
     assert f"--legend-color:{NOISE_COLOR}" in page
-    assert "Revision point (cluster colour)" in page
-    assert "Temporal-section point (cluster colour)" in page
-    for cluster_id in {-1, 0, 1}:
-        assert f'--legend-color:{cluster_colour(cluster_id)}' in page
+    assert "Revision point (macro-group colour; Noise grey)" in page
+    assert "Temporal-section point (macro-group colour)" in page
+    assert "HDBSCAN cluster hull/line" not in page
+    assert f'--legend-color:{NOISE_COLOR}' in page
+    assert f'--legend-color:{macro_colour("macro-1")}' in page
 
 
-def test_cluster_legend_uses_semantic_labels_and_falls_back_for_unlabelled_cluster():
+def test_legend_uses_macro_labels_not_individual_cluster_labels():
     projection = sample_projection()
     hierarchy = build_hierarchy(projection, sample_keywords())
     spec = build_vega_spec("Example", projection, hierarchy)
-    labels = next(data for data in spec["data"] if data["name"] == "labels")
-    labels["values"] = [
-        row for row in labels["values"]
-        if not (row.get("level") == "cluster" and row.get("cluster_id") == 1)
-    ]
-    legend = next(data for data in spec["data"] if data["name"] == "clusterLegend")
-    legend["values"] = [
-        row for row in legend["values"] if row.get("cluster_id") != 1
-    ]
-
     page = render_html("Example", spec)
-    first_cluster = next(
-        node for node in hierarchy["clusters"] if node["cluster_id"] == 0
-    )
+    macro = hierarchy["macros"][0]
 
-    assert f"<span>{first_cluster['label']}</span>" in page
-    assert "<span>Cluster 2</span>" in page
+    assert f"<span>{macro['label']}</span>" in page
+    assert '<h3>Macro groups</h3>' in page
+    assert '<h3>Cluster</h3>' not in page
     assert "<span>Noise</span>" in page
 
 
@@ -1845,10 +1953,46 @@ def test_cluster_colours_match_original_timecurve_palette():
     assert cluster_label_colour(0) != cluster_label_colour(1)
 
 
+def test_macro_palette_is_limited_to_six_stable_colours_plus_noise():
+    assert len(MACRO_COLOURS) == MAX_MACRO_COLOURS == 6
+    assert NOISE_COLOR == "#a8a8a8"
+    assert MACRO_COLOURS == (
+        "#d4a017",
+        "#f8711a",
+        "#8b5a2b",
+        "#b5179e",
+        "#4a1942",
+        "#9b7bc8",
+    )
+    assert len(set(MACRO_COLOURS)) == 6
+    assert not set(MACRO_COLOURS) & {
+        EXACT_REVERT_COLOR,
+        PARTIAL_REVERT_COLOR,
+        EDIT_WAR_COLOR,
+    }
+    assert [macro_colour(f"macro-{index}") for index in range(1, 7)] == list(
+        MACRO_COLOURS
+    )
+    many_clusters = [
+        {
+            "cluster_id": index,
+            "x": float(index % 8),
+            "y": float(index // 8),
+            "revision_count": 1,
+        }
+        for index in range(64)
+    ]
+    assert len(spatial_macro_groups(many_clusters)) == 6
+
+
 def test_cluster_hulls_are_closed_and_exclude_noise():
     assert convex_hull([(0, 0), (1, 0), (1, 1), (0, 1), (0.5, 0.5)]) == [
         (0, 0), (1, 0), (1, 1), (0, 1)
     ]
+    square = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]
+    assert point_in_polygon((0.5, 0.5), square)
+    assert point_in_polygon((1.0, 0.5), square)
+    assert not point_in_polygon((1.1, 0.5), square)
     rows = cluster_hull_rows([
         {"cluster_id": 0, "x": 0.0, "y": 0.0},
         {"cluster_id": 0, "x": 1.0, "y": 0.0},
@@ -1859,6 +2003,24 @@ def test_cluster_hulls_are_closed_and_exclude_noise():
     assert rows[0]["x"] == rows[-1]["x"]
     assert rows[0]["y"] == rows[-1]["y"]
     assert {row["cluster_id"] for row in rows} == {0}
+
+
+def test_degenerate_cluster_regions_connect_all_effective_positions():
+    polygons, corridors = cluster_region_rows([
+        {"cluster_id": 4, "x": 0.0, "y": 0.0},
+        {"cluster_id": 4, "x": 0.0, "y": 1e-16},
+        {"cluster_id": 4, "x": 1.0, "y": 0.0},
+        {"cluster_id": -1, "x": 2.0, "y": 0.0},
+    ], expansion=1.0)
+    assert polygons == []
+    assert corridors == [{
+        "cluster_id": 4,
+        "order": 0,
+        "x": 0.0,
+        "y": 0.0,
+        "x2": 1.0,
+        "y2": 0.0,
+    }]
 
 
 def test_macro_groups_and_hulls_are_deterministic():

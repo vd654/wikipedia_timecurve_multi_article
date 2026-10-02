@@ -48,7 +48,20 @@ MIN_PARENT_LABEL_WORDS = 2
 MAX_PARENT_LABEL_WORDS = 3
 BACKGROUND_COLOR = "#fbfaf7"
 TRAJECTORY_COLOR = "#72806f"
-NOISE_COLOR = "#8a8a8a"
+NOISE_COLOR = "#a8a8a8"
+MAX_MACRO_COLOURS = 6
+# Six fixed, coordinated hues distinguish the macro groups. Together with
+# neutral grey for Noise, they are the only group colours used by the
+# visualization. Cluster identity remains available through direct labels and
+# hulls; colour communicates the broader macro topic.
+MACRO_COLOURS = (
+    "#d4a017",  # ochre yellow — Statehood Designation
+    "#f8711a",  # orange — UN Status
+    "#8b5a2b",  # sienna brown — State Formation
+    "#b5179e",  # magenta — Sovereignty
+    "#4a1942",  # deep plum — State Development
+    "#9b7bc8",  # light indigo/lavender — UN Observer Status
+)
 EXACT_REVERT_COLOR = "#d64545"
 PARTIAL_REVERT_COLOR = "#00875a"
 EDIT_WAR_COLOR = "#2457d6"
@@ -58,13 +71,14 @@ REVERT_ARC_STROKE_OPACITY = 0.45
 EDIT_WAR_ARC_STROKE_OPACITY = 0.45
 REVERT_ARROW_OPACITY = 0.45
 REVISION_POINT_SIZE = 80
+CLUSTER_SELECTION_TARGET_SIZE = 700
 SECTION_POINT_HIGHLIGHT_SIZE = 180
+CLUSTER_CORRIDOR_STROKE_WIDTH = 1.4
 EDGE_SHORT_LABEL_OFFSET = 9
 EDGE_DETAILED_LABEL_OFFSET = 28
-# A full revision description is only useful once its own edge is visibly
-# distinguishable.  This screen-space rule naturally opens descriptions while
-# zooming without tying the behaviour to an arbitrary global zoom level.
-MIN_DETAILED_EDGE_SCREEN_LENGTH = 72
+# Treat sub-pixel projected edges as visually zero-length. They keep their
+# short label even in focus mode, while longer visible edges show full text.
+MIN_DETAILED_EDGE_SCREEN_LENGTH = 1
 
 # Line width is an event code, not a semantic-distance scale. A normal edge is
 # clearly legible, and repeatedly traversed undirected MDS segments receive an
@@ -482,7 +496,10 @@ def spatial_macro_groups(
     if not clusters:
         return []
     if target_count is None:
-        target_count = max(1, round(math.sqrt(len(clusters))))
+        target_count = min(
+            MAX_MACRO_COLOURS,
+            max(1, round(math.sqrt(len(clusters)))),
+        )
     target_count = max(1, min(int(target_count), len(clusters)))
     groups = [
         {
@@ -1133,6 +1150,20 @@ def cluster_label_colour(cluster_id: int) -> str:
     return f"#{round(red * 255):02x}{round(green * 255):02x}{round(blue * 255):02x}"
 
 
+def macro_colour(macro_id: str) -> str:
+    """Return one of the six stable categorical macro-topic colours."""
+    try:
+        index = int(str(macro_id).rsplit("-", 1)[-1]) - 1
+    except ValueError as error:
+        raise ValueError(f"Ungültige Makro-ID: {macro_id}") from error
+    if not 0 <= index < len(MACRO_COLOURS):
+        raise ValueError(
+            f"Makro-ID {macro_id} überschreitet das Limit von "
+            f"{MAX_MACRO_COLOURS} Farben."
+        )
+    return MACRO_COLOURS[index]
+
+
 def convex_hull(points: Iterable[tuple[float, float]]) -> list[tuple[float, float]]:
     """Compute a deterministic monotonic-chain hull without extra dependencies."""
     ordered = sorted(set(points))
@@ -1162,18 +1193,86 @@ def convex_hull(points: Iterable[tuple[float, float]]) -> list[tuple[float, floa
     return lower[:-1] + upper[:-1]
 
 
-def cluster_hull_rows(point_rows: list[dict], expansion: float = 1.08) -> list[dict]:
-    """Create lightly expanded closed polygons for non-noise HDBSCAN clusters."""
+def point_in_polygon(
+    point: tuple[float, float],
+    polygon: Iterable[tuple[float, float]],
+) -> bool:
+    """Return whether a projected point lies inside or on a polygon."""
+    vertices = list(polygon)
+    if len(vertices) >= 2 and vertices[0] == vertices[-1]:
+        vertices.pop()
+    if len(vertices) < 3:
+        return False
+
+    x, y = point
+    inside = False
+    tolerance = 1e-15
+    previous_x, previous_y = vertices[-1]
+    for current_x, current_y in vertices:
+        dx = current_x - previous_x
+        dy = current_y - previous_y
+        cross = (x - previous_x) * dy - (y - previous_y) * dx
+        if (
+            abs(cross) <= tolerance
+            and min(previous_x, current_x) - tolerance <= x
+            <= max(previous_x, current_x) + tolerance
+            and min(previous_y, current_y) - tolerance <= y
+            <= max(previous_y, current_y) + tolerance
+        ):
+            return True
+        intersects = (
+            (current_y > y) != (previous_y > y)
+            and x
+            < (previous_x - current_x) * (y - current_y)
+            / (previous_y - current_y)
+            + current_x
+        )
+        if intersects:
+            inside = not inside
+        previous_x, previous_y = current_x, current_y
+    return inside
+
+
+def cluster_region_rows(
+    point_rows: list[dict],
+    expansion: float = 1.08,
+) -> tuple[list[dict], list[dict]]:
+    """Create visible regions around every non-noise HDBSCAN cluster.
+
+    A regular two-dimensional cluster receives an expanded convex polygon.
+    Collinear or effectively coincident projected points cannot enclose a
+    visible polygon, so their distinct projected positions are connected by a
+    thin line instead. Rounding only decides whether a cluster is
+    degenerate; it removes meaningless floating-point jitter between
+    revisions that project to the same visible position.
+    """
     grouped: dict[int, list[tuple[float, float]]] = defaultdict(list)
     for point in point_rows:
         if point["cluster_id"] >= 0:
             grouped[point["cluster_id"]].append((point["x"], point["y"]))
 
-    rows = []
+    polygons: list[dict] = []
+    corridors: list[dict] = []
     for cluster_id, coordinates in sorted(grouped.items()):
-        hull = convex_hull(coordinates)
-        if len(hull) < 3:
+        effective_coordinates = sorted({
+            (round(float(x), 12), round(float(y), 12))
+            for x, y in coordinates
+        })
+        effective_hull = convex_hull(effective_coordinates)
+        if len(effective_hull) < 3:
+            if len(effective_hull) == 2:
+                start, end = effective_hull
+                corridors.append({
+                    "cluster_id": cluster_id,
+                    "order": 0,
+                    "x": start[0],
+                    "y": start[1],
+                    "x2": end[0],
+                    "y2": end[1],
+                })
             continue
+
+        hull = convex_hull(coordinates)
         center_x = sum(x for x, _ in hull) / len(hull)
         center_y = sum(y for _, y in hull) / len(hull)
         expanded = [
@@ -1184,13 +1283,19 @@ def cluster_hull_rows(point_rows: list[dict], expansion: float = 1.08) -> list[d
             for x, y in hull
         ]
         for order, (x, y) in enumerate(expanded + expanded[:1]):
-            rows.append({
+            polygons.append({
                 "cluster_id": cluster_id,
                 "order": order,
                 "x": x,
                 "y": y,
             })
-    return rows
+    return polygons, corridors
+
+
+def cluster_hull_rows(point_rows: list[dict], expansion: float = 1.08) -> list[dict]:
+    """Return regular closed HDBSCAN polygons for compatibility."""
+    polygons, _ = cluster_region_rows(point_rows, expansion=expansion)
+    return polygons
 
 
 def macro_hull_rows(point_rows: list[dict], expansion: float = 1.04) -> list[dict]:
@@ -1395,6 +1500,16 @@ def build_revert_arc_rows(
                 "reverted_revision_id": target_id,
                 "restored_revision_id": restored_id,
                 "return_anchor_revision_id": segment_end_id,
+                "source_colour_group": segment_start.get("colour_group", "noise"),
+                "target_colour_group": segment_end.get("colour_group", "noise"),
+                "source_context_colour_groups": segment_start.get(
+                    "context_colour_groups",
+                    [segment_start.get("colour_group", "noise")],
+                ),
+                "target_context_colour_groups": segment_end.get(
+                    "context_colour_groups",
+                    [segment_end.get("colour_group", "noise")],
+                ),
                 "source_overlap_count": coordinate_counts[source_key],
                 "target_overlap_count": coordinate_counts[target_key],
                 "reverter": reverter,
@@ -1530,6 +1645,12 @@ def build_vega_spec(
         for macro in hierarchy.get("macros", [])
         for cluster_id in macro["cluster_ids"]
     }
+    macro_ids = [str(macro["node_id"]) for macro in hierarchy.get("macros", [])]
+    if len(macro_ids) > MAX_MACRO_COLOURS:
+        raise ValueError(
+            f"Die Visualisierung enthält {len(macro_ids)} Makrogruppen, "
+            f"aber höchstens {MAX_MACRO_COLOURS} Farben sind erlaubt."
+        )
     point_rows = [
         {
             "x": float(point["mds"][0]),
@@ -1541,6 +1662,9 @@ def build_vega_spec(
             "words": int(point["clean_word_count"]),
             "cluster_id": int(point["cluster_id"]),
             "macro_id": cluster_to_macro.get(int(point["cluster_id"])),
+            "colour_group": (
+                cluster_to_macro.get(int(point["cluster_id"])) or "noise"
+            ),
             "cluster_label": (
                 "Noise"
                 if int(point["cluster_id"]) == -1
@@ -1571,6 +1695,51 @@ def build_vega_spec(
         for point in points
     ]
     snap_exact_revert_positions(point_rows, revert_analysis)
+    hull_rows, cluster_corridor_rows = cluster_region_rows(point_rows)
+    for rows in (hull_rows, cluster_corridor_rows):
+        for row in rows:
+            row["colour_group"] = cluster_to_macro[int(row["cluster_id"])]
+    macro_context_polygons: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    for macro_hull_row in macro_hull_rows(point_rows):
+        macro_context_polygons[str(macro_hull_row["macro_id"])].append(
+            (float(macro_hull_row["x"]), float(macro_hull_row["y"]))
+        )
+
+    # Preserve spatial context in focus mode. A Noise point stays visible for
+    # its nearest macro group and for every macro group's overall spatial hull
+    # that geometrically contains it. The macro hull is used only for this
+    # visibility test and is not rendered as an additional region.
+    clustered_point_rows = [
+        row for row in point_rows if row["colour_group"] != "noise"
+    ]
+    for row in point_rows:
+        if row["colour_group"] != "noise":
+            row["nearby_colour_group"] = row["colour_group"]
+            row["context_colour_groups"] = [row["colour_group"]]
+            continue
+        nearest_clustered_point = min(
+            clustered_point_rows,
+            key=lambda candidate: (
+                (candidate["x"] - row["x"]) ** 2
+                + (candidate["y"] - row["y"]) ** 2,
+                candidate["order"],
+            ),
+            default=None,
+        )
+        row["nearby_colour_group"] = (
+            nearest_clustered_point["colour_group"]
+            if nearest_clustered_point is not None
+            else None
+        )
+        context_colour_groups = {
+            row["nearby_colour_group"]
+        } if row["nearby_colour_group"] else set()
+        context_colour_groups.update(
+            macro_id
+            for macro_id, polygon in macro_context_polygons.items()
+            if point_in_polygon((row["x"], row["y"]), polygon)
+        )
+        row["context_colour_groups"] = sorted(context_colour_groups)
     revert_arc_rows = build_revert_arc_rows(point_rows, revert_analysis)
 
     edge_rows = []
@@ -1606,6 +1775,11 @@ def build_vega_spec(
             ),
             "edit_war_description": edge.get("conflict_description", ""),
             "cluster_id": b["cluster_id"],
+            "colour_group": b["colour_group"],
+            "source_colour_group": a["colour_group"],
+            "target_colour_group": b["colour_group"],
+            "source_context_colour_groups": a["context_colour_groups"],
+            "target_context_colour_groups": b["context_colour_groups"],
             "in_section": str(edge.get("parent_id", "")).startswith("section-"),
             "same_cluster": (
                 a["cluster_id"] >= 0 and a["cluster_id"] == b["cluster_id"]
@@ -1631,25 +1805,19 @@ def build_vega_spec(
     ys = [row["y"] for row in point_rows]
     x_extent = _finite_extent(xs)
     y_extent = _finite_extent(ys)
-    cluster_ids = sorted({row["cluster_id"] for row in point_rows})
-    hierarchy_cluster_labels = {
-        int(node["cluster_id"]): str(node.get("label") or "").strip()
-        for node in hierarchy.get("clusters", [])
-        if node.get("cluster_id") is not None
-    }
-    cluster_legend_rows = [
+    macro_legend_rows = [
         {
-            "cluster_id": cluster_id,
-            "label": (
-                "Noise"
-                if cluster_id == -1
-                else hierarchy_cluster_labels.get(cluster_id)
-                or f"Cluster {cluster_id + 1}"
-            ),
+            "colour_group": "noise",
+            "label": "Noise",
         }
-        for cluster_id in cluster_ids
     ]
-    hull_rows = cluster_hull_rows(point_rows)
+    macro_legend_rows.extend(
+        {
+            "colour_group": str(macro["node_id"]),
+            "label": str(macro.get("label") or macro["node_id"]),
+        }
+        for macro in hierarchy.get("macros", [])
+    )
     hierarchy_nodes = (
         hierarchy.get("macros", []) + hierarchy["clusters"]
         + hierarchy["sections"] + hierarchy["edges"]
@@ -1730,6 +1898,26 @@ def build_vega_spec(
             "content unchanged",
         }
 
+    def node_colour_group(node: dict) -> str | None:
+        if node.get("level") == "macro":
+            return str(node["node_id"])
+        if node.get("level") == "edge":
+            return str(point_rows[int(node["pair_index"]) + 1]["colour_group"])
+        cluster_id = node.get("cluster_id")
+        if cluster_id is None:
+            return None
+        return cluster_to_macro.get(int(cluster_id)) or "noise"
+
+    def node_context_colour_groups(node: dict) -> list[str]:
+        if node.get("level") == "edge":
+            pair_index = int(node["pair_index"])
+            return sorted({
+                *point_rows[pair_index]["context_colour_groups"],
+                *point_rows[pair_index + 1]["context_colour_groups"],
+            })
+        colour_group = node_colour_group(node)
+        return [colour_group] if colour_group else []
+
     def edge_display_text(node: dict) -> str | list[str]:
         """Render detailed edge descriptions as readable multiline labels."""
         description = _normalise_term(node.get("detailed_description", ""))
@@ -1757,11 +1945,12 @@ def build_vega_spec(
             "display_label": edge_display_text(node),
             "detailed_description": node.get("detailed_description", ""),
             "cluster_id": node.get("cluster_id"),
-            "label_colour": (
-                cluster_colour(int(node["cluster_id"]))
-                if node.get("cluster_id") is not None
-                else "#25322a"
-            ),
+            "colour_group": node_colour_group(node),
+            "context_colour_groups": node_context_colour_groups(node),
+            # Direct labels identify the individual cluster or hierarchy node;
+            # keep their text neutral so the only categorical hues remain the
+            # seven macro-group colours.
+            "label_colour": "#25322a",
             # Every level competes for screen space at every zoom scale. Broad
             # labels win collisions first, and increasingly detailed labels
             # fill every remaining gap as zooming creates room around their
@@ -1804,6 +1993,11 @@ def build_vega_spec(
         }
         for node in detail_labels
     ]
+    for row in label_rows:
+        display_label = row["display_label"]
+        row["display_line_count"] = (
+            len(display_label) if isinstance(display_label, list) else 1
+        )
     label_rows.extend([
         {
             "node_id": "root",
@@ -1813,6 +2007,7 @@ def build_vega_spec(
             "label": hierarchy["roots"][0]["label"],
             "display_label": hierarchy["roots"][0]["label"],
             "cluster_id": None,
+            "colour_group": None,
             "label_colour": "#151915",
             # The article is the final overview label. Once the geometry has
             # collapsed at extreme zoom-out, it must win over Start, End, and
@@ -1832,6 +2027,7 @@ def build_vega_spec(
             "label": "Start",
             "display_label": "Start",
             "cluster_id": point_rows[0]["cluster_id"],
+            "colour_group": point_rows[0]["colour_group"],
             "label_colour": "#263029",
             "label_priority": 6,
             "importance": 1e12,
@@ -1854,6 +2050,7 @@ def build_vega_spec(
             "label": "End",
             "display_label": "End",
             "cluster_id": point_rows[-1]["cluster_id"],
+            "colour_group": point_rows[-1]["colour_group"],
             "label_colour": "#263029",
             "label_priority": 6,
             "importance": 1e12,
@@ -1931,6 +2128,57 @@ def build_vega_spec(
                 {"events": {"type": "wheel", "debounce": 140}, "update": "false"},
             ]},
             {"name": "zoomLevel", "update": "max(0, log((xext[1]-xext[0])/(xdom[1]-xdom[0]))/log(2))"},
+            {
+                "name": "selectedMacro",
+                "value": None,
+                "on": [
+                    {
+                        "events": "@revisionPoints:click",
+                        "update": (
+                            "selectedMacro===datum.colour_group ? null : "
+                            "datum.colour_group"
+                        ),
+                    },
+                    {
+                        "events": "@clusterSelectionTargets:click",
+                        "update": (
+                            "selectedMacro===datum.colour_group ? null : "
+                            "datum.colour_group"
+                        ),
+                    },
+                    {
+                        "events": "@clusterRegionShape:click",
+                        "update": (
+                            "selectedMacro===datum.colour_group ? null : "
+                            "datum.colour_group"
+                        ),
+                    },
+                    {
+                        "events": "@clusterRegionCorridor:click",
+                        "update": (
+                            "selectedMacro===datum.colour_group ? null : "
+                            "datum.colour_group"
+                        ),
+                    },
+                    {
+                        "events": "@semanticLabels:click",
+                        "update": (
+                            "datum.colour_group ? "
+                            "(selectedMacro===datum.colour_group ? null : "
+                            "datum.colour_group) : selectedMacro"
+                        ),
+                    },
+                    {"events": "dblclick", "update": "null"},
+                    {
+                        "events": {
+                            "source": "window",
+                            "type": "keydown",
+                            "filter": ["event.key === 'Escape'"],
+                        },
+                        "update": "null",
+                    },
+                ],
+            },
             # Filled from the actually rendered label marks by render_html().
             # A large sort bonus keeps previously visible labels stable across
             # small zoom and pan changes without introducing zoom stages.
@@ -2128,13 +2376,20 @@ def build_vega_spec(
                 {"type": "filter", "expr": "datum.same_cluster"},
             ]},
             {"name": "labels", "values": label_rows},
-            # Legend names intentionally retain status labels such as
-            # "Unchanged Content" even though those labels are suppressed on
-            # the map itself to avoid visual clutter.
-            {"name": "clusterLegend", "values": cluster_legend_rows},
+            {"name": "macroLegend", "values": macro_legend_rows},
             {"name": "clusterHulls", "values": hull_rows},
+            {"name": "clusterCorridors", "values": cluster_corridor_rows},
             {"name": "visibleParentLabels", "source": "labels", "transform": [
                 {"type": "filter", "expr": "rootOnlyOverview ? datum.level==='root' : (datum.level==='root' || datum.level==='macro' || datum.level==='endpoint' || datum.level==='cluster' || datum.level==='section')"},
+                {
+                    "type": "filter",
+                    "expr": (
+                        "selectedMacro===null || "
+                        "(datum.colour_group===selectedMacro && "
+                        "(datum.level==='cluster' || "
+                        "datum.level==='endpoint'))"
+                    ),
+                },
                 {"type": "filter", "expr": "datum.x >= min(xdom[0], xdom[1]) && datum.x <= max(xdom[0], xdom[1]) && datum.y >= min(ydom[0], ydom[1]) && datum.y <= max(ydom[0], ydom[1])"},
                 {"type": "filter", "expr": "datum.level!=='root' || (scale('xscale', datum.x) >= 95 && scale('xscale', datum.x) <= width-95 && scale('yscale', datum.y) >= 24 && scale('yscale', datum.y) <= height-24)"},
                 {"type": "formula", "as": "placementOrder", "expr": "-(datum.label_priority*1e15 + (indexof(stableParentLabelIds, datum.node_id)>=0 ? 1e14 : 0) + datum.importance)"},
@@ -2143,6 +2398,14 @@ def build_vega_spec(
             {"name": "visibleEdgeLabels", "source": "labels", "transform": [
                 {"type": "filter", "expr": "datum.level==='edge'"},
                 {"type": "filter", "expr": "!rootOnlyOverview"},
+                {
+                    "type": "filter",
+                    "expr": (
+                        "selectedMacro===null || "
+                        "datum.colour_group===selectedMacro || "
+                        "indexof(datum.context_colour_groups,selectedMacro)>=0"
+                    ),
+                },
                 {"type": "formula", "as": "screenX1", "expr": "scale('xscale', datum.edge_x)"},
                 {"type": "formula", "as": "screenY1", "expr": "scale('yscale', datum.edge_y)"},
                 {"type": "formula", "as": "screenX2", "expr": "scale('xscale', datum.edge_x2)"},
@@ -2153,6 +2416,28 @@ def build_vega_spec(
                     "type": "formula",
                     "as": "screenLength",
                     "expr": "sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2))",
+                },
+                {
+                    "type": "formula",
+                    "as": "labelUnitX",
+                    "expr": (
+                        "datum.screenLength>=1 ? "
+                        "-datum.screenDy/datum.screenLength : "
+                        "(abs(datum.label_dx)+abs(datum.label_dy)>0 ? "
+                        "datum.label_dx/max(sqrt(pow(datum.label_dx,2)+"
+                        "pow(datum.label_dy,2)),1) : 1)"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "labelUnitY",
+                    "expr": (
+                        "datum.screenLength>=1 ? "
+                        "datum.screenDx/datum.screenLength : "
+                        "(abs(datum.label_dx)+abs(datum.label_dy)>0 ? "
+                        "datum.label_dy/max(sqrt(pow(datum.label_dx,2)+"
+                        "pow(datum.label_dy,2)),1) : 0)"
+                    ),
                 },
                 {
                     "type": "formula",
@@ -2207,26 +2492,63 @@ def build_vega_spec(
         "scales": [
             {"name": "xscale", "zero": False, "domain": {"signal": "xdom"}, "range": "width"},
             {"name": "yscale", "zero": False, "domain": {"signal": "ydom"}, "range": "height"},
-            {"name": "clusterColor", "type": "ordinal", "domain": cluster_ids, "range": [cluster_colour(cluster_id) for cluster_id in cluster_ids]},
+            {
+                "name": "macroColor",
+                "type": "ordinal",
+                "domain": ["noise", *macro_ids],
+                "range": [NOISE_COLOR, *(macro_colour(macro_id) for macro_id in macro_ids)],
+            },
         ],
         "marks": [
             {
                 "name": "clusterRegions", "type": "group",
                 "from": {"facet": {"name": "clusterHull", "data": "clusterHulls", "groupby": "cluster_id"}},
                 "marks": [{
+                    "name": "clusterRegionShape",
                     "type": "line", "from": {"data": "clusterHull"},
                     "encode": {"update": {
                         "x": {"scale": "xscale", "field": "x"},
                         "y": {"scale": "yscale", "field": "y"},
                         "order": {"field": "order"},
                         "interpolate": {"value": "linear"},
-                        "fill": {"scale": "clusterColor", "field": "cluster_id"},
-                        "fillOpacity": {"value": 0.075},
-                        "stroke": {"scale": "clusterColor", "field": "cluster_id"},
-                        "strokeOpacity": {"value": 0.38},
+                        "fill": {"scale": "macroColor", "field": "colour_group"},
+                        "fillOpacity": {
+                            "signal": (
+                                "selectedMacro===null || "
+                                "datum.colour_group===selectedMacro ? 0.075 : 0.008"
+                            )
+                        },
+                        "stroke": {"scale": "macroColor", "field": "colour_group"},
+                        "strokeOpacity": {
+                            "signal": (
+                                "selectedMacro===null || "
+                                "datum.colour_group===selectedMacro ? 0.38 : 0.045"
+                            )
+                        },
                         "strokeWidth": {"value": 1.4},
+                        "cursor": {"value": "pointer"},
                     }}
                 }],
+            },
+            {
+                "name": "clusterRegionCorridor",
+                "type": "rule",
+                "from": {"data": "clusterCorridors"},
+                "encode": {"update": {
+                    "x": {"scale": "xscale", "field": "x"},
+                    "y": {"scale": "yscale", "field": "y"},
+                    "x2": {"scale": "xscale", "field": "x2"},
+                    "y2": {"scale": "yscale", "field": "y2"},
+                    "stroke": {"scale": "macroColor", "field": "colour_group"},
+                    "strokeOpacity": {
+                        "signal": (
+                            "selectedMacro===null || "
+                            "datum.colour_group===selectedMacro ? 0.42 : 0.035"
+                        )
+                    },
+                    "strokeWidth": {"value": CLUSTER_CORRIDOR_STROKE_WIDTH},
+                    "cursor": {"value": "pointer"},
+                }},
             },
             {
                 "name": "trajectory",
@@ -2238,7 +2560,16 @@ def build_vega_spec(
                     "x2": {"scale": "xscale", "field": "x2"},
                     "y2": {"scale": "yscale", "field": "y2"},
                     "stroke": {"value": TRAJECTORY_COLOR},
-                    "strokeOpacity": {"value": 0.42},
+                    "strokeOpacity": {
+                        "signal": (
+                            "selectedMacro===null || "
+                            "datum.source_colour_group===selectedMacro || "
+                            "datum.target_colour_group===selectedMacro || "
+                            "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
+                            "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
+                            "0.42 : 0.045"
+                        )
+                    },
                     "strokeWidth": {"signal": TRAJECTORY_WIDTH_SIGNAL},
                 }}
             },
@@ -2250,8 +2581,13 @@ def build_vega_spec(
                     "y": {"scale": "yscale", "field": "y"},
                     "x2": {"scale": "xscale", "field": "x2"},
                     "y2": {"scale": "yscale", "field": "y2"},
-                    "stroke": {"scale": "clusterColor", "field": "cluster_id"},
-                    "strokeOpacity": {"value": 0.52},
+                    "stroke": {"scale": "macroColor", "field": "colour_group"},
+                    "strokeOpacity": {
+                        "signal": (
+                            "selectedMacro===null || "
+                            "datum.colour_group===selectedMacro ? 0.52 : 0.05"
+                        )
+                    },
                     "strokeWidth": {"signal": TRAJECTORY_WIDTH_SIGNAL},
                 }}
             },
@@ -2286,9 +2622,12 @@ def build_vega_spec(
                         },
                         "strokeOpacity": {
                             "signal": (
-                                "datum.is_edit_war ? "
-                                f"{EDIT_WAR_ARC_STROKE_OPACITY} : "
-                                f"{REVERT_ARC_STROKE_OPACITY}"
+                                "selectedMacro===null || "
+                                "datum.source_colour_group===selectedMacro || "
+                                "datum.target_colour_group===selectedMacro || "
+                                "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
+                                "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
+                                f"{REVERT_ARC_STROKE_OPACITY} : 0.05"
                             )
                         },
                         "strokeWidth": {
@@ -2323,9 +2662,27 @@ def build_vega_spec(
                             f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}')"
                         )
                     },
-                    "fillOpacity": {"value": REVERT_ARROW_OPACITY},
+                    "fillOpacity": {
+                        "signal": (
+                            "selectedMacro===null || "
+                            "datum.source_colour_group===selectedMacro || "
+                            "datum.target_colour_group===selectedMacro || "
+                            "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
+                            "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
+                            f"{REVERT_ARROW_OPACITY} : 0.05"
+                        )
+                    },
                     "stroke": {"value": BACKGROUND_COLOR},
-                    "strokeOpacity": {"value": REVERT_ARROW_OPACITY},
+                    "strokeOpacity": {
+                        "signal": (
+                            "selectedMacro===null || "
+                            "datum.source_colour_group===selectedMacro || "
+                            "datum.target_colour_group===selectedMacro || "
+                            "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
+                            "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
+                            f"{REVERT_ARROW_OPACITY} : 0.05"
+                        )
+                    },
                     "strokeWidth": {"value": 0.8},
                 }},
             },
@@ -2346,12 +2703,30 @@ def build_vega_spec(
                     "fill": {
                         "signal": (
                             "datum.same_cluster ? "
-                            f"scale('clusterColor', datum.cluster_id) : '{TRAJECTORY_COLOR}'"
+                            f"scale('macroColor', datum.colour_group) : '{TRAJECTORY_COLOR}'"
                         )
                     },
-                    "fillOpacity": {"value": 0.9},
+                    "fillOpacity": {
+                        "signal": (
+                            "selectedMacro===null || "
+                            "datum.source_colour_group===selectedMacro || "
+                            "datum.target_colour_group===selectedMacro || "
+                            "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
+                            "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
+                            "0.9 : 0.08"
+                        )
+                    },
                     "stroke": {"value": BACKGROUND_COLOR},
-                    "strokeOpacity": {"value": 0.95},
+                    "strokeOpacity": {
+                        "signal": (
+                            "selectedMacro===null || "
+                            "datum.source_colour_group===selectedMacro || "
+                            "datum.target_colour_group===selectedMacro || "
+                            "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
+                            "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
+                            "0.95 : 0.08"
+                        )
+                    },
                     "strokeWidth": {"value": 0.8},
                 }},
             },
@@ -2361,10 +2736,33 @@ def build_vega_spec(
                     "tooltip": {"signal": "{'Revision ID': datum.revision_id, 'Timestamp': datum.timestamp, 'Author': datum.author, 'Cluster': datum.cluster_label}"}
                 }, "update": {
                     "x": {"scale": "xscale", "field": "x"}, "y": {"scale": "yscale", "field": "y"},
+                    "shape": {"value": "circle"},
                     "size": {"value": REVISION_POINT_SIZE},
-                    "fill": {"scale": "clusterColor", "field": "cluster_id"},
-                    "fillOpacity": {"signal": "0.62 + 0.24*min(zoomLevel/4,1)"},
-                    "stroke": {"value": BACKGROUND_COLOR}, "strokeWidth": {"value": 1.2},
+                    "fill": {"scale": "macroColor", "field": "colour_group"},
+                    "fillOpacity": {
+                        "signal": (
+                            "(datum.colour_group==='noise' && "
+                            "selectedMacro!==null && "
+                            "indexof(datum.context_colour_groups,selectedMacro)>=0) "
+                            "? 1 : (selectedMacro===null || "
+                            "datum.colour_group===selectedMacro || "
+                            "(datum.colour_group==='noise' && "
+                            "indexof(datum.context_colour_groups,selectedMacro)>=0) ? "
+                            "0.62 + 0.24*min(zoomLevel/4,1) : 0.08)"
+                        )
+                    },
+                    "stroke": {"value": BACKGROUND_COLOR},
+                    "strokeOpacity": {
+                        "signal": (
+                            "selectedMacro===null || "
+                            "datum.colour_group===selectedMacro || "
+                            "(datum.colour_group==='noise' && "
+                            "indexof(datum.context_colour_groups,selectedMacro)>=0) ? "
+                            "1 : 0.12"
+                        )
+                    },
+                    "strokeWidth": {"value": 1.2},
+                    "cursor": {"value": "pointer"},
                 }}
             },
             {
@@ -2376,10 +2774,45 @@ def build_vega_spec(
                     "y": {"scale": "yscale", "field": "y"},
                     "size": {"value": SECTION_POINT_HIGHLIGHT_SIZE},
                     "fillOpacity": {"value": 0},
-                    "stroke": {"scale": "clusterColor", "field": "cluster_id"},
-                    "strokeOpacity": {"value": 0.92},
+                    "stroke": {"scale": "macroColor", "field": "colour_group"},
+                    "strokeOpacity": {
+                        "signal": (
+                            "selectedMacro===null || "
+                            "datum.colour_group===selectedMacro || "
+                            "(datum.colour_group==='noise' && "
+                            "indexof(datum.context_colour_groups,selectedMacro)>=0) ? "
+                            "0.92 : 0.05"
+                        )
+                    },
                     "strokeWidth": {"value": 2.6},
                 }}
+            },
+            {
+                # A generous, invisible hit target makes cluster selection
+                # independent of zoom and of the visible point radius.
+                "name": "clusterSelectionTargets",
+                "type": "symbol",
+                "from": {"data": "normalRevisionPoints"},
+                # Keep the hit targets above every visible layer so paths and
+                # labels cannot intercept a click intended for a data point.
+                "zindex": 10,
+                "encode": {"update": {
+                    "x": {"scale": "xscale", "field": "x"},
+                    "y": {"scale": "yscale", "field": "y"},
+                    "size": {"value": CLUSTER_SELECTION_TARGET_SIZE},
+                    "fill": {"value": BACKGROUND_COLOR},
+                    "fillOpacity": {"value": 0.001},
+                    "strokeOpacity": {"value": 0},
+                    "cursor": {"value": "pointer"},
+                    "tooltip": {
+                        "signal": (
+                            "{'Revision ID': datum.revision_id, "
+                            "'Timestamp': datum.timestamp, "
+                            "'Author': datum.author, "
+                            "'Cluster': datum.cluster_label}"
+                        )
+                    },
+                }},
             },
             {
                 "name": "semanticLabels", "type": "text",
@@ -2401,6 +2834,9 @@ def build_vega_spec(
                     "font": {"value": "Inter, Arial, sans-serif"},
                     "fontSize": {"signal": "datum.level==='root' ? 28 : datum.level==='macro' ? 19 : datum.level==='cluster' ? 16 : datum.level==='section' ? 12 : 14"},
                     "fontWeight": {"value": 700},
+                    "cursor": {
+                        "signal": "datum.colour_group ? 'pointer' : 'default'"
+                    },
                 }}
             },
             {
@@ -2410,8 +2846,8 @@ def build_vega_spec(
                 "from": {"data": "visibleEdgeLabels"},
                 "encode": {"update": {
                     "text": {"field": "label"},
-                    "x": {"signal": "datum.labelScreenX - 9*datum.screenDy/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
-                    "y": {"signal": "datum.labelScreenY + 9*datum.screenDx/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
+                    "x": {"signal": "datum.labelScreenX + 9*datum.labelUnitX"},
+                    "y": {"signal": "datum.labelScreenY + 9*datum.labelUnitY"},
                     "align": {"value": "center"},
                     "baseline": {"value": "middle"},
                     "font": {"value": "Inter, Arial, sans-serif"},
@@ -2431,8 +2867,8 @@ def build_vega_spec(
                 "from": {"data": "visibleEdgeLabels"},
                 "encode": {"update": {
                     "text": {"field": "display_label"},
-                    "x": {"signal": f"datum.labelScreenX - {EDGE_DETAILED_LABEL_OFFSET}*datum.screenDy/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
-                    "y": {"signal": f"datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET}*datum.screenDx/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
+                    "x": {"signal": f"max(min(170,width/2),min(width-min(170,width/2),datum.labelScreenX + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitX))"},
+                    "y": {"signal": f"max(min(8+5*datum.display_line_count,height/2),min(height-min(8+5*datum.display_line_count,height/2),datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitY))"},
                     "align": {"value": "center"},
                     "baseline": {"value": "middle"},
                     "font": {"value": "Inter, Arial, sans-serif"},
@@ -2453,8 +2889,8 @@ def build_vega_spec(
                 "encode": {"update": {
                     "x": {"field": "labelScreenX"},
                     "y": {"field": "labelScreenY"},
-                    "x2": {"signal": f"datum.labelScreenX - {EDGE_DETAILED_LABEL_OFFSET - 8}*datum.screenDy/max(datum.screenLength,1)"},
-                    "y2": {"signal": f"datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET - 8}*datum.screenDx/max(datum.screenLength,1)"},
+                    "x2": {"signal": f"max(min(170,width/2),min(width-min(170,width/2),datum.labelScreenX + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitX)) - 8*datum.labelUnitX"},
+                    "y2": {"signal": f"max(min(8+5*datum.display_line_count,height/2),min(height-min(8+5*datum.display_line_count,height/2),datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitY)) - 8*datum.labelUnitY"},
                     "stroke": {"field": "label_colour"},
                     "strokeWidth": {"value": 1.25},
                     "strokeOpacity": {
@@ -2477,21 +2913,24 @@ def build_vega_spec(
                             "datum.display_label : datum.label"
                         )
                     },
-                    "x": {"signal": f"datum.labelScreenX - (indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? {EDGE_DETAILED_LABEL_OFFSET} : {EDGE_SHORT_LABEL_OFFSET})*datum.screenDy/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
-                    "y": {"signal": f"datum.labelScreenY + (indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? {EDGE_DETAILED_LABEL_OFFSET} : {EDGE_SHORT_LABEL_OFFSET})*datum.screenDx/max(sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2)),1)"},
+                    "x": {"signal": f"indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? max(min(170,width/2),min(width-min(170,width/2),datum.labelScreenX + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitX)) : datum.labelScreenX + {EDGE_SHORT_LABEL_OFFSET}*datum.labelUnitX"},
+                    "y": {"signal": f"indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? max(min(8+5*datum.display_line_count,height/2),min(height-min(8+5*datum.display_line_count,height/2),datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitY)) : datum.labelScreenY + {EDGE_SHORT_LABEL_OFFSET}*datum.labelUnitY"},
                     "align": {"value": "center"},
                     "baseline": {"value": "middle"},
                     "font": {"value": "Inter, Arial, sans-serif"},
                     "fontSize": {"value": 8},
                     "lineHeight": {"value": 10},
                     "fontWeight": {"value": 700},
-                    "opacity": {"signal": "indexof(blockedEdgeLabelIds, datum.node_id)>=0 ? 0 : 1"},
+                    "opacity": {"signal": "indexof(blockedEdgeLabelIds, datum.node_id)<0 ? 1 : 0"},
                     "fillOpacity": {"value": 1},
                     "limit": {"value": 340},
                     "fill": {"value": "#4f5750"},
                     "stroke": {"value": "#ffffff"},
                     "strokeWidth": {"value": 2},
                     "strokeOpacity": {"value": 1},
+                    "tooltip": {
+                        "signal": "{'Full description': datum.detailed_description || datum.label}"
+                    },
                 }}
             },
         ],
@@ -2500,54 +2939,32 @@ def build_vega_spec(
 
 def render_html(article: str, spec: dict) -> str:
     encoded = json.dumps(spec, ensure_ascii=False, separators=(",", ":"))
-    cluster_scale = next(
+    macro_scale = next(
         scale for scale in spec.get("scales", [])
-        if scale.get("name") == "clusterColor"
+        if scale.get("name") == "macroColor"
     )
     data_by_name = {
         data.get("name"): data.get("values", [])
         for data in spec.get("data", [])
     }
-    semantic_cluster_labels = {
-        int(row["cluster_id"]): str(row.get("label") or "").strip()
-        for row in data_by_name.get("labels", [])
-        if row.get("level") == "cluster"
-        and row.get("cluster_id") is not None
+    macro_labels = {
+        str(row["colour_group"]): str(row.get("label") or "").strip()
+        for row in data_by_name.get("macroLegend", [])
+        if row.get("colour_group") is not None
         and str(row.get("label") or "").strip()
     }
-    legend_cluster_labels = {
-        int(row["cluster_id"]): str(row.get("label") or "").strip()
-        for row in data_by_name.get("clusterLegend", [])
-        if row.get("cluster_id") is not None
-        and str(row.get("label") or "").strip()
-    }
-    point_cluster_labels = {
-        int(row["cluster_id"]): str(row.get("cluster_label") or "").strip()
-        for row in data_by_name.get("points", [])
-        if row.get("cluster_id") is not None
-        and str(row.get("cluster_label") or "").strip()
-    }
-
-    def cluster_legend_label(cluster_id: object) -> str:
-        numeric_id = int(cluster_id)
-        if numeric_id == -1:
-            return "Noise"
-        return (
-            legend_cluster_labels.get(numeric_id)
-            or semantic_cluster_labels.get(numeric_id)
-            or point_cluster_labels.get(numeric_id)
-            or f"Cluster {numeric_id + 1}"
-        )
-
-    cluster_legend = "".join(
+    macro_legend = "".join(
         (
-            '<li><span class="legend-dot" style="--legend-color:'
+            '<li><button type="button" class="macro-filter" '
+            f'data-colour-group="{html.escape(str(colour_group))}" '
+            'aria-pressed="false"><span class="legend-dot" '
+            'style="--legend-color:'
             f'{html.escape(str(colour))}"></span><span>'
-            f'{html.escape(cluster_legend_label(cluster_id))}'
-            "</span></li>"
+            f'{html.escape(macro_labels.get(str(colour_group), str(colour_group)))}'
+            "</span></button></li>"
         )
-        for cluster_id, colour in zip(
-            cluster_scale.get("domain", []), cluster_scale.get("range", [])
+        for colour_group, colour in zip(
+            macro_scale.get("domain", []), macro_scale.get("range", [])
         )
     )
     return f"""<!doctype html>
@@ -2569,10 +2986,16 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 #legend{{min-width:0;overflow:auto;border-left:1px solid #d9ddd6;padding:16px 16px 22px;background:#f7f6f2;box-sizing:border-box}}
 #legend h2{{font-size:17px;margin:0 0 15px}}
 #legend h3{{font-size:12px;line-height:1.2;letter-spacing:.06em;text-transform:uppercase;color:#687068;margin:18px 0 9px}}
+.legend-hint{{margin:0 0 9px;color:#687068;font-size:11px;line-height:1.35}}
 .legend-list{{list-style:none;margin:0;padding:0;display:grid;gap:8px}}
-.cluster-list{{grid-template-columns:1fr;gap:7px}}
+.macro-list{{grid-template-columns:1fr;gap:7px}}
+.macro-list li{{width:100%}}
 .legend-list li{{min-width:0;display:flex;align-items:center;gap:8px;font-size:12px;line-height:1.25}}
-.legend-dot{{--legend-color:{NOISE_COLOR};width:10px;height:10px;box-sizing:border-box;border-radius:50%;background:var(--legend-color);border:1px solid {BACKGROUND_COLOR};box-shadow:0 0 0 1px color-mix(in srgb,var(--legend-color) 75%,#777);flex:none}}
+.macro-filter{{width:100%;min-width:0;min-height:46px;appearance:none;border:1px solid transparent;border-radius:7px;background:transparent;color:inherit;padding:9px 10px;display:flex;align-items:center;gap:10px;font:inherit;line-height:1.3;text-align:left;cursor:pointer;touch-action:manipulation}}
+.macro-filter:hover,.macro-filter:focus-visible{{background:#ebe9e2;border-color:#cbc9c1;outline:none}}
+.macro-filter[aria-pressed="true"]{{background:#e2dfd5;border-color:#85877f;font-weight:700}}
+#legend[data-selected-macro] .macro-filter[aria-pressed="false"]{{opacity:.38}}
+.legend-dot{{--legend-color:{NOISE_COLOR};width:14px;height:14px;box-sizing:border-box;border-radius:50%;background:var(--legend-color);border:1px solid {BACKGROUND_COLOR};box-shadow:0 0 0 1px color-mix(in srgb,var(--legend-color) 75%,#777);flex:none}}
 .legend-ring{{width:12px;height:12px;box-sizing:border-box;border:2px solid {NOISE_COLOR};border-radius:50%;background:transparent;flex:none}}
 .legend-line{{width:30px;height:0;border-top:2.25px solid {TRAJECTORY_COLOR};flex:none}}
 .legend-line.thick{{border-top-width:4.45px}}
@@ -2580,7 +3003,7 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 .legend-partial{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dashed {PARTIAL_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
 .legend-spiral{{width:30px;height:10px;box-sizing:border-box;border:{EDIT_WAR_ARC_STROKE_WIDTH}px dashed {EDIT_WAR_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{EDIT_WAR_ARC_STROKE_OPACITY}}}
 .legend-arrow{{width:30px;flex:none;text-align:center;color:{TRAJECTORY_COLOR};font-size:23px;font-weight:800;line-height:10px}}
-@media(max-width:760px){{#content{{grid-template-columns:minmax(0,1fr) 205px}}#legend{{padding:12px 10px}}.cluster-list{{grid-template-columns:1fr}}}}
+@media(max-width:760px){{#content{{grid-template-columns:minmax(0,1fr) 205px}}#legend{{padding:12px 10px}}}}
 </style></head><body><main id="app">
 <header id="topbar"><h1>Meaningful Projection Space</h1></header>
 <div id="content">
@@ -2589,8 +3012,8 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 <h2>Legend</h2>
 <h3>Display</h3>
 <ul class="legend-list">
-<li><span class="legend-dot"></span><span>Revision point (cluster colour)</span></li>
-<li><span class="legend-ring"></span><span>Temporal-section point (cluster colour)</span></li>
+<li><span class="legend-dot"></span><span>Revision point (macro-group colour; Noise grey)</span></li>
+<li><span class="legend-ring"></span><span>Temporal-section point (macro-group colour)</span></li>
 <li><span class="legend-line"></span><span>Standard trajectory edge</span></li>
 <li><span class="legend-arrow">&#8594;</span><span>Revision direction</span></li>
 <li><span class="legend-line thick"></span><span>Repeated projected path</span></li>
@@ -2598,8 +3021,9 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 <li><span class="legend-partial"></span><span>Partial revert (selected text restored; unaffected text remains)</span></li>
 <li><span class="legend-spiral"></span><span>Edit War</span></li>
 </ul>
-<h3>Cluster</h3>
-<ul class="legend-list cluster-list">{cluster_legend}</ul>
+<h3>Macro groups</h3>
+<p class="legend-hint">Select a group to reveal its clusters; select it again or press Escape to reset.</p>
+<ul class="legend-list macro-list">{macro_legend}</ul>
 </aside>
 </div>
 </main>
@@ -2607,6 +3031,8 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 const spec={encoded};
 const handler=new vegaTooltip.Handler({{theme:'light'}});
 const vis=document.getElementById('vis');
+const legend=document.getElementById('legend');
+const macroFilters=Array.from(document.querySelectorAll('.macro-filter'));
 const view=new vega.View(vega.parse(spec),{{renderer:'svg',hover:true}})
   .initialize(vis).tooltip(handler.call);
 let resizeFrame=0;
@@ -2869,6 +3295,33 @@ function scheduleLabelStability(){{
   clearTimeout(stabilityTimer);
   stabilityTimer=setTimeout(()=>{{void syncLabelStability();}},0);
 }}
+function updateMacroSelection(_name,value){{
+  const selected=value==null?'':String(value);
+  if(selected)legend.dataset.selectedMacro=selected;
+  else delete legend.dataset.selectedMacro;
+  vis.dataset.selectedMacro=selected;
+  for(const button of macroFilters){{
+    button.setAttribute(
+      'aria-pressed',
+      String(Boolean(selected)&&button.dataset.colourGroup===selected)
+    );
+  }}
+  view.signal('blockedParentLabelIds',[]);
+  view.signal('blockedEdgeLabelIds',[]);
+  view.signal('detailedEdgeLabelIds',[]);
+  view.signal('stableParentLabelIds',[]);
+  view.signal('stableEdgeLabelIds',[]);
+  scheduleLabelStability();
+}}
+for(const button of macroFilters){{
+  button.addEventListener('click',async()=>{{
+    const requested=String(button.dataset.colourGroup||'');
+    const current=view.signal('selectedMacro');
+    view.signal('selectedMacro',current===requested?null:requested);
+    await view.runAsync();
+  }});
+}}
+view.addSignalListener('selectedMacro',updateMacroSelection);
 view.addSignalListener('zooming',(_name,value)=>{{if(!value)scheduleLabelStability();}});
 view.addSignalListener('zoomLevel',()=>{{scheduleLabelStability();}});
 view.addSignalListener('down',(_name,value)=>{{if(value===null)scheduleLabelStability();}});

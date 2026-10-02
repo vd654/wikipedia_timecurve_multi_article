@@ -104,8 +104,9 @@ Die Hierarchie liefert Kandidaten und kartografische Prioritäten. Artikel-,
 Makro-, Cluster-, Abschnitts- und kurze Kantenlabels werden bei jedem Maßstab
 gemeinsam in Bildschirmkoordinaten geprüft. Abstrakte Labels haben Vorrang,
 danach füllen detailliertere Labels jeden ausreichend großen freien Bereich.
-Makrothemen besitzen keine grauen Flächen, Konturen oder Halo-Hintergründe;
-sichtbar bleiben nur ihre Labels. Die farbigen Clusterhüllen bleiben erhalten.
+Makrothemen besitzen keine eigenen Flächen, Konturen oder Halo-Hintergründe;
+sichtbar bleiben ihre Labels und ihre gemeinsame Farbe auf den zugehörigen
+Clusterhüllen.
 Übergeordnete Labels besitzen eine
 feste Ankerposition; jedes Kantenlabel wird in der Mitte des aktuell sichtbaren
 Kantenabschnitts platziert. Alle Labels behalten eine konstante Schriftgröße.
@@ -143,17 +144,46 @@ wenn auch dieses nicht passt, wird die Kantenbeschriftung ausgeblendet.
 Übergeordnete Labels werden zuerst platziert und verdrängen daher beide
 Varianten. Die vollständigen Beschreibungen werden unabhängig von den kurzen
 Kartenlabels eingebunden, sodass redaktionell gewählte Kurzlabels erhalten
-bleiben.
+bleiben. Im aktivierten Gruppenfokus gilt dieselbe Platzregel:
+Es werden nur Kanten der ausgewählten Gruppe berücksichtigt, aber auch ihre
+Beschriftungen müssen die allgemeine Kollisionsprüfung bestehen. Wo genügend
+Platz vorhanden ist, erscheint die vollständige Beschreibung; andernfalls wird
+das Kurzlabel versucht oder die Beschriftung bis zu einem stärkeren Zoom
+ausgeblendet. Effektiv punktförmige Kanten verwenden ausschließlich das
+Kurzlabel. Der Volltext bleibt unabhängig davon als Tooltip verfügbar.
 
-Revisionspunkte verwenden stabile HDBSCAN-Farben; Noise bleibt grau. Punkte,
+Revisionspunkte und Clusterhüllen verwenden höchstens sechs stabile
+Makrogruppenfarben; zusammen mit dem neutralen Grau für Noise entstehen damit
+insgesamt sieben Farbkategorien. Die feste Zuordnung lautet: Statehood
+Designation `#D4A017`, UN Status `#F8711A`, State Formation `#8B5A2B`,
+Sovereignty `#B5179E`, State Development `#4A1942`, UN Observer Status
+`#9B7BC8` und Noise `#A8A8A8`. Die konkreten Signalrot-, Signalgrün- und
+Signalblautöne bleiben ausschließlich exakten Reverts, partiellen Reverts und
+Edit Wars vorbehalten.
+Noise-Revisionen bleiben wie alle anderen Revisionen kreisförmig und werden
+neutral grau gezeichnet. Liegt ihre 2D-Position innerhalb der räumlichen
+Gesamtfläche der ausgewählten Makrogruppe, bleibt der graue Punkt im
+Gruppenfokus vollständig sichtbar. Zugehörige graue Trajektoriensegmente,
+Richtungspfeile und platzierbare Kantenlabels bleiben ebenfalls aktiv; die
+geometrische Überlagerung ändert die HDBSCAN-Zuordnung nicht.
+Die konkrete
+Clusteridentität wird weiterhin durch die direkten semantischen Clusterlabels
+vermittelt. Die Farblegende führt deshalb nur Noise und die Makrogruppen auf.
+Jede Clusterhülle umfasst sämtliche projizierten Revisionspunkte des jeweiligen
+HDBSCAN-Clusters. Für reguläre zweidimensionale Punktmengen wird eine leicht
+erweiterte konvexe Hülle gezeichnet. Fallen die Punkte in der Projektion auf
+eine Linie oder praktisch dieselbe Position zusammen, verbindet stattdessen
+ein dünner, anklickbarer Strich ihre unterscheidbaren Positionen. Zusätzliche
+runde Endkappen werden nicht gezeichnet.
+Punkte,
 Abschnittsringe und Trajektorienlinien sind für die Detailansicht bewusst
 kräftig dimensioniert. Auf jedem mindestens 34 Bildschirm-Pixel langen,
 sichtbaren Teilstück einer normalen Kante zeigt ein Pfeil die chronologische
 Revisionsrichtung. Wie bei Shaclens behält er beim Zoomen seine Bildschirmgröße
 und sitzt bis zu 30 px hinter dem Anfang des aktuell sichtbaren Liniensegments.
 Die festen Farben für Trajektorie, exakten Revert und Edit War werden aus
-denselben Farbkonstanten wie ihre Legendensymbole erzeugt. Punkt- und
-Abschnittsringfarben entsprechen der separat aufgeführten Clusterpalette.
+denselben Farbkonstanten wie ihre Legendensymbole erzeugt. Punkt-, Hüllen- und
+Abschnittsringfarben entsprechen der separat aufgeführten Makropalette.
 Bot-Kennzeichnungen sind dabei nur Audit-Metadaten. Reverts von automatisierten
 und menschlichen Konten werden für Richtungen, Sitzungen sowie Yasseri-M und
 Gandica-C gleich behandelt; aus der Edit-War-Erkennung wird kein Ereignis wegen
@@ -334,6 +364,12 @@ Grundlage der Hierarchie inhaltlich ändert.
   Artikel-Label aus dem jeweiligen Datensatz
 - Ziehen: Karte verschieben
 - Doppelklick: Gesamtansicht wiederherstellen
+- Makrogruppe, zugehörigen Punkt, Clusterbereich oder Legendeneintrag anklicken:
+  die Gruppe fokussieren, fremde Gruppen abdunkeln und ihre Clusterlabels
+  ausblenden. Räumlich zugehörige Noise-Punkte bleiben vollständig sichtbar;
+  auch ihre Trajektoriensegmente, Richtungspfeile und – bei genügend Platz –
+  Kantenlabels werden eingeblendet. Erneuter Klick oder `Escape` setzt den
+  Fokus zurück
 - Revisionspunkt: Revision-ID, Zeitpunkt, Autor und Cluster anzeigen
 
 Die HTML-Datei enthält Daten und Vega-Spezifikation, lädt Vega und Vega-Tooltip
