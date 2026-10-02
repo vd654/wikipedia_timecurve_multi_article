@@ -348,6 +348,11 @@ Der erste Lauf erzeugt die übergeordneten englischen Labels per API. Bei
 unveränderten Eingaben werden sie aus dem Hierarchie-JSON wiederverwendet und
 verursachen keine erneuten API-Kosten.
 
+Vollständige ISO-Zeitstempel aus den gespeicherten Kantenbeschreibungen werden
+in sichtbaren Langlabels lokal auf `TT-MM-JJ` gekürzt. Die Quelldaten und der
+Tooltip behalten den vollständigen Zeitstempel; dafür ist kein erneuter
+API-Aufruf erforderlich.
+
 Eine redaktionell geprüfte Labelpyramide kann im Hierarchie-JSON als fixiert
 markiert werden. Ihre Makro-, Cluster- und Abschnittslabels werden dann auch bei
 späteren Prompt- oder Logikänderungen unverändert übernommen. Die Fixierung

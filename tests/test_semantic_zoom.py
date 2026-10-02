@@ -39,6 +39,7 @@ from semantic_zoom import (  # noqa: E402
     cluster_hull_rows,
     cluster_label_colour,
     cluster_region_rows,
+    compact_display_timestamps,
     content_focused_parent_label,
     convex_hull,
     deduplicate_label_rows,
@@ -629,6 +630,26 @@ def test_detailed_edge_description_is_rendered_as_multiline_label():
         for row in label_rows
         if row.get("detailed_description")
     )
+
+
+def test_iso_timestamp_is_compact_only_in_visible_edge_label():
+    projection = sample_projection()
+    hierarchy = build_hierarchy(projection, sample_keywords())
+    description = (
+        "On 2012-12-05T12:45:16Z, ExampleEditor revised the observer-status "
+        "section."
+    )
+    hierarchy["edges"][0]["detailed_description"] = description
+
+    spec = build_vega_spec("Example", projection, hierarchy)
+    label_rows = next(
+        data for data in spec["data"] if data["name"] == "labels"
+    )["values"]
+    edge_row = next(row for row in label_rows if row["node_id"] == "edge-1")
+
+    assert compact_display_timestamps(description).startswith("On 05-12-12,")
+    assert " ".join(edge_row["display_label"]).startswith("On 05-12-12,")
+    assert edge_row["detailed_description"] == description
 
 
 def test_child_label_identical_to_ancestor_is_removed():
@@ -1442,7 +1463,7 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     point_tooltip = point_mark["encode"]["enter"]["tooltip"]["signal"]
     assert point_tooltip == (
         "{'Revision ID': datum.revision_id, 'Timestamp': datum.timestamp, "
-        "'Author': datum.author, 'Cluster': datum.cluster_label}"
+        "'Author': datum.author}"
     )
     selection_target = next(
         mark for mark in spec["marks"]
@@ -1456,6 +1477,10 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert selection_target["encode"]["update"]["fillOpacity"] == {
         "value": 0.001
     }
+    assert selection_target["encode"]["update"]["tooltip"]["signal"] == (
+        "{'Revision ID': datum.revision_id, 'Timestamp': datum.timestamp, "
+        "'Author': datum.author}"
+    )
     assert "zoomLevel" not in json.dumps(selection_target)
     assert "rootOnlyOverview" not in json.dumps(selection_target)
     trajectory_mark = next(mark for mark in spec["marks"] if mark.get("name") == "trajectory")
@@ -1599,7 +1624,7 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert "detailedEdgeLabelIds" in edge_text_signal
     assert "datum.display_label : datum.label" in edge_text_signal
     assert edge_text["encode"]["update"]["lineHeight"] == {"value": 10}
-    assert "Full description" in edge_text["encode"]["update"]["tooltip"]["signal"]
+    assert "tooltip" not in edge_text["encode"]["update"]
     assert "datum.labelScreenX" in edge_text["encode"]["update"]["x"]["signal"]
     assert "datum.labelScreenY" in edge_text["encode"]["update"]["y"]["signal"]
     assert "datum.labelUnitX" in edge_text["encode"]["update"]["x"]["signal"]
@@ -1845,7 +1870,7 @@ def test_html_has_no_interactive_model_call():
     assert "edgeScreenLength:Number(datum.screenLength)||0" in page
     assert "const focusMode=Boolean(view.signal('selectedMacro'))" not in page
     assert "if(focusMode)" not in page
-    assert "Full description" in page
+    assert "Full description" not in page
     assert "edgeDetailLeaders" in page
     assert "acceptedParentLabelKeys" in page
     assert "acceptedShortEdgeLabelKeys" in page
@@ -1876,7 +1901,8 @@ def test_html_has_no_interactive_model_call():
     assert "class=\"macro-filter\"" in page
     assert "data-colour-group=\"macro-1\"" in page
     assert "aria-pressed=\"false\"" in page
-    assert "Select a group to reveal its clusters" in page
+    assert "Select a group to reveal its clusters" not in page
+    assert "legend-hint" not in page
     assert "button.addEventListener('click'" in page
     assert "vis.dataset.selectedMacro" in page
     assert "min-height:46px" in page
@@ -1925,8 +1951,9 @@ def test_legend_colours_match_the_visual_encodings():
         f"opacity:{EDIT_WAR_ARC_STROKE_OPACITY}}}"
     ) in page
     assert f"--legend-color:{NOISE_COLOR}" in page
-    assert "Revision point (macro-group colour; Noise grey)" in page
-    assert "Temporal-section point (macro-group colour)" in page
+    assert "Revision point</span>" in page
+    assert "Temporal-section point</span>" in page
+    assert "macro-group colour" not in page
     assert "HDBSCAN cluster hull/line" not in page
     assert f'--legend-color:{NOISE_COLOR}' in page
     assert f'--legend-color:{macro_colour("macro-1")}' in page
@@ -1940,7 +1967,8 @@ def test_legend_uses_macro_labels_not_individual_cluster_labels():
     macro = hierarchy["macros"][0]
 
     assert f"<span>{macro['label']}</span>" in page
-    assert '<h3>Macro groups</h3>' in page
+    assert '<h3>Macro clusters</h3>' in page
+    assert '<h3>Macro groups</h3>' not in page
     assert '<h3>Cluster</h3>' not in page
     assert "<span>Noise</span>" in page
 

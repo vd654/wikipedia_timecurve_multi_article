@@ -15174,8 +15174,8 @@
       }
     ]
   },
-  "pipeline_snapshot_id": "2026-09-18-v087",
-  "source_sha256": "deea22571b064c44487c9193ac5a1d72efa5dc3a01d4af43a6e7bf5d0128f353",
+  "pipeline_snapshot_id": "2026-10-02-v088",
+  "source_sha256": "88c923200a0d28d825999f2317f4c733614ca9bd2f5c44726b598216e20138b7",
   "label_system_prompt": "You create concise English map labels for a semantic revision\ntrajectory. Use only the supplied full-revision comparison labels, detailed descriptions,\nand grounded evidence. The descriptions may contain authors, timestamps, and edit comments;\nuse those details to understand patterns, chronology, and editorial context when helpful,\nbut label the subject of the article changes rather than the editing activity. An edit\ncomment can be inaccurate, so repeated text-grounded evidence has priority. Never add\noutside knowledge.\nThe final visualization is a five-level pyramid: article, macro topic, cluster,\nchronological section, and consecutive revision edge. You are labeling cluster\nand section nodes; macro topics are generated in a separate parent pass and the\ndetailed revision edges already exist as grounded leaf labels.\nEach label must explain what its cluster or chronological section is about and must not be\na generic label such as 'changes', 'revision', 'miscellaneous', or a numbered level. Use two to three\nwords. Return exactly one English label per node. Never join, enumerate, or\ncontrast multiple candidate labels. Preserve meaningful names, institutions,\nplaces, events, and policies. Name the article subject or proposition being discussed,\nnever the editing operation. Do not label a parent area with mechanics such as formatting,\npunctuation, spacing, capitalization, wording, terminology, citations, references,\ntemplates, infobox fields, spelling, or interlanguage links. For a formatting-only child\nedit, recover the underlying people, institutions, places, claims, or policies from its\ndetailed description. For example, an em-dash spacing edit in sentences about UN\nrepresentation and Jordanian claims should yield \"PLO Representation Claims\", not\n\"Em Dash Spacing\".",
   "macro_label_system_prompt": "You create concise English overview labels for a semantic\nmap. Use only the supplied child cluster labels, detailed transition descriptions, and\ngrounded full-revision comparison evidence. Author, timestamp, and edit-comment details may\nhelp reveal editorial or chronological patterns, but the label must name the shared subject\nof the article changes. Never add outside knowledge. Each node combines several spatially adjacent HDBSCAN clusters and\nneeds one broad umbrella concept that makes the map understandable before the user\nzooms into the individual clusters. Use two to three words. Preserve meaningful\nnames, institutions, places, events, and policies. Never use technical terms such as\n'cluster', 'group', 'area', 'level', 'miscellaneous', or a number. Describe the\narticle content, never editing mechanics such as formatting, wording, citations,\ntemplates, or infobox fields. Return exactly one English umbrella label per node.\nNever join, enumerate, or contrast multiple candidate labels.",
   "fixed_parent_labels": {
@@ -15672,13 +15672,18 @@
         "node_id": "macro-1",
         "level": "macro",
         "cluster_ids": [
-          0
+          0,
+          13,
+          15,
+          26,
+          27
         ],
-        "x": -0.00030287580122264306,
-        "y": -0.0002805940772394969,
+        "x": -0.00010503182573636017,
+        "y": 0.00015135320193654524,
         "label": "Palestinian Statehood",
         "terms": [
           "Gaza Control Removed",
+          "Infobox Flag Replaced",
           "Mission Designation Added",
           "Stray Reference Removed",
           "Transitional Phrases Removed",
@@ -15693,7 +15698,10 @@
           "Lithuanian Link Added",
           "Interlanguage Links Removed",
           "Sovereign Qualification Removed",
-          "Interwiki Links Removed"
+          "Interwiki Links Removed",
+          "Stamp Printing Added",
+          "Leadership Titles Revised",
+          "Statehood Timing Reworded"
         ],
         "descriptions": [
           "On 2013-02-10T11:29:52Z, Hendrick 99 added two lead sentences stating that the UN permitted Palestine to title its mission as the State of Palestine and that UN documents use that designation.",
@@ -15719,13 +15727,48 @@
           "On 2013-03-23T05:59:27Z, Addbot removed eight interwiki links—af, bn, cs, de, ku, nah, pl, and sr—from the State of Palestine article.",
           "On 2013-03-25T18:13:37Z, Subhanu.bhattacharya reworded the Legal status statement to describe the existence of a State of Palestine as a reality in the opinions of “most” rather than “many” states that have established bilateral diplomatic relations.",
           "On 2013-03-25T19:26:28Z, Dailycare removed the word \"most\" from the Legal status statement that the existence of a State of Palestine is a reality in the opinions of states that have established bilateral diplomatic relations.",
-          "On 2013-03-25T22:31:16Z, Danlaycock removed the figure “138 (71.5%)” from two statements about United Nations member states recognising the State of Palestine, leaving empty parentheses in both places."
+          "On 2013-03-25T22:31:16Z, Danlaycock removed the figure “138 (71.5%)” from two statements about United Nations member states recognising the State of Palestine, leaving empty parentheses in both places.",
+          "On 2013-01-09T15:35:24Z, Japinderum added that new State of Palestine stamps would be printed in Bahrain because Israeli approval was required for printing and importing them, with the first stamps to be used by Palestinian diplomatic offices abroad.",
+          "Greyshark09 made the revision on 2013-01-09T20:39:04Z, and the supplied cleaned article content did not change.",
+          "AnomieBOT made the revision on 2013-01-09T20:59:51Z; the supplied cleaned article content did not change.",
+          "On 2013-01-10T07:03:03Z, BG19bot made the revision, and the supplied cleaned article content did not change.",
+          "On 2013-01-10T09:21:39Z, Japinderum added Salim Zanoun’s title as Speaker of Parliament in the State of Palestine infobox and reworded Mahmoud Abbas’s footnote from Chairman of the PLO Executive Committee to leader of the state’s government.",
+          "On 2013-01-10T09:53:31Z, Japinderum reworded the State of Palestine infobox’s “Statehood effective” entry from “not yet” to “up to and as of 2013, no,” while retaining the statement that the claimed territories are under Israeli occupation.",
+          "On 2013-01-10T09:59:01Z, Japinderum reworded the opening description to state that the areas occupied by Israel since 1967 are envisioned to make up the State of Palestine, rather than that they make up the state.",
+          "On 2013-01-10T19:35:20Z, Dailycare reworded the 2013 change of name section to state that Abbas signed a 3 January 2013 decree absorbing the Palestinian Authority into the State of Palestine, rather than a 4 January symbolic name change.",
+          "On 2013-02-10T10:31:33Z, Hendrick 99 added a sentence to the 2012 United Nations observer state status section stating that UN Chief of Protocol Yeocheol Yoon decided on 17 December 2012 that “State of Palestine” would be used in all Secretariat official United Nations documents.",
+          "On 2013-02-10T10:35:43Z, Hendrick 99 added two sentences to the 2012 United Nations observer state status section stating that Palestine titled its UN representative office as the State of Palestine and began using that name on stamps, documents, passports, and in diplomatic representation.",
+          "On 2013-02-10T10:38:34Z, Hendrick 99 reworded the 2012 United Nations observer state status passage to specify that the UN permitted Palestine to title its representative office after the resolution was passed and to identify Palestinian authorities as instructing diplomats to represent the State of Palestine.",
+          "On 2013-02-10T10:50:43Z, Hendrick 99 reworded two sentences in the \"2012 United Nations observer state status\" section concerning the effects and significance of UN General Assembly resolution 67/19, and removed one Background sentence describing the 2007 Hamas takeover of the Gaza Strip.",
+          "On 2013-02-10T10:52:38Z, Hendrick 99 removed from the Background section the sentence stating that, after Israel's 2005 unilateral disengagement plan, the Palestinian National Authority gained full control of the Gaza Strip except its borders, airspace, and territorial waters.",
+          "On 2013-02-10T11:04:00Z, Hendrick 99 removed one sentence from the Background section stating that the PNA gained full control of the Gaza Strip in 2005 except for its borders, airspace, and territorial waters.",
+          "On 2013-01-06T15:23:51Z, Johnkatz1972 added a sentence to the 2012 United Nations observer state status section stating that President Abbas ordered Palestinian embassies to replace official references to the Palestinian Authority with the State of Palestine.",
+          "On 2013-01-07T07:58:11Z, Japinderum removed the sentence stating that Abbas ordered Palestinian embassies to replace references to the Palestinian Authority with State of Palestine in the 2012 United Nations observer state status section.",
+          "AnomieBOT made the revision on 2013-01-07T08:19:25Z; the supplied cleaned article content did not change.",
+          "GastelEtzwane changed the French-language interwiki link for the State of Palestine from \"État de Palestine\" to \"Palestine (État)\" on 2013-01-07T16:42:45Z.",
+          "On 2013-01-08T09:42:01Z, Japinderum removed references to the Law of the Seas Treaty, Nuclear Non-Proliferation Treaty, and International Criminal Court from the 2012 United Nations observer state status section's list of bodies and treaties Palestine could join.",
+          "On 2013-01-25T09:46:08Z, عبد المؤمن replaced the State of Palestine infobox image flag from “Coat of arms of State of Palestine (Official).png” to “Flag of Palestine.svg”.",
+          "On 2013-01-25T09:47:15Z, عبد المؤمن changed the State of Palestine infobox coat-of-arms image from “Palestine COA (alternative).svg” to “Coat of arms of State of Palestine (Official).png”.",
+          "On 2013-01-26T00:08:09Z, Emmette Hernandez Coleman replaced the State of Palestine infobox coat-of-arms image, changing it from “Coat of arms of State of Palestine (Official).png” to “Palestine COA (alternative).svg”.",
+          "On 2013-02-04T15:03:43Z, ZacharyGeorge reworded the infobox’s second establishment event from “UNGA resolution for observer state status” to “Statehood recognized,” retaining the date 29 November 2012.",
+          "On 2013-02-04T21:11:00Z, Emmette Hernandez Coleman replaced the infobox's second established event, \"Statehood recognized,\" with \"UNGA resolution for observer state status,\" retaining the date 29 November 2012.",
+          "On 2013-02-07T12:33:38Z, Yobot moved the Lezgian-language State of Palestine link from after the Chinese-language link to its alphabetical position after the Latvian-language link.",
+          "On 2013-01-17T10:09:58Z, Japinderum added a lead sentence stating that the areas envisioned to make up the State of Palestine have been occupied by Israel since 1967.",
+          "On 2013-01-21T01:00:41Z, Emmette Hernandez Coleman made a revision, but the supplied cleaned article content did not change.",
+          "On 2013-01-21T18:53:15Z, BotKung added the th:รัฐปาเลสไตน์ interlanguage link and repositioned the lez:Гьукумат Палестина interlanguage link in the State of Palestine article's interlanguage links.",
+          "Emmette Hernandez Coleman made the revision on 2013-01-23T06:47:40Z, and the supplied cleaned article content did not change.",
+          "Malik Shabazz made the revision on 2013-01-23T10:29:11Z; the supplied cleaned article content did not change.",
+          "On 2013-01-25T09:44:31Z, عبد المؤمن replaced the State of Palestine infobox flag image, changing it from \"Flag of Palestine.svg\" to \"Coat of arms of State of Palestine (Official).png\"."
         ],
         "child_labels": [
-          "Statehood Representation"
+          "Statehood Representation",
+          "Authority State Transition",
+          "Palestinian Embassy Renaming",
+          "Palestinian Symbols Recognition",
+          "Palestinian Occupation Status"
         ],
-        "revision_count": 24,
-        "importance": 24.074320025873185,
+        "revision_count": 55,
+        "importance": 55.10849053339059,
         "parent_id": "root"
       },
       {
@@ -16361,88 +16404,11 @@
         "node_id": "macro-6",
         "level": "macro",
         "cluster_ids": [
-          13,
-          15,
-          26,
-          27
-        ],
-        "x": 4.813770367237497e-05,
-        "y": 0.00048576399871799725,
-        "label": "Palestinian State Designation",
-        "terms": [
-          "Infobox Flag Replaced",
-          "Gaza Control Removed",
-          "Stamp Printing Added",
-          "Leadership Titles Revised",
-          "Statehood Timing Reworded",
-          "Territorial Composition Qualified",
-          "Authority Absorption Reframed",
-          "UN Designation Added",
-          "Office Naming Added",
-          "Representative Office Clarified",
-          "Resolution Effects Reworded",
-          "Embassy Order Added",
-          "Embassy Order Removed",
-          "French Interwiki Replaced",
-          "Treaty References Removed",
-          "Infobox Emblem Replaced",
-          "Establishment Event Reworded",
-          "Establishment Event Restored",
-          "Lezgian Link Moved",
-          "Occupation Claim Added"
-        ],
-        "descriptions": [
-          "On 2013-01-09T15:35:24Z, Japinderum added that new State of Palestine stamps would be printed in Bahrain because Israeli approval was required for printing and importing them, with the first stamps to be used by Palestinian diplomatic offices abroad.",
-          "Greyshark09 made the revision on 2013-01-09T20:39:04Z, and the supplied cleaned article content did not change.",
-          "AnomieBOT made the revision on 2013-01-09T20:59:51Z; the supplied cleaned article content did not change.",
-          "On 2013-01-10T07:03:03Z, BG19bot made the revision, and the supplied cleaned article content did not change.",
-          "On 2013-01-10T09:21:39Z, Japinderum added Salim Zanoun’s title as Speaker of Parliament in the State of Palestine infobox and reworded Mahmoud Abbas’s footnote from Chairman of the PLO Executive Committee to leader of the state’s government.",
-          "On 2013-01-10T09:53:31Z, Japinderum reworded the State of Palestine infobox’s “Statehood effective” entry from “not yet” to “up to and as of 2013, no,” while retaining the statement that the claimed territories are under Israeli occupation.",
-          "On 2013-01-10T09:59:01Z, Japinderum reworded the opening description to state that the areas occupied by Israel since 1967 are envisioned to make up the State of Palestine, rather than that they make up the state.",
-          "On 2013-01-10T19:35:20Z, Dailycare reworded the 2013 change of name section to state that Abbas signed a 3 January 2013 decree absorbing the Palestinian Authority into the State of Palestine, rather than a 4 January symbolic name change.",
-          "On 2013-02-10T10:31:33Z, Hendrick 99 added a sentence to the 2012 United Nations observer state status section stating that UN Chief of Protocol Yeocheol Yoon decided on 17 December 2012 that “State of Palestine” would be used in all Secretariat official United Nations documents.",
-          "On 2013-02-10T10:35:43Z, Hendrick 99 added two sentences to the 2012 United Nations observer state status section stating that Palestine titled its UN representative office as the State of Palestine and began using that name on stamps, documents, passports, and in diplomatic representation.",
-          "On 2013-02-10T10:38:34Z, Hendrick 99 reworded the 2012 United Nations observer state status passage to specify that the UN permitted Palestine to title its representative office after the resolution was passed and to identify Palestinian authorities as instructing diplomats to represent the State of Palestine.",
-          "On 2013-02-10T10:50:43Z, Hendrick 99 reworded two sentences in the \"2012 United Nations observer state status\" section concerning the effects and significance of UN General Assembly resolution 67/19, and removed one Background sentence describing the 2007 Hamas takeover of the Gaza Strip.",
-          "On 2013-02-10T10:52:38Z, Hendrick 99 removed from the Background section the sentence stating that, after Israel's 2005 unilateral disengagement plan, the Palestinian National Authority gained full control of the Gaza Strip except its borders, airspace, and territorial waters.",
-          "On 2013-02-10T11:04:00Z, Hendrick 99 removed one sentence from the Background section stating that the PNA gained full control of the Gaza Strip in 2005 except for its borders, airspace, and territorial waters.",
-          "On 2013-01-06T15:23:51Z, Johnkatz1972 added a sentence to the 2012 United Nations observer state status section stating that President Abbas ordered Palestinian embassies to replace official references to the Palestinian Authority with the State of Palestine.",
-          "On 2013-01-07T07:58:11Z, Japinderum removed the sentence stating that Abbas ordered Palestinian embassies to replace references to the Palestinian Authority with State of Palestine in the 2012 United Nations observer state status section.",
-          "AnomieBOT made the revision on 2013-01-07T08:19:25Z; the supplied cleaned article content did not change.",
-          "GastelEtzwane changed the French-language interwiki link for the State of Palestine from \"État de Palestine\" to \"Palestine (État)\" on 2013-01-07T16:42:45Z.",
-          "On 2013-01-08T09:42:01Z, Japinderum removed references to the Law of the Seas Treaty, Nuclear Non-Proliferation Treaty, and International Criminal Court from the 2012 United Nations observer state status section's list of bodies and treaties Palestine could join.",
-          "On 2013-01-25T09:46:08Z, عبد المؤمن replaced the State of Palestine infobox image flag from “Coat of arms of State of Palestine (Official).png” to “Flag of Palestine.svg”.",
-          "On 2013-01-25T09:47:15Z, عبد المؤمن changed the State of Palestine infobox coat-of-arms image from “Palestine COA (alternative).svg” to “Coat of arms of State of Palestine (Official).png”.",
-          "On 2013-01-26T00:08:09Z, Emmette Hernandez Coleman replaced the State of Palestine infobox coat-of-arms image, changing it from “Coat of arms of State of Palestine (Official).png” to “Palestine COA (alternative).svg”.",
-          "On 2013-02-04T15:03:43Z, ZacharyGeorge reworded the infobox’s second establishment event from “UNGA resolution for observer state status” to “Statehood recognized,” retaining the date 29 November 2012.",
-          "On 2013-02-04T21:11:00Z, Emmette Hernandez Coleman replaced the infobox's second established event, \"Statehood recognized,\" with \"UNGA resolution for observer state status,\" retaining the date 29 November 2012.",
-          "On 2013-02-07T12:33:38Z, Yobot moved the Lezgian-language State of Palestine link from after the Chinese-language link to its alphabetical position after the Latvian-language link.",
-          "On 2013-01-17T10:09:58Z, Japinderum added a lead sentence stating that the areas envisioned to make up the State of Palestine have been occupied by Israel since 1967.",
-          "On 2013-01-21T01:00:41Z, Emmette Hernandez Coleman made a revision, but the supplied cleaned article content did not change.",
-          "On 2013-01-21T18:53:15Z, BotKung added the th:รัฐปาเลสไตน์ interlanguage link and repositioned the lez:Гьукумат Палестина interlanguage link in the State of Palestine article's interlanguage links.",
-          "Emmette Hernandez Coleman made the revision on 2013-01-23T06:47:40Z, and the supplied cleaned article content did not change.",
-          "Malik Shabazz made the revision on 2013-01-23T10:29:11Z; the supplied cleaned article content did not change.",
-          "On 2013-01-25T09:44:31Z, عبد المؤمن replaced the State of Palestine infobox flag image, changing it from \"Flag of Palestine.svg\" to \"Coat of arms of State of Palestine (Official).png\"."
-        ],
-        "child_labels": [
-          "Authority State Transition",
-          "Palestinian Embassy Renaming",
-          "Palestinian Symbols Recognition",
-          "Palestinian Occupation Status"
-        ],
-        "revision_count": 31,
-        "importance": 31.034170507517402,
-        "parent_id": "root"
-      },
-      {
-        "node_id": "macro-7",
-        "level": "macro",
-        "cluster_ids": [
           14
         ],
         "x": 0.0014235794356045619,
         "y": -3.922423251115441e-05,
-        "label": "UN Observer Status",
+        "label": "Palestinian State Designation",
         "terms": [
           "Lead Sentences Removed",
           "Seating Vote Removed",
@@ -17354,7 +17320,7 @@
         ],
         "revision_count": 14,
         "importance": 14.027750521537277,
-        "parent_id": "macro-6"
+        "parent_id": "macro-1"
       },
       {
         "node_id": "cluster-14",
@@ -17438,7 +17404,7 @@
         ],
         "revision_count": 23,
         "importance": 23.105429887594106,
-        "parent_id": "macro-7"
+        "parent_id": "macro-6"
       },
       {
         "node_id": "cluster-15",
@@ -17476,7 +17442,7 @@
         ],
         "revision_count": 5,
         "importance": 5.003915294570951,
-        "parent_id": "macro-6"
+        "parent_id": "macro-1"
       },
       {
         "node_id": "cluster-16",
@@ -18018,7 +17984,7 @@
         ],
         "revision_count": 6,
         "importance": 6.000000036,
-        "parent_id": "macro-6"
+        "parent_id": "macro-1"
       },
       {
         "node_id": "cluster-27",
@@ -18056,7 +18022,7 @@
         ],
         "revision_count": 6,
         "importance": 6.002504655409174,
-        "parent_id": "macro-6"
+        "parent_id": "macro-1"
       },
       {
         "node_id": "cluster-28",

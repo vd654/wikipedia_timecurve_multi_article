@@ -41,7 +41,7 @@ from revision_keywords import (
 
 
 MODEL = DEFAULT_OPENAI_MODEL
-SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-09-18-v087"
+SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-10-02-v088"
 MIN_VIEW_SCALE = 0.01
 MAX_VIEW_SCALE = 50.0
 MIN_PARENT_LABEL_WORDS = 2
@@ -147,6 +147,23 @@ class NodeLabelBatch(BaseModel):
 
 def _normalise_term(value: str) -> str:
     return " ".join(value.strip().split())
+
+
+ISO_TIMESTAMP_PATTERN = re.compile(
+    r"\b(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})"
+    r"T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})\b"
+)
+
+
+def compact_display_timestamps(value: str) -> str:
+    """Shorten ISO timestamps for labels without altering stored evidence."""
+    return ISO_TIMESTAMP_PATTERN.sub(
+        lambda match: (
+            f"{match.group('day')}-{match.group('month')}-"
+            f"{match.group('year')[-2:]}"
+        ),
+        value,
+    )
 
 
 def valid_parent_label(value: str) -> bool:
@@ -1923,6 +1940,7 @@ def build_vega_spec(
         description = _normalise_term(node.get("detailed_description", ""))
         if node.get("level") != "edge" or not description:
             return node["label"]
+        description = compact_display_timestamps(description)
         return textwrap.wrap(
             description,
             width=46,
@@ -2733,7 +2751,7 @@ def build_vega_spec(
             {
                 "name": "revisionPoints", "type": "symbol", "from": {"data": "normalRevisionPoints"},
                 "encode": {"enter": {
-                    "tooltip": {"signal": "{'Revision ID': datum.revision_id, 'Timestamp': datum.timestamp, 'Author': datum.author, 'Cluster': datum.cluster_label}"}
+                    "tooltip": {"signal": "{'Revision ID': datum.revision_id, 'Timestamp': datum.timestamp, 'Author': datum.author}"}
                 }, "update": {
                     "x": {"scale": "xscale", "field": "x"}, "y": {"scale": "yscale", "field": "y"},
                     "shape": {"value": "circle"},
@@ -2808,8 +2826,7 @@ def build_vega_spec(
                         "signal": (
                             "{'Revision ID': datum.revision_id, "
                             "'Timestamp': datum.timestamp, "
-                            "'Author': datum.author, "
-                            "'Cluster': datum.cluster_label}"
+                            "'Author': datum.author}"
                         )
                     },
                 }},
@@ -2928,9 +2945,6 @@ def build_vega_spec(
                     "stroke": {"value": "#ffffff"},
                     "strokeWidth": {"value": 2},
                     "strokeOpacity": {"value": 1},
-                    "tooltip": {
-                        "signal": "{'Full description': datum.detailed_description || datum.label}"
-                    },
                 }}
             },
         ],
@@ -2986,7 +3000,6 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 #legend{{min-width:0;overflow:auto;border-left:1px solid #d9ddd6;padding:16px 16px 22px;background:#f7f6f2;box-sizing:border-box}}
 #legend h2{{font-size:17px;margin:0 0 15px}}
 #legend h3{{font-size:12px;line-height:1.2;letter-spacing:.06em;text-transform:uppercase;color:#687068;margin:18px 0 9px}}
-.legend-hint{{margin:0 0 9px;color:#687068;font-size:11px;line-height:1.35}}
 .legend-list{{list-style:none;margin:0;padding:0;display:grid;gap:8px}}
 .macro-list{{grid-template-columns:1fr;gap:7px}}
 .macro-list li{{width:100%}}
@@ -3012,8 +3025,8 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 <h2>Legend</h2>
 <h3>Display</h3>
 <ul class="legend-list">
-<li><span class="legend-dot"></span><span>Revision point (macro-group colour; Noise grey)</span></li>
-<li><span class="legend-ring"></span><span>Temporal-section point (macro-group colour)</span></li>
+<li><span class="legend-dot"></span><span>Revision point</span></li>
+<li><span class="legend-ring"></span><span>Temporal-section point</span></li>
 <li><span class="legend-line"></span><span>Standard trajectory edge</span></li>
 <li><span class="legend-arrow">&#8594;</span><span>Revision direction</span></li>
 <li><span class="legend-line thick"></span><span>Repeated projected path</span></li>
@@ -3021,8 +3034,7 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 <li><span class="legend-partial"></span><span>Partial revert (selected text restored; unaffected text remains)</span></li>
 <li><span class="legend-spiral"></span><span>Edit War</span></li>
 </ul>
-<h3>Macro groups</h3>
-<p class="legend-hint">Select a group to reveal its clusters; select it again or press Escape to reset.</p>
+<h3>Macro clusters</h3>
 <ul class="legend-list macro-list">{macro_legend}</ul>
 </aside>
 </div>
