@@ -199,25 +199,21 @@ Beteiligten parallel auf der Diskussionsseite kommuniziert haben, lässt sich
 ohne deren separate Versionsgeschichte nicht feststellen und fließt daher
 nicht in die Erkennung ein.
 Neben identischen SHA1-Rücksprüngen zählen auch direkt aufeinanderfolgende
-partielle Gegenänderungen. Direkte Gegenänderungen werden gegenüber älteren
-Treffern bevorzugt und sowohl pro Textpassage als auch aggregiert über alle
-geänderten Passagen bewertet. Dafür sind mindestens 55 Prozent inverse
-Übereinstimmung und mindestens vier passende Wörter erforderlich. Wenn diese
-lexikalische Evidenz nicht reicht, kann eine Gegenbewegung in den vorhandenen
-hochdimensionalen Volltext-Embeddings den Revert belegen; dann müssen zusätzlich
-mindestens zwei Inhaltswörter der betroffenen Passagen übereinstimmen. Es gibt
-nur eine Edit-War-Kategorie. Die zweidimensionale Projektionsgeometrie ist kein
-Klassifikationssignal.
+partielle Gegenänderungen. Wenn dieselbe Revision sowohl die partielle als auch
+die exakte SHA1-Regel erfüllt, erhält der partielle Revert Vorrang und wird nur
+als partieller Revert gezählt und dargestellt. Die zweidimensionale
+Trajektorienregel verlangt eine unmittelbare, nahezu entgegengesetzte und zum
+Ausgangspunkt hin monotone Rückbewegung. Ergänzend kann die Gegenbewegung in
+den vorhandenen hochdimensionalen Volltext-Embeddings einen partiellen Revert
+belegen. Es gibt nur eine Edit-War-Kategorie.
 
 **Partieller Revert:** Löscht beziehungsweise revidiert nur die fehlerhaften
 oder unerwünschten Teile einer Änderung; die korrekten und nicht betroffenen
-Teile bleiben bestehen. Die Rückführung kann in mehreren Teilstücken oder
-Revisionen erfolgen. Jede erkannte Teilrücknahme muss jedoch eine direkte
-inverse Textübereinstimmung mit dem Ausgangsbestand der jeweils betroffenen
-Passage zeigen. Eine bloße Rückbewegung in der zweidimensionalen Projektion
-reicht nicht als Nachweis. Eine direkte Gegenänderung und Rücknahmen mit bis
-zu fünf dazwischenliegenden Revisionen werden geprüft; bei sechs oder mehr
-Zwischenrevisionen wird kein partieller Revert mehr zugeordnet.
+Teile bleiben bestehen. Die Rückführung kann in mehreren unmittelbar
+aufeinanderfolgenden Teilstücken erfolgen. Jeder Rückführungsschritt muss fast
+entgegengesetzt zur Ausgangsbewegung verlaufen und den Abstand zum
+Ausgangspunkt verkleinern. Eine Mindestzahl übereinstimmender Inhaltswörter
+wird für diese Trajektorienregel nicht verlangt.
 Exakte Reverts erhalten auf der normalen Trajektorienkante keine Pfeile, damit
 Hin- und Rückbewegungen nicht durch überlagerte Pfeilspitzen unleserlich werden.
 Ein gestrichelter roter Rückbogen beginnt am Datenpunkt der rückgängig
@@ -243,6 +239,9 @@ Die Edit-War-Kennzeichnung hat Vorrang vor eigenständigen roten exakten und
 grünen partiellen Revert-Bögen an derselben projizierten Verbindung.
 Der zugehörige blaue Konfliktbogen bleibt dort als einzige
 Revert-Kennzeichnung und wird über allen übrigen Rückbögen gezeichnet.
+Treffen exakte und partielle Revert-Bögen auf dieselbe projizierte Verbindung,
+werden sie auf gegenüberliegenden Seiten der Verbindung gezeichnet, damit
+keine der beiden Kategorien die andere verdeckt.
 Wiederholte Reverts derselben beiden projizierten Zustände
 werden paarweise mit größerem Bogenradius gezeichnet. Bei bestätigten Edit-War-
 Sitzungen entstehen dadurch gestrichelte und verschachtelte Hin-und-zurück-
@@ -349,7 +348,7 @@ unveränderten Eingaben werden sie aus dem Hierarchie-JSON wiederverwendet und
 verursachen keine erneuten API-Kosten.
 
 Vollständige ISO-Zeitstempel aus den gespeicherten Kantenbeschreibungen werden
-in sichtbaren Langlabels lokal auf `TT-MM-JJ` gekürzt. Die Quelldaten und der
+in sichtbaren Langlabels lokal auf `TT-MM-JJJJ` gekürzt. Die Quelldaten und der
 Tooltip behalten den vollständigen Zeitstempel; dafür ist kein erneuter
 API-Aufruf erforderlich.
 
@@ -362,7 +361,7 @@ Grundlage der Hierarchie inhaltlich ändert.
 
 ## Bedienung
 
-- Mausrad oder Trackpad: kontinuierlicher Zoom um den Zeiger von 1 % bis 50×;
+- Mausrad oder Trackpad: kontinuierlicher Zoom um den Zeiger von 1 % bis 200×;
   beim Herauszoomen wird die Geometrie zusammengeschoben, während Linien,
   Punkte und Schrift ihre Größe in Bildschirm-Pixeln behalten. Am äußersten
   Maßstab verdichtet sich die Karte zu einem Punkt mit dem priorisierten

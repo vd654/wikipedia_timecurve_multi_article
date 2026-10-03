@@ -41,9 +41,9 @@ from revision_keywords import (
 
 
 MODEL = DEFAULT_OPENAI_MODEL
-SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-10-02-v088"
+SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-10-03-v091"
 MIN_VIEW_SCALE = 0.01
-MAX_VIEW_SCALE = 50.0
+MAX_VIEW_SCALE = 200.0
 MIN_PARENT_LABEL_WORDS = 2
 MAX_PARENT_LABEL_WORDS = 3
 BACKGROUND_COLOR = "#fbfaf7"
@@ -160,7 +160,7 @@ def compact_display_timestamps(value: str) -> str:
     return ISO_TIMESTAMP_PATTERN.sub(
         lambda match: (
             f"{match.group('day')}-{match.group('month')}-"
-            f"{match.group('year')[-2:]}"
+            f"{match.group('year')}"
         ),
         value,
     )
@@ -1582,10 +1582,38 @@ def build_revert_arc_rows(
 
     for group in grouped.values():
         group.sort(key=lambda row: (row["event_order"], row["arc_id"]))
+        has_exact = any(
+            row["revert_kind"] == "exact_sha1" for row in group
+        )
+        has_partial = any(
+            row["revert_kind"] != "exact_sha1" for row in group
+        )
+        mixed_revert_kinds = has_exact and has_partial
         for rank, row in enumerate(group):
             row["arc_rank"] = rank
             row["arc_level"] = rank // 2
             row["arc_count"] = len(group)
+            row["mixed_revert_kinds"] = mixed_revert_kinds
+            if mixed_revert_kinds:
+                source_key = (
+                    round(float(row["x"]), 12),
+                    round(float(row["y"]), 12),
+                )
+                target_key = (
+                    round(float(row["x2"]), 12),
+                    round(float(row["y2"]), 12),
+                )
+                # Canonicalise the undirected connection before assigning
+                # exact and partial arcs to opposite visual sides. This keeps
+                # the separation stable even when the two revisions traverse
+                # the same connection in opposite chronological directions.
+                row["arc_direction"] = 1 if source_key <= target_key else -1
+                row["arc_side"] = (
+                    1 if row["revert_kind"] == "exact_sha1" else -1
+                )
+            else:
+                row["arc_direction"] = 1
+                row["arc_side"] = 1
     # Vega paints later paths on top. Draw every standalone revert first and
     # every Edit War last, while retaining chronology within each category.
     return sorted(
@@ -2332,7 +2360,8 @@ def build_vega_spec(
                     "as": "controlX",
                     "expr": (
                         "(datum.screenX1+datum.screenX2)/2 - "
-                        "datum.screenDy/datum.screenLength*datum.arcHeight"
+                        "datum.screenDy/datum.screenLength*datum.arcHeight*"
+                        "datum.arc_direction*datum.arc_side"
                     ),
                 },
                 {
@@ -2340,7 +2369,8 @@ def build_vega_spec(
                     "as": "controlY",
                     "expr": (
                         "(datum.screenY1+datum.screenY2)/2 + "
-                        "datum.screenDx/datum.screenLength*datum.arcHeight"
+                        "datum.screenDx/datum.screenLength*datum.arcHeight*"
+                        "datum.arc_direction*datum.arc_side"
                     ),
                 },
                 {

@@ -647,8 +647,8 @@ def test_iso_timestamp_is_compact_only_in_visible_edge_label():
     )["values"]
     edge_row = next(row for row in label_rows if row["node_id"] == "edge-1")
 
-    assert compact_display_timestamps(description).startswith("On 05-12-12,")
-    assert " ".join(edge_row["display_label"]).startswith("On 05-12-12,")
+    assert compact_display_timestamps(description).startswith("On 05-12-2012,")
+    assert " ".join(edge_row["display_label"]).startswith("On 05-12-2012,")
     assert edge_row["detailed_description"] == description
 
 
@@ -900,6 +900,9 @@ def test_revert_arc_rows_form_nested_edit_war_spiral():
     assert [row["arc_rank"] for row in rows] == [0, 1, 2]
     assert [row["arc_level"] for row in rows] == [0, 0, 1]
     assert all(row["arc_count"] == 3 for row in rows)
+    assert all(row["mixed_revert_kinds"] for row in rows)
+    assert [row["arc_side"] for row in rows] == [1, -1, 1]
+    assert [row["arc_direction"] for row in rows] == [1, -1, 1]
     assert all(row["is_edit_war"] for row in rows)
     assert all(row["edit_war_label"] == "Edit War" for row in rows)
     assert all("is_bot_edit_war" not in row for row in rows)
@@ -1202,7 +1205,7 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert any(signal["name"] == "zoomLevel" for signal in spec["signals"])
     signals = {signal["name"]: signal for signal in spec["signals"]}
     assert signals["minViewScale"]["value"] == 0.01
-    assert signals["maxViewScale"]["value"] == 50.0
+    assert signals["maxViewScale"]["value"] == 200.0
     assert signals["viewScale"]["update"] == "span(xext)/span(xdom)"
     assert signals["rootOnlyOverview"]["update"] == (
         "viewScale <= minViewScale * 1.001"
@@ -1323,6 +1326,8 @@ def test_vega_spec_uses_continuous_cartographic_label_decluttering():
     assert "datum.revert_kind==='exact_sha1'" in geometry_fields["arcHeight"]
     assert "datum.screenLength*0.12" in geometry_fields["arcHeight"]
     assert "min(95,max(10" in geometry_fields["arcHeight"]
+    assert "datum.arc_direction*datum.arc_side" in geometry_fields["controlX"]
+    assert "datum.arc_direction*datum.arc_side" in geometry_fields["controlY"]
     assert " Q" in geometry_fields["arcPath"]
     assert sum(edge["is_edit_war"] for edge in rendered_edges) == 2
     revert_arc_mark = next(

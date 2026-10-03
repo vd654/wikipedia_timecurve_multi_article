@@ -10,7 +10,7 @@ from rapidfuzz.distance import Levenshtein
 from text_cleaning import affected_sentence_window, sentence_window_at_position
 
 EDIT_WAR_MIN_EVENTS = 2
-REVERT_ANALYSIS_VERSION = "2026-09-30-three-point-edit-war-phases-v9"
+REVERT_ANALYSIS_VERSION = "2026-10-03-partial-revert-priority-v10"
 PARTIAL_REVERT_MAX_DIRECTION_COSINE = -0.98
 PARTIAL_REVERT_MIN_OUTGOING_COSINE = 0.98
 PARTIAL_REVERT_MAX_OUTGOING_STEPS = 2
@@ -611,21 +611,24 @@ def merge_revert_events(
     partial_events: list[dict],
     semantic_events: list[dict] | None = None,
 ) -> list[dict]:
-    """Prefer exact, then lexical, then semantic evidence per revision."""
-    exact_revision_ids = {str(event["revision_id"]) for event in exact_events}
-    lexical = [
-        event for event in partial_events
-        if str(event["revision_id"]) not in exact_revision_ids
-    ]
-    lexical_revision_ids = {
-        str(event["revision_id"]) for event in lexical
+    """Prefer partial evidence over exact SHA1 evidence per revision."""
+    partial = list(partial_events)
+    partial_revision_ids = {
+        str(event["revision_id"]) for event in partial
     }
     semantic = [
         event for event in (semantic_events or [])
-        if str(event["revision_id"]) not in exact_revision_ids
-        and str(event["revision_id"]) not in lexical_revision_ids
+        if str(event["revision_id"]) not in partial_revision_ids
     ]
-    merged = exact_events + lexical + semantic
+    semantic_revision_ids = {
+        str(event["revision_id"]) for event in semantic
+    }
+    exact = [
+        event for event in exact_events
+        if str(event["revision_id"]) not in partial_revision_ids
+        and str(event["revision_id"]) not in semantic_revision_ids
+    ]
+    merged = partial + semantic + exact
     merged.sort(key=lambda event: (event["revision_index"], event["revision_id"]))
     directions = defaultdict(set)
     for event in merged:
@@ -1019,6 +1022,7 @@ def analyze_reverts(
             "partial_revert_requires_consecutive_revisions": True,
             "partial_revert_allows_piecewise_return": True,
             "partial_revert_requires_monotonic_return": True,
+            "partial_revert_precedence_over_exact_sha1": True,
             "semantic_revert_max_direction_cosine": (
                 SEMANTIC_REVERT_MAX_DIRECTION_COSINE
             ),

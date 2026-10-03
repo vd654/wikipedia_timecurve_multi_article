@@ -14,6 +14,7 @@ from revert_detection import (  # noqa: E402
     detect_semantic_counter_reverts,
     detect_sha1_reverts,
     gandica_c_measure,
+    merge_revert_events,
     yasseri_m_measure,
 )
 
@@ -72,6 +73,40 @@ def test_exact_sha1_self_revert_is_kept_but_is_not_an_edit_war():
     assert sessions == []
 
 
+def test_partial_revert_takes_precedence_over_exact_sha1_for_same_revision():
+    shared = {
+        "revision_index": 2,
+        "revision_id": "102",
+        "reverter": "Alice",
+        "reverted_editor": "Bob",
+        "pair": ["Alice", "Bob"],
+    }
+    exact = {**shared, "revert_kind": "exact_sha1"}
+    partial = {**shared, "revert_kind": "partial_trajectory"}
+
+    merged = merge_revert_events([exact], [partial])
+
+    assert len(merged) == 1
+    assert merged[0]["revert_kind"] == "partial_trajectory"
+
+
+def test_semantic_partial_revert_takes_precedence_over_exact_sha1():
+    shared = {
+        "revision_index": 2,
+        "revision_id": "102",
+        "reverter": "Alice",
+        "reverted_editor": "Bob",
+        "pair": ["Alice", "Bob"],
+    }
+    exact = {**shared, "revert_kind": "exact_sha1"}
+    semantic = {**shared, "revert_kind": "semantic_text"}
+
+    merged = merge_revert_events([exact], [], [semantic])
+
+    assert len(merged) == 1
+    assert merged[0]["revert_kind"] == "semantic_text"
+
+
 def test_conflict_is_marked_when_the_revert_pair_becomes_mutual():
     history = [
         revision(0, "state-a", "Alice"),
@@ -86,6 +121,7 @@ def test_conflict_is_marked_when_the_revert_pair_becomes_mutual():
     assert parameters["partial_revert_detection_basis"] == "visible_2d_trajectory"
     assert parameters["partial_revert_requires_consecutive_revisions"] is True
     assert parameters["partial_revert_requires_monotonic_return"] is True
+    assert parameters["partial_revert_precedence_over_exact_sha1"] is True
     assert parameters["partial_revert_min_matched_tokens"] is None
     statistics = analysis["point_statistics"]
     assert statistics[2]["interval_mutual_revert_count"] == 0
