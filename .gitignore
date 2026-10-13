@@ -1,8 +1,42 @@
+# Local environment files and secrets
 .env
+.env.*
+!.env.example
+.secrets/
+secrets/
+*credentials*.json
+client_secret*.json
+service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+.netrc
+.npmrc
+.pypirc
+
+# Local environments and caches
 .venv/
 .pytest_cache/
 __pycache__/
 *.pyc
+*.log
+.coverage
+htmlcov/
+
+# Editor and operating-system metadata
 .DS_Store
+.idea/
+.vscode/
+
+# Local/raw data and temporary files
 data/**/*.xml
 tmp/
+
+# Local test suite (kept on disk, excluded from the public repository)
+tests/

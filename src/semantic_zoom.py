@@ -64,11 +64,8 @@ MACRO_COLOURS = (
 )
 EXACT_REVERT_COLOR = "#d64545"
 PARTIAL_REVERT_COLOR = "#00875a"
-EDIT_WAR_COLOR = "#2457d6"
 REVERT_ARC_STROKE_WIDTH = 1.6
-EDIT_WAR_ARC_STROKE_WIDTH = 2.0
 REVERT_ARC_STROKE_OPACITY = 0.45
-EDIT_WAR_ARC_STROKE_OPACITY = 0.45
 REVERT_ARROW_OPACITY = 0.45
 REVISION_POINT_SIZE = 80
 CLUSTER_SELECTION_TARGET_SIZE = 700
@@ -1421,9 +1418,9 @@ def build_revert_arc_rows(
     """Map revert events to dashed screen-space arcs between plotted revisions.
 
     Each exact arc starts at the revision whose change was undone and ends at
-    the plotted anchor of ``restored_revision_id``. A direct partial counter-
-    edit is drawn as an Edit-War arc only when the offline analysis assigned it
-    to a repeated counter-revert session.
+    the plotted anchor of ``restored_revision_id``. Partial counter-edits use
+    their consecutive return segments. Edit-war session membership is analysis
+    metadata only and never changes the visual revert category.
     """
     if not revert_analysis:
         return []
@@ -1438,11 +1435,6 @@ def build_revert_arc_rows(
         )
         for point in point_rows
     )
-    session_sizes = {
-        str(session.get("session_id", "")): int(session.get("event_count", 0))
-        for session in revert_analysis.get("edit_war_sessions", [])
-        if session.get("session_id")
-    }
     rows = []
     for event_order, event in enumerate(revert_analysis.get("events", [])):
         source_id = str(event.get("revision_id", ""))
@@ -1457,9 +1449,7 @@ def build_revert_arc_rows(
             continue
         reverter = str(event.get("reverter", ""))
         reverted_editor = str(event.get("reverted_editor", ""))
-        session_id = str(event.get("edit_war_session_id", ""))
         revert_kind = str(event.get("revert_kind", "exact_sha1"))
-        is_edit_war = bool(session_id)
         restored_id = str(event.get("restored_revision_id") or "")
         restored_point = points_by_revision.get(restored_id)
         return_anchor = (
@@ -1473,11 +1463,7 @@ def build_revert_arc_rows(
             else source_id
         )
         pair = [str(editor) for editor in event.get("pair", []) if editor]
-        trajectory_path = (
-            event.get("trajectory_full_path_revision_ids", [])
-            if is_edit_war
-            else event.get("trajectory_path_revision_ids", [])
-        )
+        trajectory_path = event.get("trajectory_path_revision_ids", [])
         path_ids = [
             str(revision_id)
             for revision_id in trajectory_path
@@ -1539,38 +1525,7 @@ def build_revert_arc_rows(
                     else "Partial revert"
                 ),
                 "reversal_score": float(event.get("reversal_score", 1.0)),
-                "session_id": session_id,
-                "is_edit_war": is_edit_war,
-                "edit_war_label": "Edit War" if is_edit_war else "",
-                "session_event_count": session_sizes.get(session_id, 0),
             })
-
-    # Edit War is the highest-priority encoding only when the blue arc marks
-    # the same projected connection. A shared endpoint is insufficient: many
-    # unrelated revisions can collapse onto one projection coordinate, and
-    # suppressing by endpoint would hide valid revert arcs on other edges.
-    conflict_geometry_keys = {
-        tuple(sorted((
-            (round(float(row["x"]), 12), round(float(row["y"]), 12)),
-            (round(float(row["x2"]), 12), round(float(row["y2"]), 12)),
-        )))
-        for row in rows
-        if row["is_edit_war"]
-    }
-    rows = [
-        row for row in rows
-        if row["is_edit_war"]
-        or tuple(sorted((
-                (
-                    round(float(row["x"]), 12),
-                    round(float(row["y"]), 12),
-                ),
-                (
-                    round(float(row["x2"]), 12),
-                    round(float(row["y2"]), 12),
-                ),
-            ))) not in conflict_geometry_keys
-    ]
 
     grouped: dict[tuple, list[dict]] = defaultdict(list)
     for row in rows:
@@ -1578,7 +1533,7 @@ def build_revert_arc_rows(
             (round(float(row["x"]), 12), round(float(row["y"]), 12)),
             (round(float(row["x2"]), 12), round(float(row["y2"]), 12)),
         )))
-        grouped[(row["session_id"], endpoints)].append(row)
+        grouped[endpoints].append(row)
 
     for group in grouped.values():
         group.sort(key=lambda row: (row["event_order"], row["arc_id"]))
@@ -1614,16 +1569,7 @@ def build_revert_arc_rows(
             else:
                 row["arc_direction"] = 1
                 row["arc_side"] = 1
-    # Vega paints later paths on top. Draw every standalone revert first and
-    # every Edit War last, while retaining chronology within each category.
-    return sorted(
-        rows,
-        key=lambda row: (
-            bool(row["is_edit_war"]),
-            row["event_order"],
-            row["arc_id"],
-        ),
-    )
+    return sorted(rows, key=lambda row: (row["event_order"], row["arc_id"]))
 
 
 def snap_exact_revert_positions(
@@ -2345,9 +2291,6 @@ def build_vega_spec(
                     "type": "formula",
                     "as": "arcHeight",
                     "expr": (
-                        "datum.is_edit_war ? "
-                        "min(190,max(22,datum.screenLength*"
-                        "(0.25+0.075*datum.arc_level)+8*datum.arc_level)) : "
                         "datum.revert_kind==='exact_sha1' ? "
                         "min(190,max(22,datum.screenLength*0.28+"
                         "8*datum.arc_level)) : "
@@ -2653,8 +2596,7 @@ def build_vega_spec(
                                 "'Restored revision': datum.restored_revision_id, "
                                 "'Return anchor': datum.return_anchor_revision_id, "
                                 "'Points at return anchor': datum.target_overlap_count, "
-                                "'Editors': datum.pair_text, "
-                                "'Edit War': datum.edit_war_label}"
+                                "'Editors': datum.pair_text}"
                             )
                         },
                     },
@@ -2663,9 +2605,8 @@ def build_vega_spec(
                         "fillOpacity": {"value": 0},
                         "stroke": {
                             "signal": (
-                                f"datum.is_edit_war ? '{EDIT_WAR_COLOR}' : "
-                                "(datum.revert_kind==='exact_sha1' ? "
-                                f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}')"
+                                "datum.revert_kind==='exact_sha1' ? "
+                                f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}'"
                             )
                         },
                         "strokeOpacity": {
@@ -2678,13 +2619,7 @@ def build_vega_spec(
                                 f"{REVERT_ARC_STROKE_OPACITY} : 0.05"
                             )
                         },
-                        "strokeWidth": {
-                            "signal": (
-                                "datum.is_edit_war ? "
-                                f"{EDIT_WAR_ARC_STROKE_WIDTH} : "
-                                f"{REVERT_ARC_STROKE_WIDTH}"
-                            )
-                        },
+                        "strokeWidth": {"value": REVERT_ARC_STROKE_WIDTH},
                         "strokeDash": {"value": [8, 5]},
                         "strokeCap": {"value": "round"},
                         "strokeJoin": {"value": "round"},
@@ -2702,12 +2637,11 @@ def build_vega_spec(
                     "y": {"field": "arrowY"},
                     "shape": {"value": "triangle-right"},
                     "angle": {"field": "arrowAngle"},
-                    "size": {"signal": "datum.is_edit_war ? 54 : 46"},
+                    "size": {"value": 46},
                     "fill": {
                         "signal": (
-                            f"datum.is_edit_war ? '{EDIT_WAR_COLOR}' : "
-                            "(datum.revert_kind==='exact_sha1' ? "
-                            f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}')"
+                            "datum.revert_kind==='exact_sha1' ? "
+                            f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}'"
                         )
                     },
                     "fillOpacity": {
@@ -3044,7 +2978,6 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 .legend-line.thick{{border-top-width:4.45px}}
 .legend-arc{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dashed {EXACT_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
 .legend-partial{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dashed {PARTIAL_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
-.legend-spiral{{width:30px;height:10px;box-sizing:border-box;border:{EDIT_WAR_ARC_STROKE_WIDTH}px dashed {EDIT_WAR_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{EDIT_WAR_ARC_STROKE_OPACITY}}}
 .legend-arrow{{width:30px;flex:none;text-align:center;color:{TRAJECTORY_COLOR};font-size:23px;font-weight:800;line-height:10px}}
 @media(max-width:760px){{#content{{grid-template-columns:minmax(0,1fr) 205px}}#legend{{padding:12px 10px}}}}
 </style></head><body><main id="app">
@@ -3062,7 +2995,6 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 <li><span class="legend-line thick"></span><span>Repeated projected path</span></li>
 <li><span class="legend-arc"></span><span>Exact revert return</span></li>
 <li><span class="legend-partial"></span><span>Partial revert (selected text restored; unaffected text remains)</span></li>
-<li><span class="legend-spiral"></span><span>Edit War</span></li>
 </ul>
 <h3>Macro clusters</h3>
 <ul class="legend-list macro-list">{macro_legend}</ul>

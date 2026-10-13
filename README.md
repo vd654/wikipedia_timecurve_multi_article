@@ -157,9 +157,8 @@ Makrogruppenfarben; zusammen mit dem neutralen Grau für Noise entstehen damit
 insgesamt sieben Farbkategorien. Die feste Zuordnung lautet: Statehood
 Designation `#D4A017`, UN Status `#F8711A`, State Formation `#8B5A2B`,
 Sovereignty `#B5179E`, State Development `#4A1942`, UN Observer Status
-`#9B7BC8` und Noise `#A8A8A8`. Die konkreten Signalrot-, Signalgrün- und
-Signalblautöne bleiben ausschließlich exakten Reverts, partiellen Reverts und
-Edit Wars vorbehalten.
+`#9B7BC8` und Noise `#A8A8A8`. Die konkreten Signalrot- und Signalgrüntöne
+bleiben ausschließlich exakten beziehungsweise partiellen Reverts vorbehalten.
 Noise-Revisionen bleiben wie alle anderen Revisionen kreisförmig und werden
 neutral grau gezeichnet. Liegt ihre 2D-Position innerhalb der räumlichen
 Gesamtfläche der ausgewählten Makrogruppe, bleibt der graue Punkt im
@@ -181,8 +180,8 @@ kräftig dimensioniert. Auf jedem mindestens 34 Bildschirm-Pixel langen,
 sichtbaren Teilstück einer normalen Kante zeigt ein Pfeil die chronologische
 Revisionsrichtung. Wie bei Shaclens behält er beim Zoomen seine Bildschirmgröße
 und sitzt bis zu 30 px hinter dem Anfang des aktuell sichtbaren Liniensegments.
-Die festen Farben für Trajektorie, exakten Revert und Edit War werden aus
-denselben Farbkonstanten wie ihre Legendensymbole erzeugt. Punkt-, Hüllen- und
+Die festen Farben für Trajektorie, exakten Revert und partiellen Revert werden
+aus denselben Farbkonstanten wie ihre Legendensymbole erzeugt. Punkt-, Hüllen- und
 Abschnittsringfarben entsprechen der separat aufgeführten Makropalette.
 Bot-Kennzeichnungen sind dabei nur Audit-Metadaten. Reverts von automatisierten
 und menschlichen Konten werden für Richtungen, Sitzungen sowie Yasseri-M und
@@ -229,25 +228,20 @@ Edit War. Falls Projektion oder gespeicherte Rundung einen exakten SHA1-Revert
 geringfügig neben der wiederhergestellten Revision platzieren, wird nur dieser
 exakte Revert-Punkt für die Anzeige auf die Koordinaten seiner
 `restored_revision_id` gesetzt. Partielle Reverts werden nicht verschoben.
-Alleinstehende partielle Textumkehrungen erhalten einen grünen,
-gestrichelten Rückbogen zum neuen partiellen Zustand. Innerhalb einer
-bestätigten Edit-War-Sitzung erscheinen sie stattdessen als Konfliktbögen.
-Alle bestätigten Edit Wars sind blau. Eine eigene visuelle
-Kategorie für Bot-Reverts gibt es nicht; Bot-Beteiligung beeinflusst weder die
-Farbe noch die statistische Bestimmung bestätigter Sitzungen.
-Die Edit-War-Kennzeichnung hat Vorrang vor eigenständigen roten exakten und
-grünen partiellen Revert-Bögen an derselben projizierten Verbindung.
-Der zugehörige blaue Konfliktbogen bleibt dort als einzige
-Revert-Kennzeichnung und wird über allen übrigen Rückbögen gezeichnet.
+Partielle Textumkehrungen erhalten einen grünen, gestrichelten Rückbogen zum
+neuen partiellen Zustand. Die Zugehörigkeit zu einer erkannten Edit-War-Sitzung
+ändert die visuelle Kategorie nicht: Jeder Revert wird ausschließlich als
+exakter oder partieller Revert dargestellt. Eine eigene visuelle Kategorie für
+Edit Wars oder Bot-Reverts gibt es nicht; diese Angaben bleiben reine
+Audit-Metadaten.
 Treffen exakte und partielle Revert-Bögen auf dieselbe projizierte Verbindung,
 werden sie auf gegenüberliegenden Seiten der Verbindung gezeichnet, damit
 keine der beiden Kategorien die andere verdeckt.
-Wiederholte Reverts derselben beiden projizierten Zustände
-werden paarweise mit größerem Bogenradius gezeichnet. Bei bestätigten Edit-War-
-Sitzungen entstehen dadurch gestrichelte und verschachtelte Hin-und-zurück-
-Bögen, die wie eine flache Spirale um die normale Trajektorie liegen. Die Bögen
-werden in Bildschirmkoordinaten berechnet und verändern die semantischen
-MDS-Positionen nicht.
+Wiederholte Reverts derselben beiden projizierten Zustände werden paarweise mit
+größerem Bogenradius gezeichnet. Auch innerhalb bestätigter Edit-War-Sitzungen
+bleiben diese Bögen rot beziehungsweise grün. Die Bögen werden in
+Bildschirmkoordinaten berechnet und verändern die semantischen MDS-Positionen
+nicht.
 
 Reine Statusmeldungen ohne inhaltliche Änderung (`No content change`,
 `Unchanged content`, `Content unchanged`) werden nicht als Kartenlabels
