@@ -38,5 +38,8 @@ htmlcov/
 data/**/*.xml
 tmp/
 
+# Generated model/API caches (kept locally, excluded from the repository)
+output/**/*cache*.json
+
 # Local test suite (kept on disk, excluded from the public repository)
 tests/

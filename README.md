@@ -23,12 +23,21 @@ Der finale Datensatz umfasst:
 - Projektion: klassische metrische MDS
 - Clustering: HDBSCAN auf der sichtbaren 2D-Projektion
 - 44 Cluster und 140 Noise-Punkte
-- normalisierter Stress-1: 0,1462
+- normalisierter Stress-1 (globaler MDS-Distanzfehler): 0,1462
 - Shepard-Korrelation: 0,9750
+- Anteil der positiven Eigenwertvarianz in 2D: 72,74 %
+- Anteil negativer Eigenwerte: 15,02 %
 
-`timecurve_002` bezeichnet den Projektionslauf. `terra_001` bezeichnet den
-ersten Label-Lauf für genau diese Projektion. Die Nummern zählen unabhängige
-Pipeline-Stufen und stehen nicht für vermischte Datensätze.
+`timecurve_002` bezeichnet den Projektionslauf. Die finale HTML-Datei verwendet
+die redaktionell geprüften Kantenlabels und die fixierte Labelhierarchie der
+Version `v8`. Ältere Dateien wie `terra_001` bleiben als Zwischenstände und
+Auditgrundlage erhalten, sind aber nicht die Eingabe der finalen Karte.
+
+Stress-1 fasst den globalen Distanzfehler der zweidimensionalen Projektion in
+einer Zahl zusammen: kleiner ist besser. Er ist nur zusammen mit weiteren
+Qualitätsmaßen sinnvoll zu interpretieren. Die hohe Shepard-Korrelation zeigt,
+dass die Rangordnung der Distanzen insgesamt gut erhalten bleibt; lokale
+Abstände oder einzelne Überlagerungen können trotzdem verzerrt sein.
 
 ## Methode
 
@@ -110,32 +119,27 @@ Clusterhüllen.
 Übergeordnete Labels besitzen eine
 feste Ankerposition; jedes Kantenlabel wird in der Mitte des aktuell sichtbaren
 Kantenabschnitts platziert. Alle Labels behalten eine konstante Schriftgröße.
-Jede sichtbare Kindebene muss mindestens einen neuen inhaltlichen Begriff oder
+Jede sichtbare Kindebene soll mindestens einen neuen inhaltlichen Begriff oder
 eine konkrete Änderungsrichtung hinzufügen. Kantenkurzlabels nennen deshalb
 Gegenstand plus Handlung beziehungsweise Ergebnis; ihre ausführliche Variante
-ergänzt Autor, Zeitpunkt und vollständigen Umfang. Der finale Aufbau bricht ab,
-wenn ein Kindlabel gegenüber seinem Elternlabel keine zusätzliche Information
-liefert.
+ergänzt Autor, Zeitpunkt und vollständigen Umfang. Eine Prüffunktion kann
+inhaltlich unspezifische Kindlabels für die redaktionelle Kontrolle melden;
+der normale Kartenaufbau bricht deswegen derzeit nicht automatisch ab.
 Berühren sich zwei Textflächen, verschwindet das Label mit niedrigerer
 Priorität. Es erscheint wieder, sobald Zoomen oder Verschieben genügend Platz
 schafft. Ein Stabilitätsbonus verhindert Flackern bei kleinen Bewegungen.
-Textgleiche Artikel-, Makro-, Cluster-, Abschnitts- und Kantenlabels werden vor
-dem Rendern zusammengeführt. Bei identischem
-normalisiertem Text bleibt nur eine Beschriftung erhalten: Übergeordnete Themen
-haben Vorrang vor lokalen Details; zwischen gleichrangigen Kanten gewinnt die
-Revision mit der größeren Summe aus hinzugefügten und entfernten Wörtern.
-Das gilt getrennt für kurze und ausführliche Texte in beiden Zoomdarstellungen
-und unabhängig von der Kantengeometrie, also auch bei vollständig überlagerten
-Kanten. Semantischer Sprung, Revisionsabdeckung und stabile ID lösen
-Gleichstände.
-Vollständig überlagerte Kanten erhalten zusätzlich insgesamt nur ein Label,
-selbst wenn ihre Texte verschieden sind. Dabei gewinnt zuerst eine vorhandene
-ausführliche Erklärung, danach die größere Wortänderung, der Informationsumfang,
-die Labelkonfidenz und der semantische Sprung. Die übrigen Kanten bleiben als
+Textgleiche übergeordnete Artikel-, Makro-, Cluster- und Abschnittslabels
+werden vor dem Rendern zusammengeführt. Räumlich getrennte Revisionskanten
+behalten dagegen ihre eigenen Beschriftungen, auch wenn deren Texte identisch
+sind. Nur vollständig überlagerte Kanten erhalten an derselben Geometrie
+insgesamt ein Label. Dabei gewinnt zuerst eine vorhandene ausführliche
+Erklärung, danach die größere Wortänderung, der Informationsumfang, die
+Labelkonfidenz und der semantische Sprung. Die übrigen Kanten bleiben als
 Geometrie und Revisionsereignisse erhalten.
-Jedes sichtbare Label besitzt eine vollständig deckende Textfüllung und eine
-vollständig deckende weiße 4-px-Kontur. Ausgeblendete Kollisionskandidaten
-werden ohne halbtransparente Zwischenphase entfernt.
+Jedes sichtbare Label besitzt eine vollständig deckende Textfüllung.
+Übergeordnete Hierarchielabels verwenden eine weiße 4-px-Kontur,
+Kantenbeschriftungen eine weiße 2-px-Kontur. Ausgeblendete
+Kollisionskandidaten werden ohne halbtransparente Zwischenphase entfernt.
 Jede eigenständige Revisionskante bleibt ebenfalls ein Labelkandidat. Es gibt
 keine feste Zoomschwelle: Die Kollisionsprüfung versucht zuerst die
 ausführliche mehrzeilige Beschreibung. Reicht der freie Bildschirmraum dafür
@@ -150,13 +154,15 @@ Beschriftungen müssen die allgemeine Kollisionsprüfung bestehen. Wo genügend
 Platz vorhanden ist, erscheint die vollständige Beschreibung; andernfalls wird
 das Kurzlabel versucht oder die Beschriftung bis zu einem stärkeren Zoom
 ausgeblendet. Effektiv punktförmige Kanten verwenden ausschließlich das
-Kurzlabel. Der Volltext bleibt unabhängig davon als Tooltip verfügbar.
+Kurzlabel. Die ausführliche Beschreibung bleibt in den eingebetteten Daten
+erhalten, wird aber nicht als eigener Tooltip angezeigt.
 
 Revisionspunkte und Clusterhüllen verwenden höchstens sechs stabile
 Makrogruppenfarben; zusammen mit dem neutralen Grau für Noise entstehen damit
-insgesamt sieben Farbkategorien. Die feste Zuordnung lautet: Statehood
-Designation `#D4A017`, UN Status `#F8711A`, State Formation `#8B5A2B`,
-Sovereignty `#B5179E`, State Development `#4A1942`, UN Observer Status
+insgesamt sieben Farbkategorien. Die feste Zuordnung der finalen `v8`-Karte
+lautet: Palestinian Statehood `#D4A017`, Palestinian UN Status `#F8711A`,
+Palestinian State Formation `#8B5A2B`, Palestinian Sovereignty `#B5179E`,
+Palestinian State Development `#4A1942`, Palestinian State Designation
 `#9B7BC8` und Noise `#A8A8A8`. Die konkreten Signalrot- und Signalgrüntöne
 bleiben ausschließlich exakten beziehungsweise partiellen Reverts vorbehalten.
 Noise-Revisionen bleiben wie alle anderen Revisionen kreisförmig und werden
@@ -204,7 +210,8 @@ als partieller Revert gezählt und dargestellt. Die zweidimensionale
 Trajektorienregel verlangt eine unmittelbare, nahezu entgegengesetzte und zum
 Ausgangspunkt hin monotone Rückbewegung. Ergänzend kann die Gegenbewegung in
 den vorhandenen hochdimensionalen Volltext-Embeddings einen partiellen Revert
-belegen. Es gibt nur eine Edit-War-Kategorie.
+belegen. Edit Wars werden weiterhin als eine analytische Kategorie erfasst,
+erhalten aber keine eigene visuelle Markierung.
 
 **Partieller Revert:** Löscht beziehungsweise revidiert nur die fehlerhaften
 oder unerwünschten Teile einer Änderung; die korrekten und nicht betroffenen
@@ -300,7 +307,7 @@ python src/revision_metadata.py \
     output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json
 ```
 
-### 4. Volltext-Kantenlabels erzeugen
+### 4. Neue Volltext-Kantenlabels erzeugen (optional)
 
 ```bash
 python src/edge_labels.py \
@@ -309,14 +316,21 @@ python src/edge_labels.py \
     output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json \
   --metadata \
     output/Palestine_small/Palestine_small_bert_timecurve_002_revision_metadata.json \
-  --model gpt-5.6-terra
+  --model gpt-5.6-terra \
+  --output \
+    output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_labels_gpt-5.6-terra_new.json \
+  --cache \
+    output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_label_cache_gpt-5.6-terra_new.json
 ```
 
 Das Modell erhält beide vollständigen bereinigten Revisionstexte sowie Autor,
 Zeitstempel und Bearbeitungskommentar beider Revisionen. Es bekommt keinen
 vorberechneten Diff, sondern vergleicht die Volltexte selbst. Metadaten gelten
 dabei als nicht vertrauenswürdiger Zusatzkontext; der tatsächliche Textvergleich
-bleibt maßgeblich. Der vorhandene Cache verhindert doppelte Modellaufrufe. Mit
+bleibt maßgeblich. Der lokale Cache verhindert doppelte Modellaufrufe und wird
+durch `.gitignore` nicht veröffentlicht. Dieser optionale Schritt erzeugt einen
+neuen Roh-Lauf; die finale Karte verwendet stattdessen den bereits geprüften
+`v8`-Labelbestand. Mit
 `src/revision_keywords.py` steht zusätzlich eine ausführlichere Auditpipeline
 mit Git-Wortdiff, Evidenz und Änderungsstatistiken zur Verfügung; sie ist für
 die fertige Präsentationsdatei nicht erforderlich.
@@ -328,23 +342,24 @@ python src/semantic_zoom.py \
   --projection \
     output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json \
   --diff-labels \
-    output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_labels_gpt-5.6-terra_001.json \
+    output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_labels_gpt-5.6-terra_v8.json \
   --article Palestine \
   --model gpt-5.6-terra \
   --skip-word-counts \
   --labels-output \
-    output/Palestine_small/Palestine_small_bert_timecurve_002_semantic_zoom_full_revision_terra_001.json \
+    output/Palestine_small/Palestine_small_bert_timecurve_002_semantic_zoom_full_revision_terra_v8.json \
   --html-output output/Palestine_final.html
 ```
 
-Der erste Lauf erzeugt die übergeordneten englischen Labels per API. Bei
-unveränderten Eingaben werden sie aus dem Hierarchie-JSON wiederverwendet und
-verursachen keine erneuten API-Kosten.
+Ist die angegebene Hierarchie-Datei noch nicht vorhanden, erzeugt der erste
+Lauf die übergeordneten englischen Labels per API. Die eingecheckte `v8`-Datei
+enthält bereits die redaktionell geprüfte und fixierte Hierarchie; bei
+unveränderter Projektion wird sie wiederverwendet und verursacht keine erneuten
+API-Kosten.
 
 Vollständige ISO-Zeitstempel aus den gespeicherten Kantenbeschreibungen werden
-in sichtbaren Langlabels lokal auf `TT-MM-JJJJ` gekürzt. Die Quelldaten und der
-Tooltip behalten den vollständigen Zeitstempel; dafür ist kein erneuter
-API-Aufruf erforderlich.
+in sichtbaren Langlabels lokal auf `TT-MM-JJJJ` gekürzt. Die Quelldaten behalten
+den vollständigen Zeitstempel; dafür ist kein erneuter API-Aufruf erforderlich.
 
 Eine redaktionell geprüfte Labelpyramide kann im Hierarchie-JSON als fixiert
 markiert werden. Ihre Makro-, Cluster- und Abschnittslabels werden dann auch bei
@@ -368,7 +383,7 @@ Grundlage der Hierarchie inhaltlich ändert.
   auch ihre Trajektoriensegmente, Richtungspfeile und – bei genügend Platz –
   Kantenlabels werden eingeblendet. Erneuter Klick oder `Escape` setzt den
   Fokus zurück
-- Revisionspunkt: Revision-ID, Zeitpunkt, Autor und Cluster anzeigen
+- Revisionspunkt: Revision-ID, Zeitpunkt und Autor anzeigen
 
 Die HTML-Datei enthält Daten und Vega-Spezifikation, lädt Vega und Vega-Tooltip
 aber über ein CDN und ist daher noch keine vollständig autarke Offline-Version.
@@ -386,6 +401,15 @@ src/
 ├── revert_detection.py   Reverts und Edit-War-Sitzungen erkennen
 ├── revision_metadata.py  Autor, Zeitstempel und Kommentare ergänzen
 ├── edge_labels.py        ein Terra-Label pro vollständigem Revisionspaar
+├── apply_edge_labels.py  geprüfte Kantenlabels auf einen Bestand anwenden
+├── apply_fixed_edge_label_overrides.py
+│                          fixierte Kantenkorrekturen anwenden
+├── apply_hierarchy_label_overrides.py
+│                          geprüfte Hierarchielabels anwenden
+├── refine_edge_labels_from_descriptions.py
+│                          Kurzlabels aus Detailbeschreibungen nachbearbeiten
+├── estimate_label_cost.py
+│                          Umfang und Kosten eines Label-Laufs schätzen
 ├── semantic_zoom.py      Hierarchie und interaktive finale Karte
 ├── revision_keywords.py  optionale ausführliche Diff-Auditpipeline
 ├── git_word_diff.py      validierter Wortdiff für Auditdaten
@@ -393,19 +417,23 @@ src/
 ├── config.py             gemeinsame Pfade und CLI-Argumente
 └── output_utils.py       nummerierte Ausgabedateien
 
-tests/                    automatisierte Tests
+tests/                    lokale, von Git ignorierte Tests
 data/Palestine/           lokale, von Git ignorierte XML-Revisionsgeschichte
-output/Palestine_small/   Projektions-, Label- und Cache-Artefakte
+output/Palestine_small/   Projektions- und Labelartefakte; Caches lokal ignoriert
 output/Palestine_final.html
 ```
 
-## Tests
+## Lokale Tests
+
+Der Ordner `tests/` ist bewusst über `.gitignore` ausgeschlossen und nicht Teil
+des öffentlichen Repositorys. Ein frischer Klon enthält daher keine Tests. Sind
+die lokalen Tests vorhanden, werden sie mit folgendem Befehl ausgeführt:
 
 ```bash
 PYTHONPATH=src python -m pytest -q
 ```
 
-Die Tests prüfen unter anderem Revisionsreihenfolge, Volltextkontext,
+Die lokalen Tests prüfen unter anderem Revisionsreihenfolge, Volltextkontext,
 Diff-Rekonstruktion, Revert-Erkennung, feste Labelpositionen, Prioritäten und
-Kollisionsfreiheit. Die finale Artefaktprüfung bestätigt zusätzlich 619
-nichtleere Labels für 619 Kanten.
+Kollisionsfreiheit. Unabhängig davon enthält der eingecheckte finale
+`v8`-Labelbestand 619 nichtleere Labels für 619 Kanten.
