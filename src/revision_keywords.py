@@ -556,11 +556,27 @@ def local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
 
 
-def child_text(element: ET.Element, name: str) -> str:
+def direct_child(element: ET.Element | None, name: str) -> ET.Element | None:
+    if element is None:
+        return None
     for child in element:
         if local_name(child.tag) == name:
-            return child.text or ""
+            return child
+    return None
+
+
+def child_text(element: ET.Element | None, name: str) -> str:
+    child = direct_child(element, name)
+    if child is not None:
+        return child.text or ""
     return ""
+
+
+def element_is_hidden(element: ET.Element | None) -> bool:
+    """Return whether a MediaWiki XML element is marked as deleted/hidden."""
+    if element is None:
+        return False
+    return any(local_name(name) == "deleted" for name in element.attrib)
 
 
 def iter_revisions(
@@ -587,10 +603,19 @@ def iter_revisions(
         raw_text = child_text(element, "text")
         article_text = clean_wikitext(raw_text)
         infobox_text = extract_infobox_text(raw_text)
+        contributor = direct_child(element, "contributor")
+        comment = direct_child(element, "comment")
         revision = {
             "revision_id": revision_id,
             "timestamp": child_text(element, "timestamp"),
             "sha1": child_text(element, "sha1"),
+            "author": (
+                child_text(contributor, "username")
+                or child_text(contributor, "ip")
+            ),
+            "comment": (comment.text or "") if comment is not None else "",
+            "user_hidden": element_is_hidden(contributor),
+            "comment_hidden": element_is_hidden(comment),
             "text": " ".join(
                 part for part in (article_text, infobox_text) if part
             ),

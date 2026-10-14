@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "article": "Palestine",
+  "projection": "output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json",
+  "reviewed_hierarchy": "output/Palestine_small/Palestine_small_bert_timecurve_002_semantic_zoom_full_revision_terra_v8.json",
+  "html_output": "output/Palestine_final.html"
+}

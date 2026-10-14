@@ -9,7 +9,12 @@ from pathlib import Path
 
 import tiktoken
 
-from edge_labels import EdgeLabel, SYSTEM_PROMPT, build_prompt, revision_metadata
+from edge_labels import (
+    EdgeLabel,
+    SYSTEM_PROMPT,
+    apply_metadata_overrides,
+    build_prompt,
+)
 from revision_keywords import (
     iter_revisions,
     load_visualization_revision_ids,
@@ -21,7 +26,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--projection", type=Path, required=True)
     parser.add_argument("--xml", type=Path, required=True)
-    parser.add_argument("--metadata", type=Path, required=True)
+    parser.add_argument(
+        "--metadata",
+        type=Path,
+        help="Optional metadata JSON override; XML metadata is used by default.",
+    )
     parser.add_argument("--preview", type=Path, required=True)
     return parser.parse_args()
 
@@ -32,12 +41,7 @@ def main() -> int:
     revisions = list(select_visualized_revisions(
         iter_revisions(args.xml, revision_ids=revision_ids), revision_ids
     ))
-    metadata_payload = json.loads(args.metadata.read_text(encoding="utf-8"))
-    metadata_by_id = {
-        str(row["revision_id"]): row for row in metadata_payload["revisions"]
-    }
-    for revision in revisions:
-        revision.update(revision_metadata(metadata_by_id[revision["revision_id"]]))
+    apply_metadata_overrides(revisions, args.metadata)
 
     encoding = tiktoken.get_encoding("o200k_base")
     schema = json.dumps(EdgeLabel.model_json_schema(), ensure_ascii=False)

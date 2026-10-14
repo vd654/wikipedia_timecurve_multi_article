@@ -107,6 +107,34 @@ def normalise_unchanged_edges(
     return updated
 
 
+def projection_metadata_payload(
+    projection: dict, override_payload: dict | None = None
+) -> dict:
+    """Build revision metadata from projection points with an optional overlay."""
+    rows = [
+        {
+            "revision_id": str(point.get("revision_id", "")),
+            "author": str(point.get("author", "")),
+            "timestamp": str(point.get("timestamp", "")),
+            "comment": "",
+        }
+        for point in projection.get("points", [])
+        if point.get("revision_id")
+    ]
+    if override_payload is None:
+        return {"source": "projection", "revisions": rows}
+    overrides = {
+        str(row.get("revision_id", "")): row
+        for row in override_payload.get("revisions", [])
+        if row.get("revision_id")
+    }
+    for row in rows:
+        override = overrides.get(row["revision_id"])
+        if override is not None:
+            row.update(override)
+    return {"source": "projection with optional metadata override", "revisions": rows}
+
+
 def make_change_specific_edge_labels(hierarchy: dict) -> list[str]:
     """Add a concrete edit direction to every non-neutral short edge label."""
     updated: list[str] = []
@@ -242,7 +270,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--projection", type=Path, required=True)
     parser.add_argument("--hierarchy", type=Path, required=True)
     parser.add_argument("--detailed-descriptions", type=Path)
-    parser.add_argument("--revision-metadata", type=Path, required=True)
+    parser.add_argument(
+        "--revision-metadata",
+        type=Path,
+        help="Optional metadata JSON override; projection metadata is used by default.",
+    )
     parser.add_argument(
         "--edge-labels", type=Path, action="append", required=True,
         help="Repeat for ordered correction overlays; later files win.",
@@ -260,13 +292,22 @@ def main() -> int:
         if args.detailed_descriptions
         else None
     )
-    metadata_path = args.revision_metadata.expanduser().resolve()
+    metadata_path = (
+        args.revision_metadata.expanduser().resolve()
+        if args.revision_metadata
+        else None
+    )
     edge_label_paths = [path.expanduser().resolve() for path in args.edge_labels]
     html_output = args.html_output.expanduser().resolve()
 
     projection = json.loads(projection_path.read_text(encoding="utf-8"))
     payload = json.loads(hierarchy_path.read_text(encoding="utf-8"))
-    metadata_payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata_override = (
+        json.loads(metadata_path.read_text(encoding="utf-8"))
+        if metadata_path is not None
+        else None
+    )
+    metadata_payload = projection_metadata_payload(projection, metadata_override)
     hierarchy = payload.get("hierarchy")
     if not isinstance(hierarchy, dict):
         raise ValueError("Die Zieldatei enthält keine gültige Labelhierarchie.")
@@ -311,7 +352,8 @@ def main() -> int:
         "parent_labels_regenerated": False,
     }
     payload["cleaned_text_consistency"] = {
-        "revision_metadata": str(metadata_path),
+        "revision_metadata": str(metadata_path) if metadata_path else None,
+        "metadata_source": metadata_payload["source"],
         "normalised_unchanged_node_ids": unchanged_updated,
         "normalised_unchanged_count": len(unchanged_updated),
         "change_specific_node_ids": change_specific_updated,

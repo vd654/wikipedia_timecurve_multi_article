@@ -170,6 +170,43 @@ def revision_metadata(revision: dict) -> dict[str, str]:
     }
 
 
+def apply_metadata_overrides(
+    revisions: list[dict], metadata_path: Path | None
+) -> str:
+    """Optionally overlay API metadata on the values already read from XML."""
+    if metadata_path is None:
+        return "Wikipedia XML"
+    metadata_path = metadata_path.expanduser().resolve()
+    if not metadata_path.exists():
+        raise FileNotFoundError(
+            f"Optionale Revisionsmetadaten fehlen: {metadata_path}"
+        )
+    metadata_payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata_by_id = {
+        str(row.get("revision_id", "")): row
+        for row in metadata_payload.get("revisions", [])
+        if row.get("revision_id")
+    }
+    missing_metadata = [
+        revision["revision_id"]
+        for revision in revisions
+        if revision["revision_id"] not in metadata_by_id
+    ]
+    if missing_metadata:
+        raise ValueError(
+            "Optionale Revisionsmetadaten sind unvollständig; fehlend: "
+            + ", ".join(missing_metadata[:5])
+        )
+    for revision in revisions:
+        override = metadata_by_id[revision["revision_id"]]
+        for field in (
+            "author", "timestamp", "comment", "user_hidden", "comment_hidden"
+        ):
+            if field in override:
+                revision[field] = override[field]
+    return f"Wikipedia XML with override {metadata_path}"
+
+
 def unchanged_revision_result(current: dict) -> dict[str, str]:
     """Describe byte-identical cleaned revisions without asking the model."""
     author = normalise_label(str(current.get("author") or "Unknown editor"))
@@ -410,7 +447,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--metadata",
         type=Path,
-        help="Revision metadata JSON from revision_metadata.py",
+        help=(
+            "Optional metadata JSON override from revision_metadata.py; by default "
+            "author, timestamp, and comment are read directly from the XML"
+        ),
     )
     parser.add_argument("--cache", type=Path)
     parser.add_argument("--refresh-cache", action="store_true")
@@ -442,28 +482,8 @@ def main() -> int:
         iter_revisions(xml_path, revision_ids=revision_ids), revision_ids
     ))
     visualization_name = projection_path.stem.removesuffix("_projection")
-    metadata_path = args.metadata or projection_path.with_name(
-        f"{visualization_name}_revision_metadata.json"
-    )
-    if not metadata_path.exists():
-        raise FileNotFoundError(
-            "Revisionsmetadaten fehlen. Zuerst src/revision_metadata.py ausführen: "
-            f"{metadata_path}"
-        )
-    metadata_payload = json.loads(metadata_path.read_text(encoding="utf-8"))
-    metadata_by_id = {
-        str(row.get("revision_id", "")): row
-        for row in metadata_payload.get("revisions", [])
-        if row.get("revision_id")
-    }
-    missing_metadata = [item for item in revision_ids if item not in metadata_by_id]
-    if missing_metadata:
-        raise ValueError(
-            "Revisionsmetadaten sind unvollständig; fehlend: "
-            + ", ".join(missing_metadata[:5])
-        )
-    for revision in revisions:
-        revision.update(revision_metadata(metadata_by_id[revision["revision_id"]]))
+    metadata_path = args.metadata.expanduser().resolve() if args.metadata else None
+    metadata_source = apply_metadata_overrides(revisions, metadata_path)
     available_edge_count = len(revisions) - 1
     if args.limit is not None:
         if args.limit < 1:
@@ -486,7 +506,7 @@ def main() -> int:
 
     print(f"XML: {xml_path}", flush=True)
     print(f"Visualisierung: {projection_path}", flush=True)
-    print(f"Metadaten: {metadata_path}", flush=True)
+    print(f"Metadaten: {metadata_source}", flush=True)
     print(f"Modell: {model}", flush=True)
     print(f"Kanten: {len(revisions) - 1}", flush=True)
     print(
@@ -513,7 +533,8 @@ def main() -> int:
         "prompt_version": PROMPT_VERSION,
         "sampling": "exact_revision_order_from_visualization",
         "context": "two_complete_cleaned_revisions_plus_metadata_per_edge",
-        "revision_metadata": str(metadata_path),
+        "revision_metadata": str(metadata_path) if metadata_path else None,
+        "metadata_source": metadata_source,
         "word_diff_sent_to_llm": False,
         "maximum_label_words": MAX_LABEL_WORDS,
         "minimum_label_words": MIN_LABEL_WORDS,

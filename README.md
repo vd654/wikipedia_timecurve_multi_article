@@ -23,21 +23,6 @@ Der finale Datensatz umfasst:
 - Projektion: klassische metrische MDS
 - Clustering: HDBSCAN auf der sichtbaren 2D-Projektion
 - 44 Cluster und 140 Noise-Punkte
-- normalisierter Stress-1 (globaler MDS-Distanzfehler): 0,1462
-- Shepard-Korrelation: 0,9750
-- Anteil der positiven Eigenwertvarianz in 2D: 72,74 %
-- Anteil negativer Eigenwerte: 15,02 %
-
-`timecurve_002` bezeichnet den Projektionslauf. Die finale HTML-Datei verwendet
-die redaktionell geprüften Kantenlabels und die fixierte Labelhierarchie der
-Version `v8`. Ältere Dateien wie `terra_001` bleiben als Zwischenstände und
-Auditgrundlage erhalten, sind aber nicht die Eingabe der finalen Karte.
-
-Stress-1 fasst den globalen Distanzfehler der zweidimensionalen Projektion in
-einer Zahl zusammen: kleiner ist besser. Er ist nur zusammen mit weiteren
-Qualitätsmaßen sinnvoll zu interpretieren. Die hohe Shepard-Korrelation zeigt,
-dass die Rangordnung der Distanzen insgesamt gut erhalten bleibt; lokale
-Abstände oder einzelne Überlagerungen können trotzdem verzerrt sein.
 
 ## Methode
 
@@ -54,10 +39,6 @@ Wikipedia-XML
 → kontinuierliches kartografisches Labeling aus einer fünfteiligen Hierarchie
 ```
 
-Die Chunks sind ausschließlich technische Eingabeeinheiten des
-Embeddingmodells. Ein Punkt repräsentiert immer eine vollständige Revision;
-Sätze, Abschnitte und Chunks werden nicht als eigene Punkte behandelt.
-
 Die Distanz zweier Revisionen ist:
 
 ```text
@@ -65,22 +46,20 @@ Die Distanz zweier Revisionen ist:
         L2-normalisierter Revisionsvektor B)
 ```
 
-Es gibt keine zweite lexikalische Distanzmatrix, keine Hybridgewichtung, keine
-Perzentil-Streckung und kein UMAP. Die Clusteranzahl wird nicht vorgegeben.
-
 ## Kantenlabels
 
 Für jede der 619 Kanten erhält `gpt-5.6-terra` die beiden vollständigen
 bereinigten Revisionstexte vor und nach der Änderung sowie Autor, Zeitstempel
-und Bearbeitungskommentar beider Revisionen. Ein vorberechneter Diff wird nicht
+und – sofern im XML vorhanden – den Bearbeitungskommentar beider Revisionen.
+Ein vorberechneter Diff wird nicht
 übergeben; das Modell analysiert die beiden Volltexte direkt. Es erzeugt ein
 unteilbares Label mit zwei bis drei Wörtern, das bereits Objekt und
 Handlung beziehungsweise Ergebnis der konkreten Änderung nennt, sowie eine
 ausführliche Beschreibung der erkannten Änderung. Dadurch wird eine Kante beim
 Annähern inhaltlich genauer und wiederholt nicht nur ihr übergeordnetes Thema.
-Die Metadaten sind lediglich
-nicht vertrauenswürdiger Zusatzkontext; der tatsächliche Textunterschied bleibt
-maßgeblich. Wort-Diffs und Satzfenster werden nicht erzeugt oder gesendet.
+Die Metadaten sind lediglich zusätzlicher Kontext; der tatsächliche
+Textunterschied bleibt maßgeblich. Wort-Diffs und Satzfenster werden nicht
+erzeugt oder gesendet.
 
 Die Modellantworten werden nach jeder Kante gecacht. Ein abgebrochener Lauf
 kann deshalb ohne erneute Aufrufe fortgesetzt werden. Beim späteren Zoomen
@@ -96,8 +75,7 @@ unverändert sei.
 Die übergeordneten Ebenen werden vor dem Rendern mit derselben OpenAI-API aus
 den gespeicherten Kantenlabels und Keywords ihres jeweiligen Bereichs erzeugt.
 Terra formuliert für jeden zeitlichen Abschnitt, Cluster und jedes Makrothema
-genau einen englischen Überbegriff. Die Antworten werden im Hierarchie-JSON
-gecacht; mehrere Begriffe werden weder getrennt noch mit `·` kombiniert.
+genau einen Überbegriff. Die Antworten werden im Hierarchie-JSON gecacht.
 
 ## Kartografische Hierarchie
 
@@ -236,11 +214,8 @@ geringfügig neben der wiederhergestellten Revision platzieren, wird nur dieser
 exakte Revert-Punkt für die Anzeige auf die Koordinaten seiner
 `restored_revision_id` gesetzt. Partielle Reverts werden nicht verschoben.
 Partielle Textumkehrungen erhalten einen grünen, gestrichelten Rückbogen zum
-neuen partiellen Zustand. Die Zugehörigkeit zu einer erkannten Edit-War-Sitzung
-ändert die visuelle Kategorie nicht: Jeder Revert wird ausschließlich als
-exakter oder partieller Revert dargestellt. Eine eigene visuelle Kategorie für
-Edit Wars oder Bot-Reverts gibt es nicht; diese Angaben bleiben reine
-Audit-Metadaten.
+neuen partiellen Zustand. Jeder Revert wird ausschließlich als exakter oder
+partieller Revert dargestellt.
 Treffen exakte und partielle Revert-Bögen auf dieselbe projizierte Verbindung,
 werden sie auf gegenüberliegenden Seiten der Verbindung gezeichnet, damit
 keine der beiden Kategorien die andere verdeckt.
@@ -295,67 +270,18 @@ Die Pipeline erzeugt die Basiskarte, die Projektionsmetadaten, die
 Revisionsvektoren und die Kosinus-Distanzmatrix. Ausgaben werden fortlaufend
 nummeriert.
 
-### 3. Revisionsmetadaten ergänzen
-
-Das vorhandene XML bleibt unverändert. Autor, Zeitstempel und
-Bearbeitungskommentar werden für die exakten Revisions-IDs der Projektion in
-eine separate JSON-Datei geladen:
+### 3. Finale Karte erstellen
 
 ```bash
-python src/revision_metadata.py \
-  --projection \
-    output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json
+python src/build_final.py
 ```
 
-### 4. Neue Volltext-Kantenlabels erzeugen (optional)
-
-```bash
-python src/edge_labels.py \
-  --article Palestine \
-  --visualization \
-    output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json \
-  --metadata \
-    output/Palestine_small/Palestine_small_bert_timecurve_002_revision_metadata.json \
-  --model gpt-5.6-terra \
-  --output \
-    output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_labels_gpt-5.6-terra_new.json \
-  --cache \
-    output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_label_cache_gpt-5.6-terra_new.json
-```
-
-Das Modell erhält beide vollständigen bereinigten Revisionstexte sowie Autor,
-Zeitstempel und Bearbeitungskommentar beider Revisionen. Es bekommt keinen
-vorberechneten Diff, sondern vergleicht die Volltexte selbst. Metadaten gelten
-dabei als nicht vertrauenswürdiger Zusatzkontext; der tatsächliche Textvergleich
-bleibt maßgeblich. Der lokale Cache verhindert doppelte Modellaufrufe und wird
-durch `.gitignore` nicht veröffentlicht. Dieser optionale Schritt erzeugt einen
-neuen Roh-Lauf; die finale Karte verwendet stattdessen den bereits geprüften
-`v8`-Labelbestand. Mit
-`src/revision_keywords.py` steht zusätzlich eine ausführlichere Auditpipeline
-mit Git-Wortdiff, Evidenz und Änderungsstatistiken zur Verfügung; sie ist für
-die fertige Präsentationsdatei nicht erforderlich.
-
-### 5. Finale Karte erstellen
-
-```bash
-python src/semantic_zoom.py \
-  --projection \
-    output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json \
-  --diff-labels \
-    output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_labels_gpt-5.6-terra_v8.json \
-  --article Palestine \
-  --model gpt-5.6-terra \
-  --skip-word-counts \
-  --labels-output \
-    output/Palestine_small/Palestine_small_bert_timecurve_002_semantic_zoom_full_revision_terra_v8.json \
-  --html-output output/Palestine_final.html
-```
-
-Ist die angegebene Hierarchie-Datei noch nicht vorhanden, erzeugt der erste
-Lauf die übergeordneten englischen Labels per API. Die eingecheckte `v8`-Datei
-enthält bereits die redaktionell geprüfte und fixierte Hierarchie; bei
-unveränderter Projektion wird sie wiederverwendet und verursacht keine erneuten
-API-Kosten.
+Der kurze Final-Build liest seine ausschließlich relativen Eingabepfade aus
+`final_build.json`. Er benötigt nur die aktuelle Projektionsdatei und die
+vollständig eingebettete, redaktionell geprüfte finale Hierarchie. Er verwendet
+weder frühere HTML-Visualisierungen noch XML, Embeddings, Cache-Dateien oder
+einen API-Zugang. Dadurch kann die eingecheckte `Palestine_final.html` auf einem
+anderen Rechner bytegleich neu erzeugt werden.
 
 Vollständige ISO-Zeitstempel aus den gespeicherten Kantenbeschreibungen werden
 in sichtbaren Langlabels lokal auf `TT-MM-JJJJ` gekürzt. Die Quelldaten behalten
@@ -395,11 +321,12 @@ eingebunden werden.
 
 ```text
 src/
+├── build_final.py        reproduzierbarer Final-Build ohne API oder XML
 ├── wiki_api.py           Wikipedia-Revisionen laden
 ├── text_cleaning.py      Wikitext in Vergleichstext umwandeln
 ├── main_pipeline.py      Embeddings, MDS, HDBSCAN und Basiskarte
 ├── revert_detection.py   Reverts und Edit-War-Sitzungen erkennen
-├── revision_metadata.py  Autor, Zeitstempel und Kommentare ergänzen
+├── revision_metadata.py  optionaler Metadaten-Fallback für ältere XML-Dateien
 ├── edge_labels.py        ein Terra-Label pro vollständigem Revisionspaar
 ├── apply_edge_labels.py  geprüfte Kantenlabels auf einen Bestand anwenden
 ├── apply_fixed_edge_label_overrides.py
@@ -421,6 +348,7 @@ tests/                    lokale, von Git ignorierte Tests
 data/Palestine/           lokale, von Git ignorierte XML-Revisionsgeschichte
 output/Palestine_small/   Projektions- und Labelartefakte; Caches lokal ignoriert
 output/Palestine_final.html
+final_build.json          relative Eingaben des reproduzierbaren Final-Builds
 ```
 
 ## Lokale Tests
