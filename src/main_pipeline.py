@@ -358,10 +358,6 @@ def classical_mds(distance_matrix: np.ndarray) -> tuple[np.ndarray, dict]:
     upper = np.triu_indices(count, k=1)
     original_values = distance_matrix[upper]
     projected_values = projected[upper]
-    residual = original_values - projected_values
-    raw_stress = float(np.sum(residual ** 2))
-    denominator = float(np.sum(original_values ** 2))
-    normalized_stress = float(np.sqrt(raw_stress / denominator)) if denominator else 0.0
     if np.std(original_values) > 0 and np.std(projected_values) > 0:
         shepard = float(np.corrcoef(original_values, projected_values)[0, 1])
     else:
@@ -379,8 +375,6 @@ def classical_mds(distance_matrix: np.ndarray) -> tuple[np.ndarray, dict]:
         "dimensions": 2,
         "randomness": False,
         "quality": {
-            "raw_stress": raw_stress,
-            "normalized_stress_1": normalized_stress,
             "shepard_correlation": shepard,
             "positive_eigenvalue_variance_in_2d": explained,
             "negative_eigenvalue_fraction": (
@@ -628,10 +622,6 @@ def main() -> int:
         cluster_labels,
         cluster_probabilities,
     )
-    semantic_vectors = {
-        str(revision["revision_id"]): vector
-        for revision, vector in zip(revisions, revision_vectors)
-    }
     full_revert_history = load_revert_history(
         Path(paths["xml_path"]), include_text_changes=True
     )
@@ -641,7 +631,6 @@ def main() -> int:
     revert_analysis = analyze_reverts(
         conflict_history,
         sampled_for_conflict,
-        semantic_vectors=semantic_vectors,
     )
     for point, statistics in zip(points, revert_analysis["point_statistics"]):
         point.update(statistics)
@@ -704,7 +693,6 @@ def main() -> int:
     print(f"Revisionsvektoren: {stem}_revision_embeddings.npy")
     print(f"Distanzmatrix: {stem}_cosine_distance_matrix.npy")
     print(f"Revisionen / Punkte: {len(revisions)}")
-    print(f"Stress-1: {projection['quality']['normalized_stress_1']:.6f}")
     print(f"Shepard r: {projection['quality']['shepard_correlation']:.6f}")
     print(f"HDBSCAN-Cluster: {clustering['cluster_count']}")
     print(f"Noise-Punkte: {clustering['noise_point_count']}")

@@ -15,7 +15,6 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
-import numpy as np
 from pydantic import BaseModel, Field
 
 from config import BASE_DIR, article_paths
@@ -1450,6 +1449,13 @@ def build_revert_arc_rows(
         reverter = str(event.get("reverter", ""))
         reverted_editor = str(event.get("reverted_editor", ""))
         revert_kind = str(event.get("revert_kind", "exact_sha1"))
+        if revert_kind not in {"exact_sha1", "partial"}:
+            raise ValueError(
+                f"Unsupported revert category: {revert_kind!r}"
+            )
+        partial_detection_basis = (
+            "trajectory" if revert_kind == "partial" else ""
+        )
         restored_id = str(event.get("restored_revision_id") or "")
         restored_point = points_by_revision.get(restored_id)
         return_anchor = (
@@ -1471,7 +1477,10 @@ def build_revert_arc_rows(
         ]
         segment_ids = (
             list(zip(path_ids, path_ids[1:]))
-            if revert_kind == "partial_trajectory" and len(path_ids) >= 2
+            if (
+                revert_kind == "partial"
+                and len(path_ids) >= 2
+            )
             else [(target_id, return_anchor_id)]
         )
         for segment_index, (segment_start_id, segment_end_id) in enumerate(
@@ -1519,9 +1528,12 @@ def build_revert_arc_rows(
                 "reverted_editor": reverted_editor,
                 "pair_text": " ↔ ".join(pair),
                 "revert_kind": revert_kind,
+                "partial_detection_basis": (
+                    partial_detection_basis if revert_kind == "partial" else ""
+                ),
                 "revert_kind_label": (
                     "Exact revert"
-                    if event.get("revert_kind") == "exact_sha1"
+                    if revert_kind == "exact_sha1"
                     else "Partial revert"
                 ),
                 "reversal_score": float(event.get("reversal_score", 1.0)),
@@ -1667,8 +1679,8 @@ def build_vega_spec(
             "interval_exact_sha1_revert_count": int(
                 point.get("interval_exact_sha1_revert_count", 0)
             ),
-            "interval_partial_text_revert_count": int(
-                point.get("interval_partial_text_revert_count", 0)
+            "interval_partial_revert_count": int(
+                point.get("interval_partial_revert_count", 0)
             ),
             "interval_mutual_revert_count": int(
                 point.get("interval_mutual_revert_count", 0)
@@ -1753,7 +1765,7 @@ def build_vega_spec(
             "semantic_jump": semantic_jump,
             "revert_count": b["interval_revert_count"],
             "exact_revert_count": b["interval_exact_sha1_revert_count"],
-            "partial_revert_count": b["interval_partial_text_revert_count"],
+            "partial_revert_count": b["interval_partial_revert_count"],
             "has_exact_revert": b["interval_exact_sha1_revert_count"] > 0,
             "mutual_revert_count": b["interval_mutual_revert_count"],
             "gandica_c": b["gandica_c"],
@@ -2994,7 +3006,7 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 <li><span class="legend-arrow">&#8594;</span><span>Revision direction</span></li>
 <li><span class="legend-line thick"></span><span>Repeated projected path</span></li>
 <li><span class="legend-arc"></span><span>Exact revert return</span></li>
-<li><span class="legend-partial"></span><span>Partial revert (selected text restored; unaffected text remains)</span></li>
+<li><span class="legend-partial"></span><span>Partial revert</span></li>
 </ul>
 <h3>Macro clusters</h3>
 <ul class="legend-list macro-list">{macro_legend}</ul>
@@ -3381,19 +3393,6 @@ def main() -> int:
             "_projection.json", "_revision_embeddings.npy"
         )
     )
-    semantic_vectors = None
-    if embedding_path.exists():
-        embeddings = np.load(embedding_path)
-        if len(embeddings) != len(points):
-            raise ValueError(
-                "Revisions-Embeddings passen nicht zu den Projektionspunkten: "
-                f"{len(embeddings)} statt {len(points)}."
-            )
-        semantic_vectors = {
-            str(point["revision_id"]): vector
-            for point, vector in zip(points, embeddings)
-        }
-
     labels_output = args.labels_output or projection_path.with_name(
         projection_path.stem.removesuffix("_projection") + "_semantic_zoom_labels.json"
     )
@@ -3428,7 +3427,6 @@ def main() -> int:
         revert_analysis = analyze_reverts(
             conflict_history,
             sampled_for_conflict,
-            semantic_vectors=semantic_vectors,
         )
         for point, statistics in zip(
             points, revert_analysis["point_statistics"]

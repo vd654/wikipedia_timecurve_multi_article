@@ -182,14 +182,13 @@ Beteiligten parallel auf der Diskussionsseite kommuniziert haben, lässt sich
 ohne deren separate Versionsgeschichte nicht feststellen und fließt daher
 nicht in die Erkennung ein.
 Neben identischen SHA1-Rücksprüngen zählen auch direkt aufeinanderfolgende
-partielle Gegenänderungen. Wenn dieselbe Revision sowohl die partielle als auch
-die exakte SHA1-Regel erfüllt, erhält der partielle Revert Vorrang und wird nur
-als partieller Revert gezählt und dargestellt. Die zweidimensionale
-Trajektorienregel verlangt eine unmittelbare, nahezu entgegengesetzte und zum
-Ausgangspunkt hin monotone Rückbewegung. Ergänzend kann die Gegenbewegung in
-den vorhandenen hochdimensionalen Volltext-Embeddings einen partiellen Revert
-belegen. Edit Wars werden weiterhin als eine analytische Kategorie erfasst,
-erhalten aber keine eigene visuelle Markierung.
+partielle Gegenänderungen. Es gibt ausschließlich die Kategorien exakter und
+partieller Revert. Wenn dieselbe Revision beide Regeln erfüllt, erhält der
+exakte SHA1-Revert Vorrang und wird nur als exakter Revert gezählt und
+dargestellt. Die zweidimensionale Trajektorienregel verlangt eine unmittelbare,
+nahezu entgegengesetzte und zum Ausgangspunkt hin monotone Rückbewegung.
+Partielle Reverts werden ausschließlich anhand dieser sichtbaren
+zweidimensionalen Trajektorie bestimmt.
 
 **Partieller Revert:** Löscht beziehungsweise revidiert nur die fehlerhaften
 oder unerwünschten Teile einer Änderung; die korrekten und nicht betroffenen

@@ -57,8 +57,6 @@
     "dimensions": 2,
     "randomness": false,
     "quality": {
-      "raw_stress": 0.02077917843684486,
-      "normalized_stress_1": 0.1461678906688542,
       "shepard_correlation": 0.9749786369638906,
       "positive_eigenvalue_variance_in_2d": 0.7273568808393094,
       "negative_eigenvalue_fraction": 0.15024927809442312

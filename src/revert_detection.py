@@ -10,12 +10,10 @@ from rapidfuzz.distance import Levenshtein
 from text_cleaning import affected_sentence_window, sentence_window_at_position
 
 EDIT_WAR_MIN_EVENTS = 2
-REVERT_ANALYSIS_VERSION = "2026-10-03-partial-revert-priority-v10"
+REVERT_ANALYSIS_VERSION = "2026-10-14-trajectory-partial-reverts-v12"
 PARTIAL_REVERT_MAX_DIRECTION_COSINE = -0.98
 PARTIAL_REVERT_MIN_OUTGOING_COSINE = 0.98
 PARTIAL_REVERT_MAX_OUTGOING_STEPS = 2
-SEMANTIC_REVERT_MAX_DIRECTION_COSINE = -0.98
-SEMANTIC_REVERT_MAX_RETURN_RATIO = 0.3
 PARTIAL_REVERT_MAX_EVIDENCE_CHARS = 360
 PARTIAL_REVERT_MAX_SENTENCE_CHARS = 2_000
 EDIT_WAR_DEFINITION = (
@@ -282,14 +280,6 @@ def detect_sha1_reverts(revisions: list[dict]) -> list[dict]:
     return events
 
 
-def _signature_tokens(signature: dict, key: str) -> list[str]:
-    return [
-        token
-        for unit in signature.get("units", [])
-        for token in unit.get(key, [])
-    ]
-
-
 def _change_evidence(earlier_units: list[dict], later_units: list[dict]) -> tuple[list[str], list[str]]:
     evidence = list(dict.fromkeys(
         text
@@ -455,7 +445,8 @@ def detect_partial_trajectory_reverts(
                 "restored_revision_index": start_index,
                 "intervening_revision_count": 0,
                 "pair": list(editor_pair(final_return["user"], changed["user"])),
-                "revert_kind": "partial_trajectory",
+                "revert_kind": "partial",
+                "partial_detection_basis": "trajectory",
                 "reversal_score": float(max(0.0, 1.0 - return_ratio)),
                 "trajectory_direction_cosine": max(direction_cosines),
                 "trajectory_return_ratio": float(return_ratio),
@@ -521,114 +512,20 @@ def _direction_cosine(left: list[float], right: list[float]) -> float | None:
     return float(sum(a * b for a, b in zip(left, right)) / denominator)
 
 
-def _signature_topic_tokens(signature: dict) -> set[str]:
-    return set(_signature_tokens(signature, "added_tokens")) | set(
-        _signature_tokens(signature, "removed_tokens")
-    )
-
-
-def detect_semantic_counter_reverts(
-    revisions: list[dict],
-    semantic_vectors: dict[str, object] | None,
-    *,
-    max_direction_cosine: float = SEMANTIC_REVERT_MAX_DIRECTION_COSINE,
-    max_return_ratio: float = SEMANTIC_REVERT_MAX_RETURN_RATIO,
-) -> list[dict]:
-    """Detect adjacent semantic A→B→A' counter-movements in full vectors.
-
-    High-dimensional revision embeddings determine the counter-movement and
-    return distance. Shared changed-passage tokens are retained as diagnostic
-    information, but are not a classification threshold. The two-dimensional
-    display projection is never used for classification.
-    """
-    if not semantic_vectors:
-        return []
-    events = []
-    for index in range(2, len(revisions)):
-        before, previous, current = revisions[index - 2:index + 1]
-        if current["user"] == previous["user"]:
-            continue
-        try:
-            before_vector = _vector(semantic_vectors[str(before["revision_id"])])
-            previous_vector = _vector(semantic_vectors[str(previous["revision_id"])])
-            current_vector = _vector(semantic_vectors[str(current["revision_id"])])
-        except KeyError:
-            continue
-        previous_change = _vector_subtract(previous_vector, before_vector)
-        counter_change = _vector_subtract(current_vector, previous_vector)
-        direction_cosine = _direction_cosine(previous_change, counter_change)
-        if direction_cosine is None or direction_cosine > max_direction_cosine:
-            continue
-        previous_step = _vector_norm(previous_change)
-        current_step = _vector_norm(counter_change)
-        return_distance = _vector_norm(
-            _vector_subtract(current_vector, before_vector)
-        )
-        return_ratio = return_distance / max(previous_step, current_step, 1e-12)
-        if return_ratio > max_return_ratio:
-            continue
-        previous_signature = previous.get("change_signature", {})
-        current_signature = current.get("change_signature", {})
-        shared_topic_tokens = (
-            _signature_topic_tokens(previous_signature)
-            & _signature_topic_tokens(current_signature)
-        )
-        evidence, sentences = _change_evidence(
-            list(previous_signature.get("units", [])),
-            list(current_signature.get("units", [])),
-        )
-        events.append({
-            "revision_index": index,
-            "revision_id": current["revision_id"],
-            "timestamp": current["timestamp"],
-            "reverter": current["user"],
-            "reverted_editor": previous["user"],
-            "reverted_revision_id": previous["revision_id"],
-            "reverted_revision_index": index - 1,
-            "directly_reverts_previous_revision": True,
-            "restored_revision_id": None,
-            "restored_revision_index": None,
-            "intervening_revision_count": 0,
-            "pair": list(editor_pair(current["user"], previous["user"])),
-            "revert_kind": "semantic_text",
-            "reversal_score": float(
-                ((-direction_cosine) + max(0.0, 1.0 - return_ratio)) / 2.0
-            ),
-            "semantic_direction_cosine": float(direction_cosine),
-            "semantic_return_ratio": float(return_ratio),
-            "shared_topic_token_count": len(shared_topic_tokens),
-            "conflict_passages": evidence,
-            "conflict_sentences": sentences,
-            "involves_probable_bot": bool(
-                current.get("probable_bot") or previous.get("probable_bot")
-            ),
-        })
-    return events
-
-
 def merge_revert_events(
     exact_events: list[dict],
     partial_events: list[dict],
-    semantic_events: list[dict] | None = None,
 ) -> list[dict]:
-    """Prefer partial evidence over exact SHA1 evidence per revision."""
-    partial = list(partial_events)
-    partial_revision_ids = {
-        str(event["revision_id"]) for event in partial
+    """Return one of two categories per revision, preferring exact SHA1."""
+    exact = list(exact_events)
+    exact_revision_ids = {
+        str(event["revision_id"]) for event in exact
     }
-    semantic = [
-        event for event in (semantic_events or [])
-        if str(event["revision_id"]) not in partial_revision_ids
+    partial = [
+        event for event in partial_events
+        if str(event["revision_id"]) not in exact_revision_ids
     ]
-    semantic_revision_ids = {
-        str(event["revision_id"]) for event in semantic
-    }
-    exact = [
-        event for event in exact_events
-        if str(event["revision_id"]) not in partial_revision_ids
-        and str(event["revision_id"]) not in semantic_revision_ids
-    ]
-    merged = partial + semantic + exact
+    merged = exact + partial
     merged.sort(key=lambda event: (event["revision_index"], event["revision_id"]))
     directions = defaultdict(set)
     for event in merged:
@@ -855,7 +752,6 @@ def detect_edit_war_sessions(
 def analyze_reverts(
     history: list[dict],
     sampled: list[dict],
-    semantic_vectors: dict[str, object] | None = None,
 ) -> dict:
     """Return full-history revert evidence aligned to sampled curve points."""
     exact_events = detect_sha1_reverts(history)
@@ -867,12 +763,7 @@ def analyze_reverts(
     partial_events = detect_partial_trajectory_reverts(
         history, trajectory_vectors
     )
-    semantic_events = detect_semantic_counter_reverts(
-        history, semantic_vectors
-    )
-    events = merge_revert_events(
-        exact_events, partial_events, semantic_events
-    )
+    events = merge_revert_events(exact_events, partial_events)
     edit_war_sessions = detect_edit_war_sessions(events)
     sessions_by_id = {
         session["session_id"]: session for session in edit_war_sessions
@@ -896,9 +787,7 @@ def analyze_reverts(
         ]
         interval_partial_events = [
             event for event in interval_events
-            if event.get("revert_kind") in {
-                "partial_trajectory", "semantic_text"
-            }
+            if event.get("revert_kind") == "partial"
         ]
         measure = yasseri_m_measure(history[:cutoff + 1], prefix_events)
         conflict = gandica_c_measure(prefix_events)
@@ -947,7 +836,7 @@ def analyze_reverts(
         point_statistics.append({
             "interval_revert_count": len(interval_events),
             "interval_exact_sha1_revert_count": len(interval_exact_events),
-            "interval_partial_text_revert_count": len(interval_partial_events),
+            "interval_partial_revert_count": len(interval_partial_events),
             "interval_mutual_revert_count": len(interval_mutual_events),
             "interval_edit_war_pairs": [list(pair) for pair in interval_pairs],
             "interval_confirmed_edit_war_event_count": len(
@@ -967,13 +856,11 @@ def analyze_reverts(
     return {
         "analysis_version": REVERT_ANALYSIS_VERSION,
         "method": (
-            "exact SHA1, consecutive 2D trajectory returns, and "
-            "high-dimensional semantic counter-movement conflict"
+            "exact SHA1 and consecutive 2D trajectory returns"
         ),
         "definition": (
             "A revision is a revert when it restores an earlier SHA1 state or "
-            "directly returns from the preceding visible 2D trajectory step "
-            "or semantically counters the preceding change."
+            "directly returns from the preceding visible 2D trajectory step."
         ),
         "partial_revert_definition": PARTIAL_REVERT_DEFINITION,
         "edit_war_definition": EDIT_WAR_DEFINITION,
@@ -981,18 +868,9 @@ def analyze_reverts(
         "exact_sha1_revert_count": sum(
             event.get("revert_kind") == "exact_sha1" for event in events
         ),
-        "partial_text_revert_count": sum(
-            event.get("revert_kind") in {
-                "partial_trajectory", "semantic_text"
-            }
+        "partial_revert_count": sum(
+            event.get("revert_kind") == "partial"
             for event in events
-        ),
-        "partial_trajectory_revert_count": sum(
-            event.get("revert_kind") == "partial_trajectory"
-            for event in events
-        ),
-        "semantic_text_revert_count": sum(
-            event.get("revert_kind") == "semantic_text" for event in events
         ),
         "total_mutual_revert_count": final_measure["mutual_revert_count"],
         "confirmed_edit_war_session_count": len(edit_war_sessions),
@@ -1008,7 +886,7 @@ def analyze_reverts(
             "requires_editor_chain_continuity": True,
             "proximity_rule": "strictly_consecutive_trajectory_phases",
             "talk_page_activity_checked": False,
-            "partial_revert_detection_basis": "visible_2d_trajectory",
+            "partial_revert_detection_method": "visible_2d_trajectory",
             "partial_revert_max_direction_cosine": (
                 PARTIAL_REVERT_MAX_DIRECTION_COSINE
             ),
@@ -1022,16 +900,8 @@ def analyze_reverts(
             "partial_revert_requires_consecutive_revisions": True,
             "partial_revert_allows_piecewise_return": True,
             "partial_revert_requires_monotonic_return": True,
-            "partial_revert_precedence_over_exact_sha1": True,
-            "semantic_revert_max_direction_cosine": (
-                SEMANTIC_REVERT_MAX_DIRECTION_COSINE
-            ),
-            "semantic_revert_max_return_ratio": (
-                SEMANTIC_REVERT_MAX_RETURN_RATIO
-            ),
-            "semantic_revert_requires_shared_topic_tokens": False,
+            "exact_sha1_precedence_over_partial_revert": True,
             "display_projection_used_for_partial_revert_detection": True,
-            "display_projection_used_for_semantic_revert_detection": False,
             "exclude_probable_bots": False,
         },
         "probable_bot_revert_count": sum(
