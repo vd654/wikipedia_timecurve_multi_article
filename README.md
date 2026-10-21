@@ -199,11 +199,11 @@ Ausgangspunkt verkleinern. Eine Mindestzahl übereinstimmender Inhaltswörter
 wird für diese Trajektorienregel nicht verlangt.
 Exakte Reverts erhalten auf der normalen Trajektorienkante keine Pfeile, damit
 Hin- und Rückbewegungen nicht durch überlagerte Pfeilspitzen unleserlich werden.
-Ein gestrichelter roter Rückbogen beginnt am Datenpunkt der rückgängig
+Ein gepunkteter roter Rückbogen beginnt am Datenpunkt der rückgängig
 gemachten Änderung und endet an der neuen Revert-Revision. Bei einer Folge
 `Revision 1 → Revision 2 → zurück zu Revision 1` zeigt seine Pfeilspitze somit
 von Position 2 zurück zu Position 1. Ein zusätzliches Rücksprung-Glyph mit
-weißer Hintergrundmaske wird nicht mehr gezeichnet; der gestrichelte Rückbogen
+weißer Hintergrundmaske wird nicht mehr gezeichnet; der gepunktete Rückbogen
 übernimmt die Kennzeichnung vollständig und der normale Revisionspunkt bleibt
 sichtbar. Die SHA1-Gleichheit entscheidet unabhängig davon, ob die betroffenen
 Revisionen von verschiedenen Autoren oder demselben Autor stammen; ein
@@ -265,9 +265,11 @@ python src/main_pipeline.py \
   --output-name Palestine_small
 ```
 
-Die Pipeline erzeugt die Basiskarte, die Projektionsmetadaten, die
-Revisionsvektoren und die Kosinus-Distanzmatrix. Ausgaben werden fortlaufend
-nummeriert.
+Die Pipeline erzeugt eine label-freie Karte im selben interaktiven Grundgerüst
+wie die finale Semantic-Zoom-Visualisierung, außerdem die Projektionsmetadaten,
+Revisionsvektoren und die Kosinus-Distanzmatrix. Makrogruppen und ihre neutralen
+Legendennamen werden deterministisch aus der Projektion gebildet; dafür werden
+weder LLM- noch Label-Caches benötigt. Ausgaben werden fortlaufend nummeriert.
 
 ### 3. Finale Karte erstellen
 

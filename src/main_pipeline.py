@@ -2,8 +2,6 @@
 """Main pipeline for the semantic Wikipedia revision timecurve."""
 
 import argparse
-import colorsys
-import html
 import json
 import os
 import sys
@@ -30,8 +28,6 @@ BATCH_SIZE = 32
 MAX_MODEL_TOKENS = 256
 HDBSCAN_MIN_CLUSTER_SIZE = 5
 HDBSCAN_MIN_SAMPLES = 5
-PLOT_WIDTH = 880
-PLOT_HEIGHT = 600
 
 NON_PROSE_SECTIONS = {
     "bibliography", "citations", "external links", "further reading",
@@ -459,122 +455,35 @@ def build_points(
     return points, drift
 
 
-def build_visualization(article: str, points: list[dict]) -> str:
-    """Build the chronological MDS curve colored by 2D HDBSCAN clusters."""
-    import altair as alt
-    import pandas as pd
-
-    revision_dates = [parse_timestamp(point["timestamp"]) for point in points]
-    english_months = (
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December",
+def build_visualization(
+    article: str,
+    points: list[dict],
+    revert_analysis: dict,
+) -> str:
+    """Render the reusable final-map scaffold without generated labels."""
+    from semantic_zoom import (
+        build_unlabelled_hierarchy,
+        build_vega_spec,
+        render_html,
     )
 
-    def display_date(value: datetime) -> str:
-        return f"{value.day} {english_months[value.month - 1]} {value.year}"
-
-    revision_period = (
-        f"Revision period: {display_date(min(revision_dates))} - "
-        f"{display_date(max(revision_dates))}"
+    projection = {
+        "points": points,
+        "edit_wars": revert_analysis,
+    }
+    hierarchy = build_unlabelled_hierarchy(
+        projection,
+        root_label=article,
     )
-
-    rows = []
-    for point in points:
-        cluster_id = point["cluster_id"]
-        rows.append({
-            "x": point["mds"][0],
-            "y": point["mds"][1],
-            "order": point["revision_index"],
-            "date_time": point["timestamp"].replace("T", " ").replace("Z", " UTC"),
-            "revision_id": point["revision_id"],
-            "author": point["author"],
-            "cluster_id": cluster_id,
-            "cluster": "Noise" if cluster_id == -1 else f"Cluster {cluster_id + 1}",
-            "endpoint": (
-                "Start" if point["revision_index"] == 0
-                else "End" if point["revision_index"] == len(points) - 1
-                else None
-            ),
-        })
-    frame = pd.DataFrame(rows)
-    x = alt.X("x:Q", axis=None, scale=alt.Scale(zero=False, padding=40))
-    y = alt.Y("y:Q", axis=None, scale=alt.Scale(zero=False, padding=40))
-    zoom = alt.selection_interval(name="zoom", bind="scales", encodings=["x", "y"])
-
-    cluster_ids = sorted(set(frame["cluster_id"]) - {-1})
-    has_noise = -1 in set(frame["cluster_id"])
-    cluster_names = ["Noise"] if has_noise else []
-    cluster_colors = ["#8a8a8a"] if has_noise else []
-    for cluster_id in cluster_ids:
-        # Golden-angle hues avoid repeating the same ten-color palette.
-        hue = (cluster_id * 0.61803398875) % 1.0
-        lightness = 0.48 if cluster_id % 2 == 0 else 0.60
-        red, green, blue = colorsys.hls_to_rgb(hue, lightness, 0.72)
-        cluster_names.append(f"Cluster {cluster_id + 1}")
-        cluster_colors.append(
-            f"#{round(red * 255):02x}{round(green * 255):02x}{round(blue * 255):02x}"
-        )
-
-    path = alt.Chart(frame).mark_line(
-        color="#6f7782", strokeWidth=1.8, opacity=0.68
-    ).encode(x=x, y=y, order="order:O")
-    base_points = alt.Chart(frame).mark_point(
-        filled=True, stroke="#ffffff", strokeWidth=1.0, opacity=0.9, size=60
-    ).encode(
-        x=x,
-        y=y,
-        color=alt.Color(
-            "cluster:N",
-            scale=alt.Scale(domain=cluster_names, range=cluster_colors),
-            legend=alt.Legend(
-                title=[revision_period, " ", "Cluster"],
-                titleLimit=600,
-                titleLineHeight=20,
-                columns=3,
-                symbolLimit=0,
-                labelLimit=120,
-            ),
+    return render_html(
+        article,
+        build_vega_spec(
+            article,
+            projection,
+            hierarchy,
+            revert_analysis,
         ),
-        tooltip=[
-            alt.Tooltip("date_time:N", title="Date and time"),
-            alt.Tooltip("revision_id:N", title="Revision ID"),
-            alt.Tooltip("author:N", title="Author"),
-            alt.Tooltip("cluster:N", title="Cluster"),
-        ],
     )
-    endpoints = alt.Chart(frame).transform_filter(
-        "isValid(datum.endpoint)"
-    ).mark_text(dy=-16, fontSize=14, fontWeight=500).encode(
-        x=x, y=y, text="endpoint:N"
-    )
-
-    chart = (path + base_points + endpoints).add_params(zoom).properties(
-        width=PLOT_WIDTH,
-        height=PLOT_HEIGHT,
-        title=f"semantic revision timecurve {article}",
-    ).configure_view(strokeWidth=0)
-
-    spec = chart.to_json(indent=None)
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>semantic revision timecurve {html.escape(article)}</title>
-  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
-  <style>
-    body {{ font-family: Arial, sans-serif; background: #f5f5f5; padding: 24px; }}
-    h1, p {{ text-align: center; }}
-    .card {{ background: white; padding: 18px; border-radius: 10px; }}
-  </style>
-</head>
-<body>
-  <h1>semantic revision timecurve {html.escape(article)}</h1>
-  <div class="card"><div id="vis"></div></div>
-  <script>vegaEmbed('#vis', {spec}, {{actions: false, renderer: 'canvas'}});</script>
-</body>
-</html>"""
 
 
 def parse_args():
@@ -626,7 +535,7 @@ def main() -> int:
         Path(paths["xml_path"]), include_text_changes=True
     )
     conflict_history, sampled_for_conflict = history_window_for_points(
-        full_revert_history, revisions
+        full_revert_history, points
     )
     revert_analysis = analyze_reverts(
         conflict_history,
@@ -678,7 +587,7 @@ def main() -> int:
         "drift_records": drift,
     }
 
-    html_text = build_visualization(args.article, points)
+    html_text = build_visualization(args.article, points, revert_analysis)
     output = next_numbered_path(paths["output_dir"], paths["output_basename"])
     stem = os.path.splitext(output)[0]
     with open(output, "w", encoding="utf-8") as handle:

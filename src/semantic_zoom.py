@@ -846,6 +846,54 @@ def build_hierarchy(
     }
 
 
+def build_unlabelled_hierarchy(
+    projection: dict,
+    root_label: str = "Article",
+) -> dict:
+    """Build the final map hierarchy without cached or generated text labels.
+
+    Spatial macro groups, HDBSCAN clusters, and chronological sections remain
+    available to the renderer. Only the article title and deterministic legend
+    names are retained as text.
+    """
+    points = projection.get("points", [])
+    revision_pairs = [
+        {
+            "previous_revision_id": str(previous["revision_id"]),
+            "current_revision_id": str(current["revision_id"]),
+            # A temporary structural term lets build_hierarchy retain every
+            # otherwise valid chronological section. It is removed before
+            # rendering and is never presented as a generated content label.
+            "edge_label": "Revision transition",
+            "detailed_description": "",
+            "difference_lod": [],
+            "focus_keywords": [],
+            "added_keywords": [],
+            "removed_keywords": [],
+            "evidence": [],
+            "change_type": "unlabelled_base_visualization",
+            "confidence": None,
+        }
+        for previous, current in zip(points, points[1:])
+    ]
+    hierarchy = build_hierarchy(
+        projection,
+        {"revision_pairs": revision_pairs},
+        root_label=root_label,
+    )
+    for index, macro in enumerate(hierarchy["macros"], start=1):
+        macro["legend_label"] = f"Macro group {index}"
+    for section in hierarchy["sections"]:
+        section["show_highlight"] = True
+    for level in ("macros", "clusters", "sections", "edges"):
+        for node in hierarchy[level]:
+            node["label"] = ""
+            if level == "edges":
+                node["short_label"] = ""
+                node["detailed_description"] = ""
+    return hierarchy
+
+
 def format_label_pyramid(hierarchy: dict) -> str:
     """Format a compact, continuous Root-to-Edge hierarchy for the terminal."""
     levels = ("macros", "clusters", "sections", "edges")
@@ -1639,7 +1687,7 @@ def build_vega_spec(
     labelled_section_point_indices = {
         point_index
         for section in hierarchy["sections"]
-        if section.get("label")
+        if section.get("label") or section.get("show_highlight")
         for edge_index in section["edge_indices"]
         for point_index in (edge_index, edge_index + 1)
     }
@@ -1817,7 +1865,11 @@ def build_vega_spec(
     macro_legend_rows.extend(
         {
             "colour_group": str(macro["node_id"]),
-            "label": str(macro.get("label") or macro["node_id"]),
+            "label": str(
+                macro.get("legend_label")
+                or macro.get("label")
+                or macro["node_id"]
+            ),
         }
         for macro in hierarchy.get("macros", [])
     )
@@ -2632,7 +2684,12 @@ def build_vega_spec(
                             )
                         },
                         "strokeWidth": {"value": REVERT_ARC_STROKE_WIDTH},
-                        "strokeDash": {"value": [8, 5]},
+                        "strokeDash": {
+                            "signal": (
+                                "datum.revert_kind==='exact_sha1' ? "
+                                "[1,5] : [8,5]"
+                            )
+                        },
                         "strokeCap": {"value": "round"},
                         "strokeJoin": {"value": "round"},
                     },
@@ -2960,7 +3017,7 @@ def render_html(article: str, spec: dict) -> str:
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Semantic Zoom Timecurve – {html.escape(article)}</title>
+<title>Meaningful Projection Space</title>
 <script src="https://cdn.jsdelivr.net/npm/vega@5.33.1"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-tooltip@0.35.2/build/vega-tooltip.min.js"></script>
 <style>
@@ -2988,7 +3045,7 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 .legend-ring{{width:12px;height:12px;box-sizing:border-box;border:2px solid {NOISE_COLOR};border-radius:50%;background:transparent;flex:none}}
 .legend-line{{width:30px;height:0;border-top:2.25px solid {TRAJECTORY_COLOR};flex:none}}
 .legend-line.thick{{border-top-width:4.45px}}
-.legend-arc{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dashed {EXACT_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
+.legend-arc{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dotted {EXACT_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
 .legend-partial{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dashed {PARTIAL_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
 .legend-arrow{{width:30px;flex:none;text-align:center;color:{TRAJECTORY_COLOR};font-size:23px;font-weight:800;line-height:10px}}
 @media(max-width:760px){{#content{{grid-template-columns:minmax(0,1fr) 205px}}#legend{{padding:12px 10px}}}}
