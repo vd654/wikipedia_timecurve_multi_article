@@ -23,6 +23,11 @@ Der finale Datensatz umfasst:
 - Projektion: klassische metrische MDS
 - Clustering: HDBSCAN auf der sichtbaren 2D-Projektion
 - 44 Cluster und 140 Noise-Punkte
+- 12 algorithmische Edit-War-Kandidaten, davon 9 semantisch bestätigt
+- 23 als Edit War dargestellte Revisionskanten
+- 9 technisch getrennte Edit-War-Sitzungen mit je genau einem Kartenlabel
+- deterministische Punktklassifikation: 87 nur hinzugefügt, 63 nur entfernt,
+  288 gemischt und 181 ohne bereinigte Textänderung; der erste Punkt ist der Start
 
 ## Methode
 
@@ -36,6 +41,8 @@ Wikipedia-XML
 → HDBSCAN auf den MDS-Koordinaten
 → chronologische Revisionskurve
 → Terra-Volltextvergleich für jede Kante
+→ algorithmische Edit-War-Kandidaten
+→ zeitgleiche Talk-Evidenz und separate semantische Validierung
 → kontinuierliches kartografisches Labeling aus einer fünfteiligen Hierarchie
 ```
 
@@ -135,23 +142,31 @@ ausgeblendet. Effektiv punktförmige Kanten verwenden ausschließlich das
 Kurzlabel. Die ausführliche Beschreibung bleibt in den eingebetteten Daten
 erhalten, wird aber nicht als eigener Tooltip angezeigt.
 
-Revisionspunkte und Clusterhüllen verwenden höchstens sechs stabile
-Makrogruppenfarben; zusammen mit dem neutralen Grau für Noise entstehen damit
-insgesamt sieben Farbkategorien. Die feste Zuordnung der finalen `v8`-Karte
-lautet: Palestinian Statehood `#D4A017`, Palestinian UN Status `#F8711A`,
-Palestinian State Formation `#8B5A2B`, Palestinian Sovereignty `#B5179E`,
-Palestinian State Development `#4A1942`, Palestinian State Designation
-`#9B7BC8` und Noise `#A8A8A8`. Die konkreten Signalrot- und Signalgrüntöne
-bleiben ausschließlich exakten beziehungsweise partiellen Reverts vorbehalten.
-Noise-Revisionen bleiben wie alle anderen Revisionen kreisförmig und werden
-neutral grau gezeichnet. Liegt ihre 2D-Position innerhalb der räumlichen
-Gesamtfläche der ausgewählten Makrogruppe, bleibt der graue Punkt im
+Die Füllfarbe jedes Revisionspunkts beschreibt deterministisch die Änderung
+gegenüber seinem direkten Vorgänger: `added` (Goldgelb `#F2C14E`) bedeutet nur
+hinzugefügte Wörter, `removed` (Violett `#8F5BD7`) nur entfernte Wörter,
+`mixed` (Orange `#D9822B`) gleichzeitig hinzugefügte und entfernte Wörter und
+`no_change` (Grau `#B8B8B8`) keine Änderung im bereinigten Text. Der erste
+Punkt hat keinen Vorgänger und wird als Start in Dunkelgrau (`#343A40`)
+gezeichnet. Die Zuordnung stammt ausschließlich aus dem Git-Wort-Diff; dafür
+gibt es keinen LLM-Aufruf. Normale Revisionspunkte werden ohne zusätzliche
+Kontur beziehungsweise Ring und mit hoher Farbdeckkraft gezeichnet.
+
+Clusterhüllen, gruppeninterne Trajektorien und normale Richtungspfeile werden
+neutral in der Trajektorienfarbe dargestellt. Zusätzliche Ringe für zeitliche
+Abschnittspunkte werden nicht gezeichnet. Die
+Makrothemen bleiben als semantische Labels und als interne Fokusgruppen
+erhalten, besitzen aber keine eigene Farbcodierung und keinen Legendeneintrag.
+Signalrot kennzeichnet exakte Reverts, Signalgrün partielle Reverts und
+Signalblau bestätigte Edit-War-Sitzungen.
+Noise-Revisionen bleiben wie alle anderen Revisionen kreisförmig und erhalten
+dieselbe Änderungsfarbcodierung. Liegt ihre 2D-Position innerhalb der räumlichen
+Gesamtfläche der ausgewählten Makrogruppe, bleibt der Punkt im
 Gruppenfokus vollständig sichtbar. Zugehörige graue Trajektoriensegmente,
 Richtungspfeile und platzierbare Kantenlabels bleiben ebenfalls aktiv; die
 geometrische Überlagerung ändert die HDBSCAN-Zuordnung nicht.
-Die konkrete
-Clusteridentität wird weiterhin durch die direkten semantischen Clusterlabels
-vermittelt. Die Farblegende führt deshalb nur Noise und die Makrogruppen auf.
+Die konkrete Clusteridentität wird weiterhin durch die direkten semantischen
+Clusterlabels vermittelt. Die Farblegende enthält keine Makrothemen mehr.
 Jede Clusterhülle umfasst sämtliche projizierten Revisionspunkte des jeweiligen
 HDBSCAN-Clusters. Für reguläre zweidimensionale Punktmengen wird eine leicht
 erweiterte konvexe Hülle gezeichnet. Fallen die Punkte in der Projektion auf
@@ -164,31 +179,71 @@ kräftig dimensioniert. Auf jedem mindestens 34 Bildschirm-Pixel langen,
 sichtbaren Teilstück einer normalen Kante zeigt ein Pfeil die chronologische
 Revisionsrichtung. Wie bei Shaclens behält er beim Zoomen seine Bildschirmgröße
 und sitzt bis zu 30 px hinter dem Anfang des aktuell sichtbaren Liniensegments.
-Die festen Farben für Trajektorie, exakten Revert und partiellen Revert werden
-aus denselben Farbkonstanten wie ihre Legendensymbole erzeugt. Punkt-, Hüllen- und
-Abschnittsringfarben entsprechen der separat aufgeführten Makropalette.
+Die festen Farben für Trajektorie, Edit War, exakten Revert und partiellen
+Revert werden aus denselben Farbkonstanten wie ihre Legendensymbole erzeugt.
+Hüllen und gruppeninterne Linien sind neutral; die Punktfüllungen entsprechen
+den vier Änderungstypen plus Start.
 Bot-Kennzeichnungen sind dabei nur Audit-Metadaten. Reverts von automatisierten
 und menschlichen Konten werden für Richtungen, Sitzungen sowie Yasseri-M und
 Gandica-C gleich behandelt; aus der Edit-War-Erkennung wird kein Ereignis wegen
 eines Bot-Tags oder `bot` im Benutzernamen ausgeschlossen.
-Eine Edit-War-Sitzung beginnt bereits mit einer direkten Gegenänderung zwischen
+Ein algorithmischer Edit-War-Kandidat beginnt bereits mit einer direkten Gegenänderung zwischen
 zwei Autoren: Die Änderung eines Autors führt die unmittelbar vorherige
 Änderung des anderen ganz oder teilweise in die frühere inhaltliche Richtung
 zurück. Beide Autoren müssen also nicht wechselseitig revertieren. Weitere
 lückenlos folgende Gegenänderungen dürfen auch mehr als zwei Autoren und damit
 mehrere Autorenpaare enthalten. Eine andere Revision dazwischen beendet die
-Sitzung; Zeit- oder lockere Revisionsfenster werden nicht verwendet. Ob die
-Beteiligten parallel auf der Diskussionsseite kommuniziert haben, lässt sich
-ohne deren separate Versionsgeschichte nicht feststellen und fließt daher
-nicht in die Erkennung ein.
+Sitzung; Zeit- oder lockere Revisionsfenster werden für die algorithmische
+Erkennung nicht verwendet.
+
+Die Kandidaten werden anschließend in einem getrennten LLM-Schritt semantisch
+geprüft. Ein Kandidat wird nur angenommen, wenn mindestens zwei zugehörige
+Artikelrevisionen dasselbe konkrete Thema betreffen, sich inhaltlich
+entgegenstehen, eine substantielle Änderung bilden, durch die gespeicherten
+Volltextvergleiche belegt sind und die Bewertung mindestens `0.75` erreicht.
+Bearbeitungskommentare und `Talk:Palestine` sind ausschließlich unterstützende
+Evidenz und können einen fehlenden Artikeltext-Beleg nicht ersetzen. Aus der
+Diskussionsgeschichte werden pro Kandidat nur thematisch passende Revisionen
+zwischen dessen erstem und letztem Zeitstempel verwendet. Eine fehlende
+zeitgleiche Diskussion führt nicht zur Ablehnung. Die finale Palestine-Karte
+bestätigt auf diese Weise 9 von 12 Kandidatensitzungen beziehungsweise 23 von
+30 Kandidatenkanten. Die technisch erkannten Sitzungsgrenzen bleiben dabei
+unverändert: Das LLM bestätigt oder verwirft ausschließlich die vorhandenen
+Kandidaten und führt weder ähnliche Themen noch zeitlich getrennte Sitzungen
+zusammen.
+
+Für jede bestätigte Sitzung erzeugt derselbe separate Aufruf ein neutrales,
+gegenstandsbezogenes Faktenlabel mit drei bis acht Wörtern und eine kurze
+sachliche Erklärung. Account-Namen, Wertungen, Schuldzuweisungen und
+Absichtszuschreibungen sind darin ausgeschlossen; wenn beide Positionen direkt
+belegt sind, wird eine Form wie `A vs. B` bevorzugt. Revisionsgebundene Zitate,
+Thementyp, Änderungsrichtung und Talk-Unterstützung dienen intern der Prüfung
+und werden nicht als Schema auf der Karte ausgegeben. Das kurze Label ist für
+die entfernte Kartenansicht bestimmt; beim Annähern wird wie bei anderen Kanten
+eine belegorientierte Konflikterklärung verwendet. Sie nennt, jeweils durch
+Semikolons getrennt, die kurze Zusammenfassung, die Anzahl der Gegenänderungen,
+die beteiligten Revisions-IDs, den UTC-Zeitraum und zwei revisionsgebundene
+Textstellen für die gegenüberstehenden Positionen. Ein gesamter Edit-War-
+Sitzung erhält genau ein Kartenlabel, nicht je ein Label pro beteiligter
+Kante. Inhaltlich ähnliche, aber technisch getrennte Sitzungen behalten jeweils
+ihr eigenes Label und ihren eigenen Zeitraum. Beide Texte
+erscheinen im selben Signalblau wie der zugehörige Edit-War-Bogen; bei
+vollständig überlagerten Kanten und bei Kollisionen mit normalen
+Kantenbeschreibungen hat das bestätigte Edit-War-Label Vorrang. Übergeordnete
+Artikel-, Makro-, Cluster- und Abschnittslabels behalten ihre kartografische
+Priorität.
+Normale
+Kantenlabels werden in diesem Validierungslauf ausschließlich aus dem
+vorhandenen Bestand gelesen und nicht erneut an die API gesendet.
 Neben identischen SHA1-Rücksprüngen zählen auch direkt aufeinanderfolgende
-partielle Gegenänderungen. Es gibt ausschließlich die Kategorien exakter und
-partieller Revert. Wenn dieselbe Revision beide Regeln erfüllt, erhält der
-exakte SHA1-Revert Vorrang und wird nur als exakter Revert gezählt und
-dargestellt. Die zweidimensionale Trajektorienregel verlangt eine unmittelbare,
-nahezu entgegengesetzte und zum Ausgangspunkt hin monotone Rückbewegung.
-Partielle Reverts werden ausschließlich anhand dieser sichtbaren
-zweidimensionalen Trajektorie bestimmt.
+partielle Gegenänderungen. Technisch bleiben exakter und partieller Revert die
+beiden Erkennungsmethoden. Wenn dieselbe Revision beide Regeln erfüllt, erhält
+der exakte SHA1-Revert bei der Erkennung Vorrang. Gehört das Ereignis jedoch zu
+einer bestätigten Edit-War-Sitzung, hat die Kategorie Edit War in der
+Visualisierung Vorrang vor beiden Revert-Methoden. Die zweidimensionale
+Trajektorienregel verlangt eine unmittelbare, nahezu entgegengesetzte und zum
+Ausgangspunkt hin monotone Rückbewegung. Partielle Reverts werden
+ausschließlich anhand dieser sichtbaren zweidimensionalen Trajektorie bestimmt.
 
 **Partieller Revert:** Löscht beziehungsweise revidiert nur die fehlerhaften
 oder unerwünschten Teile einer Änderung; die korrekten und nicht betroffenen
@@ -213,16 +268,18 @@ geringfügig neben der wiederhergestellten Revision platzieren, wird nur dieser
 exakte Revert-Punkt für die Anzeige auf die Koordinaten seiner
 `restored_revision_id` gesetzt. Partielle Reverts werden nicht verschoben.
 Partielle Textumkehrungen erhalten einen grünen, gestrichelten Rückbogen zum
-neuen partiellen Zustand. Jeder Revert wird ausschließlich als exakter oder
-partieller Revert dargestellt.
+neuen partiellen Zustand. Ereignisse einer bestätigten Edit-War-Sitzung werden
+stattdessen vorrangig als blaue Strich-Punkt-Bögen (`-·-·-·-`) dargestellt;
+ihre zugrunde liegende exakte oder partielle Erkennung bleibt in den Metadaten
+und im Tooltip erhalten.
 Treffen exakte und partielle Revert-Bögen auf dieselbe projizierte Verbindung,
 werden sie auf gegenüberliegenden Seiten der Verbindung gezeichnet, damit
 keine der beiden Kategorien die andere verdeckt.
 Wiederholte Reverts derselben beiden projizierten Zustände werden paarweise mit
-größerem Bogenradius gezeichnet. Auch innerhalb bestätigter Edit-War-Sitzungen
-bleiben diese Bögen rot beziehungsweise grün. Die Bögen werden in
-Bildschirmkoordinaten berechnet und verändern die semantischen MDS-Positionen
-nicht.
+größerem Bogenradius gezeichnet. Edit-War-Bögen werden zuletzt und mit etwas
+stärkerer Linienbreite gezeichnet, damit ihre Priorität sichtbar bleibt. Die
+Bögen werden in Bildschirmkoordinaten berechnet und verändern die semantischen
+MDS-Positionen nicht.
 
 Reine Statusmeldungen ohne inhaltliche Änderung (`No content change`,
 `Unchanged content`, `Content unchanged`) werden nicht als Kartenlabels
@@ -250,9 +307,16 @@ OPENAI_API_KEY=sk-...
 
 ```bash
 python src/wiki_api.py --article Palestine
+python src/wiki_api.py \
+  --article "Talk:Palestine" \
+  --start 2003-06-06 \
+  --end 2015-12-31 \
+  --min-revision-chars 0
 ```
 
 Die XML-Datei wird unter `data/Palestine/Palestine.xml` gespeichert.
+Die separat ignorierte Diskussionsgeschichte liegt unter
+`data/Talk%3APalestine/Talk%3APalestine.xml`.
 
 ### 2. Projektion erzeugen
 
@@ -272,6 +336,28 @@ Legendennamen werden deterministisch aus der Projektion gebildet; dafür werden
 weder LLM- noch Label-Caches benötigt. Ausgaben werden fortlaufend nummeriert.
 
 ### 3. Finale Karte erstellen
+
+Die separate Kandidatenvalidierung verwendet vorhandene Kantenlabels und ruft
+das Modell ausschließlich für algorithmische Edit-War-Sitzungen auf:
+
+```bash
+python src/edit_war_validation.py \
+  --article Palestine \
+  --projection output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json \
+  --edge-labels output/Palestine_small/Palestine_small_bert_timecurve_002_full_revision_edge_labels_gpt-5.6-terra_v8.json \
+  --talk-xml data/Talk%3APalestine/Talk%3APalestine.xml \
+  --cache output/Palestine_small/Palestine_small_bert_timecurve_002_edit_war_talk_assessment_cache.json \
+  --output output/Palestine_small/Palestine_small_bert_timecurve_002_edit_war_talk_validated_001.json
+
+python src/apply_edit_war_labels.py \
+  --projection output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json \
+  --hierarchy output/Palestine_small/Palestine_small_bert_timecurve_002_semantic_zoom_full_revision_terra_v8.json \
+  --assessments output/Palestine_small/Palestine_small_bert_timecurve_002_edit_war_talk_validated_001.json \
+  --html-output output/Palestine_final.html
+```
+
+Der Assessment-Cache ist von den normalen Kantenlabel-Caches getrennt.
+Anschließend lässt sich die Karte wie bisher reproduzieren:
 
 ```bash
 python src/build_final.py
@@ -327,6 +413,11 @@ src/
 ├── text_cleaning.py      Wikitext in Vergleichstext umwandeln
 ├── main_pipeline.py      Embeddings, MDS, HDBSCAN und Basiskarte
 ├── revert_detection.py   Reverts und Edit-War-Sitzungen erkennen
+├── talk_evidence.py      zeitgleiche Talk-Revisionen auswählen
+├── edit_war_validation.py
+│                          nur algorithmische Kandidaten semantisch prüfen
+├── apply_edit_war_labels.py
+│                          bestätigte Konfliktlabels separat übernehmen
 ├── revision_metadata.py  optionaler Metadaten-Fallback für ältere XML-Dateien
 ├── edge_labels.py        ein Terra-Label pro vollständigem Revisionspaar
 ├── apply_edge_labels.py  geprüfte Kantenlabels auf einen Bestand anwenden

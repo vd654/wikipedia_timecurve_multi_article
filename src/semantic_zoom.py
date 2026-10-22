@@ -40,7 +40,7 @@ from revision_keywords import (
 
 
 MODEL = DEFAULT_OPENAI_MODEL
-SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-10-03-v091"
+SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-10-22-v092"
 MIN_VIEW_SCALE = 0.01
 MAX_VIEW_SCALE = 200.0
 MIN_PARENT_LABEL_WORDS = 2
@@ -61,14 +61,46 @@ MACRO_COLOURS = (
     "#4a1942",  # deep plum — State Development
     "#9b7bc8",  # light indigo/lavender — UN Observer Status
 )
+# Revision-point colour is a deterministic code for the incoming cleaned-text
+# transition. Macro colours remain available for regions, section rings, and
+# interactive spatial filtering; they no longer determine the point fill.
+WORD_CHANGE_COLOURS = {
+    "start": "#343a40",
+    "added": "#f2c14e",
+    "removed": "#8f5bd7",
+    "mixed": "#d9822b",
+    "no_change": "#b8b8b8",
+    "unavailable": NOISE_COLOR,
+}
+WORD_CHANGE_LABELS = {
+    "start": "Start",
+    "added": "Added only",
+    "removed": "Removed only",
+    "mixed": "Added and removed",
+    "no_change": "No change",
+    "unavailable": "Change type unavailable",
+}
+REVISION_POINT_COLOUR_ENCODING = {
+    "source": "audited Git word diff between consecutive cleaned revisions",
+    "assignment": "each point receives the type of its incoming transition",
+    "first_point": "start",
+    "rules": {
+        "added": "added_words > 0 and removed_words == 0",
+        "removed": "added_words == 0 and removed_words > 0",
+        "mixed": "added_words > 0 and removed_words > 0",
+        "no_change": "added_words == 0 and removed_words == 0",
+    },
+    "colours": WORD_CHANGE_COLOURS,
+}
 EXACT_REVERT_COLOR = "#d64545"
 PARTIAL_REVERT_COLOR = "#00875a"
+EDIT_WAR_COLOR = "#2457d6"
 REVERT_ARC_STROKE_WIDTH = 1.6
+EDIT_WAR_ARC_STROKE_WIDTH = 2.0
 REVERT_ARC_STROKE_OPACITY = 0.45
 REVERT_ARROW_OPACITY = 0.45
 REVISION_POINT_SIZE = 80
 CLUSTER_SELECTION_TARGET_SIZE = 700
-SECTION_POINT_HIGHLIGHT_SIZE = 180
 CLUSTER_CORRIDOR_STROKE_WIDTH = 1.4
 EDGE_SHORT_LABEL_OFFSET = 9
 EDGE_DETAILED_LABEL_OFFSET = 28
@@ -319,12 +351,15 @@ def deduplicate_label_rows(label_rows: list[dict]) -> list[dict]:
                 round(float(row["edge_y2"]), 12),
             ),
         )))
+        if row.get("is_edit_war") and row.get("edit_war_label_session_id"):
+            return endpoints, str(row["edit_war_label_session_id"])
         return endpoints
 
-    def rank(row: dict) -> tuple[int, int, int, int, float, float, int]:
+    def rank(row: dict) -> tuple[int, int, int, int, int, float, float, int]:
         description = _normalise_term(row.get("detailed_description", ""))
         return (
             int(row.get("label_priority", 0)),
+            int(row.get("is_edit_war", False)),
             int(bool(description)),
             int(row.get("change_magnitude") or 0),
             len(_term_key(description).split()),
@@ -343,6 +378,7 @@ def deduplicate_label_rows(label_rows: list[dict]) -> list[dict]:
             -rank(item[1])[4],
             -rank(item[1])[5],
             -rank(item[1])[6],
+            -rank(item[1])[7],
             str(item[1].get("node_id", "")),
         ),
     )
@@ -575,6 +611,27 @@ def _counts_from_xml(xml_path: Path, points: list[dict]) -> list[tuple[int, int]
     return counts
 
 
+def deterministic_word_change_type(
+    added_words: int | None,
+    removed_words: int | None,
+) -> str:
+    """Classify one incoming transition from audited word-diff counts.
+
+    The four substantive outcomes are mutually exclusive and exhaustive when
+    both counts are available. ``unavailable`` is retained for lightweight
+    renders that deliberately skip word-diff computation.
+    """
+    if added_words is None or removed_words is None:
+        return "unavailable"
+    if added_words > 0 and removed_words == 0:
+        return "added"
+    if added_words == 0 and removed_words > 0:
+        return "removed"
+    if added_words > 0 and removed_words > 0:
+        return "mixed"
+    return "no_change"
+
+
 def cached_word_counts(
     labels_path: Path,
     projection_path: Path,
@@ -637,6 +694,7 @@ def build_hierarchy(
         ], 6)
         added, removed = word_counts[index] if word_counts else (None, None)
         count_text = f"+{added}/−{removed} words" if added is not None else ""
+        word_change_type = deterministic_word_change_type(added, removed)
         # A trajectory edge carries exactly one intact grounded phrase. A
         # phrase may contain up to four words (for example "UN General
         # Assembly"), but separate candidates are never combined.
@@ -678,6 +736,7 @@ def build_hierarchy(
             ], 6),
             "evidence": pair.get("evidence", []),
             "change_type": pair.get("change_type", "legacy_keyword_fallback"),
+            "word_change_type": word_change_type,
             "label_confidence": pair.get("confidence"),
             "conflict_description": pair.get("conflict_description", ""),
             "label_source": (
@@ -1462,12 +1521,12 @@ def section_region_rows(
 def build_revert_arc_rows(
     point_rows: list[dict], revert_analysis: dict | None
 ) -> list[dict]:
-    """Map revert events to dashed screen-space arcs between plotted revisions.
+    """Map revert events to styled screen-space arcs between plotted revisions.
 
     Each exact arc starts at the revision whose change was undone and ends at
     the plotted anchor of ``restored_revision_id``. Partial counter-edits use
-    their consecutive return segments. Edit-war session membership is analysis
-    metadata only and never changes the visual revert category.
+    their consecutive return segments. Membership in a confirmed Edit-War
+    session takes visual precedence over the underlying exact/partial method.
     """
     if not revert_analysis:
         return []
@@ -1482,6 +1541,17 @@ def build_revert_arc_rows(
         )
         for point in point_rows
     )
+    session_metadata = {
+        str(session.get("session_id", "")): {
+            "event_count": int(session.get("event_count", 0)),
+            "conflict_label": str(session.get("conflict_label", "")),
+            "conflict_description": str(
+                session.get("conflict_description", "")
+            ),
+        }
+        for session in revert_analysis.get("edit_war_sessions", [])
+        if session.get("session_id")
+    }
     rows = []
     for event_order, event in enumerate(revert_analysis.get("events", [])):
         source_id = str(event.get("revision_id", ""))
@@ -1496,6 +1566,8 @@ def build_revert_arc_rows(
             continue
         reverter = str(event.get("reverter", ""))
         reverted_editor = str(event.get("reverted_editor", ""))
+        session_id = str(event.get("edit_war_session_id", ""))
+        is_edit_war = bool(session_id)
         revert_kind = str(event.get("revert_kind", "exact_sha1"))
         if revert_kind not in {"exact_sha1", "partial"}:
             raise ValueError(
@@ -1584,7 +1656,34 @@ def build_revert_arc_rows(
                     if revert_kind == "exact_sha1"
                     else "Partial revert"
                 ),
+                "visual_category": (
+                    "edit_war" if is_edit_war else revert_kind
+                ),
+                "visual_category_label": (
+                    "Edit War"
+                    if is_edit_war
+                    else (
+                        "Exact revert"
+                        if revert_kind == "exact_sha1"
+                        else "Partial revert"
+                    )
+                ),
                 "reversal_score": float(event.get("reversal_score", 1.0)),
+                "session_id": session_id,
+                "is_edit_war": is_edit_war,
+                "edit_war_label": (
+                    session_metadata.get(session_id, {}).get(
+                        "conflict_label", ""
+                    ) or "Edit War"
+                ) if is_edit_war else "",
+                "edit_war_description": (
+                    session_metadata.get(session_id, {}).get(
+                        "conflict_description", ""
+                    )
+                ) if is_edit_war else "",
+                "session_event_count": session_metadata.get(
+                    session_id, {}
+                ).get("event_count", 0),
             })
 
     grouped: dict[tuple, list[dict]] = defaultdict(list)
@@ -1629,7 +1728,17 @@ def build_revert_arc_rows(
             else:
                 row["arc_direction"] = 1
                 row["arc_side"] = 1
-    return sorted(rows, key=lambda row: (row["event_order"], row["arc_id"]))
+    # Vega paints later paths on top. Confirmed Edit Wars are therefore drawn
+    # after standalone exact and partial reverts, preserving chronology within
+    # each category.
+    return sorted(
+        rows,
+        key=lambda row: (
+            bool(row["is_edit_war"]),
+            row["event_order"],
+            row["arc_id"],
+        ),
+    )
 
 
 def snap_exact_revert_positions(
@@ -1684,13 +1793,6 @@ def build_vega_spec(
         )
     for point, statistics in zip(points, point_statistics):
         point.update(statistics)
-    labelled_section_point_indices = {
-        point_index
-        for section in hierarchy["sections"]
-        if section.get("label") or section.get("show_highlight")
-        for edge_index in section["edge_indices"]
-        for point_index in (edge_index, edge_index + 1)
-    }
     cluster_to_macro = {
         int(cluster_id): macro["node_id"]
         for macro in hierarchy.get("macros", [])
@@ -1701,6 +1803,15 @@ def build_vega_spec(
         raise ValueError(
             f"Die Visualisierung enthält {len(macro_ids)} Makrogruppen, "
             f"aber höchstens {MAX_MACRO_COLOURS} Farben sind erlaubt."
+        )
+    incoming_word_change_types = ["start", *(
+        str(edge.get("word_change_type", "unavailable"))
+        for edge in hierarchy["edges"]
+    )]
+    if len(incoming_word_change_types) != len(points):
+        raise ValueError(
+            "Änderungstypen passen nicht zu den projizierten Punkten: "
+            f"{len(incoming_word_change_types)} statt {len(points)}."
         )
     point_rows = [
         {
@@ -1722,6 +1833,11 @@ def build_vega_spec(
                 else f"Cluster {int(point['cluster_id']) + 1}"
             ),
             "cluster_probability": float(point.get("cluster_probability", 0.0)),
+            "word_change_type": incoming_word_change_types[point_index],
+            "word_change_label": WORD_CHANGE_LABELS.get(
+                incoming_word_change_types[point_index],
+                WORD_CHANGE_LABELS["unavailable"],
+            ),
             "semantic_jump": float(point["semantic_jump_from_previous"]),
             "interval_revert_count": int(point.get("interval_revert_count", 0)),
             "interval_exact_sha1_revert_count": int(
@@ -1740,10 +1856,8 @@ def build_vega_spec(
             "confirmed_edit_war_sessions": point.get(
                 "interval_confirmed_edit_war_sessions", []
             ),
-            "labelled_section_point": int(point["revision_index"])
-            in labelled_section_point_indices,
         }
-        for point in points
+        for point_index, point in enumerate(points)
     ]
     snap_exact_revert_positions(point_rows, revert_analysis)
     hull_rows, cluster_corridor_rows = cluster_region_rows(point_rows)
@@ -1856,23 +1970,6 @@ def build_vega_spec(
     ys = [row["y"] for row in point_rows]
     x_extent = _finite_extent(xs)
     y_extent = _finite_extent(ys)
-    macro_legend_rows = [
-        {
-            "colour_group": "noise",
-            "label": "Noise",
-        }
-    ]
-    macro_legend_rows.extend(
-        {
-            "colour_group": str(macro["node_id"]),
-            "label": str(
-                macro.get("legend_label")
-                or macro.get("label")
-                or macro["node_id"]
-            ),
-        }
-        for macro in hierarchy.get("macros", [])
-    )
     hierarchy_nodes = (
         hierarchy.get("macros", []) + hierarchy["clusters"]
         + hierarchy["sections"] + hierarchy["edges"]
@@ -1989,6 +2086,7 @@ def build_vega_spec(
     detail_labels = [
         node for node in hierarchy_nodes
         if node["label"]
+        and not node.get("suppress_map_label", False)
         and not is_uninformative_label(node)
     ]
     label_rows = [
@@ -2000,23 +2098,34 @@ def build_vega_spec(
             "label": node["label"],
             "display_label": edge_display_text(node),
             "detailed_description": node.get("detailed_description", ""),
+            "is_edit_war": bool(node.get("is_edit_war", False)),
+            "edit_war_label_session_id": node.get(
+                "edit_war_label_session_id", ""
+            ),
             "cluster_id": node.get("cluster_id"),
             "colour_group": node_colour_group(node),
             "context_colour_groups": node_context_colour_groups(node),
-            # Direct labels identify the individual cluster or hierarchy node;
-            # keep their text neutral so the only categorical hues remain the
-            # seven macro-group colours.
-            "label_colour": "#25322a",
+            # Validated Edit-War labels use the same signal blue as their
+            # dash-dot arcs. Other edge and hierarchy labels stay neutral.
+            "label_colour": (
+                EDIT_WAR_COLOR
+                if node["level"] == "edge" and node.get("is_edit_war") is True
+                else ("#4f5750" if node["level"] == "edge" else "#25322a")
+            ),
             # Every level competes for screen space at every zoom scale. Broad
             # labels win collisions first, and increasingly detailed labels
             # fill every remaining gap as zooming creates room around their
             # fixed anchors.
-            "label_priority": {
-                "macro": 4,
-                "cluster": 3,
-                "section": 2,
-                "edge": 1,
-            }[node["level"]],
+            "label_priority": (
+                2
+                if node["level"] == "edge" and node.get("is_edit_war") is True
+                else {
+                    "macro": 4,
+                    "cluster": 3,
+                    "section": 2,
+                    "edge": 1,
+                }[node["level"]]
+            ),
             "importance": node["importance"],
             "change_magnitude": (
                 int(node.get("added_words") or 0)
@@ -2253,12 +2362,6 @@ def build_vega_spec(
         "data": [
             {"name": "points", "values": point_rows},
             {"name": "normalRevisionPoints", "source": "points"},
-            {"name": "labelledSectionPoints", "source": "points", "transform": [
-                {
-                    "type": "filter",
-                    "expr": "datum.labelled_section_point",
-                },
-            ]},
             {"name": "edges", "values": edge_rows},
             {"name": "exactRevertEdges", "source": "edges", "transform": [
                 {"type": "filter", "expr": "datum.has_exact_revert"},
@@ -2355,6 +2458,9 @@ def build_vega_spec(
                     "type": "formula",
                     "as": "arcHeight",
                     "expr": (
+                        "datum.is_edit_war ? "
+                        "min(190,max(22,datum.screenLength*"
+                        "(0.25+0.075*datum.arc_level)+8*datum.arc_level)) : "
                         "datum.revert_kind==='exact_sha1' ? "
                         "min(190,max(22,datum.screenLength*0.28+"
                         "8*datum.arc_level)) : "
@@ -2431,7 +2537,6 @@ def build_vega_spec(
                 {"type": "filter", "expr": "datum.same_cluster"},
             ]},
             {"name": "labels", "values": label_rows},
-            {"name": "macroLegend", "values": macro_legend_rows},
             {"name": "clusterHulls", "values": hull_rows},
             {"name": "clusterCorridors", "values": cluster_corridor_rows},
             {"name": "visibleParentLabels", "source": "labels", "transform": [
@@ -2548,10 +2653,10 @@ def build_vega_spec(
             {"name": "xscale", "zero": False, "domain": {"signal": "xdom"}, "range": "width"},
             {"name": "yscale", "zero": False, "domain": {"signal": "ydom"}, "range": "height"},
             {
-                "name": "macroColor",
+                "name": "wordChangeColor",
                 "type": "ordinal",
-                "domain": ["noise", *macro_ids],
-                "range": [NOISE_COLOR, *(macro_colour(macro_id) for macro_id in macro_ids)],
+                "domain": list(WORD_CHANGE_COLOURS),
+                "range": list(WORD_CHANGE_COLOURS.values()),
             },
         ],
         "marks": [
@@ -2566,14 +2671,14 @@ def build_vega_spec(
                         "y": {"scale": "yscale", "field": "y"},
                         "order": {"field": "order"},
                         "interpolate": {"value": "linear"},
-                        "fill": {"scale": "macroColor", "field": "colour_group"},
+                        "fill": {"value": TRAJECTORY_COLOR},
                         "fillOpacity": {
                             "signal": (
                                 "selectedMacro===null || "
                                 "datum.colour_group===selectedMacro ? 0.075 : 0.008"
                             )
                         },
-                        "stroke": {"scale": "macroColor", "field": "colour_group"},
+                        "stroke": {"value": TRAJECTORY_COLOR},
                         "strokeOpacity": {
                             "signal": (
                                 "selectedMacro===null || "
@@ -2594,7 +2699,7 @@ def build_vega_spec(
                     "y": {"scale": "yscale", "field": "y"},
                     "x2": {"scale": "xscale", "field": "x2"},
                     "y2": {"scale": "yscale", "field": "y2"},
-                    "stroke": {"scale": "macroColor", "field": "colour_group"},
+                    "stroke": {"value": TRAJECTORY_COLOR},
                     "strokeOpacity": {
                         "signal": (
                             "selectedMacro===null || "
@@ -2636,7 +2741,7 @@ def build_vega_spec(
                     "y": {"scale": "yscale", "field": "y"},
                     "x2": {"scale": "xscale", "field": "x2"},
                     "y2": {"scale": "yscale", "field": "y2"},
-                    "stroke": {"scale": "macroColor", "field": "colour_group"},
+                    "stroke": {"value": TRAJECTORY_COLOR},
                     "strokeOpacity": {
                         "signal": (
                             "selectedMacro===null || "
@@ -2654,13 +2759,18 @@ def build_vega_spec(
                     "enter": {
                         "tooltip": {
                             "signal": (
-                                "{'Type': datum.revert_kind_label, "
+                                "{'Type': datum.visual_category_label, "
+                                "'Revert method': datum.revert_kind_label, "
                                 "'Revert revision': datum.revision_id, "
                                 "'Undone revision': datum.reverted_revision_id, "
                                 "'Restored revision': datum.restored_revision_id, "
                                 "'Return anchor': datum.return_anchor_revision_id, "
                                 "'Points at return anchor': datum.target_overlap_count, "
-                                "'Editors': datum.pair_text}"
+                                "'Editors': datum.pair_text, "
+                                "'Edit-War session': datum.session_id, "
+                                "'Conflict': datum.edit_war_label, "
+                                "'Conflict description': datum.edit_war_description, "
+                                "'Session events': datum.session_event_count}"
                             )
                         },
                     },
@@ -2669,8 +2779,9 @@ def build_vega_spec(
                         "fillOpacity": {"value": 0},
                         "stroke": {
                             "signal": (
-                                "datum.revert_kind==='exact_sha1' ? "
-                                f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}'"
+                                f"datum.is_edit_war ? '{EDIT_WAR_COLOR}' : "
+                                "(datum.revert_kind==='exact_sha1' ? "
+                                f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}')"
                             )
                         },
                         "strokeOpacity": {
@@ -2683,11 +2794,18 @@ def build_vega_spec(
                                 f"{REVERT_ARC_STROKE_OPACITY} : 0.05"
                             )
                         },
-                        "strokeWidth": {"value": REVERT_ARC_STROKE_WIDTH},
+                        "strokeWidth": {
+                            "signal": (
+                                "datum.is_edit_war ? "
+                                f"{EDIT_WAR_ARC_STROKE_WIDTH} : "
+                                f"{REVERT_ARC_STROKE_WIDTH}"
+                            )
+                        },
                         "strokeDash": {
                             "signal": (
-                                "datum.revert_kind==='exact_sha1' ? "
-                                "[1,5] : [8,5]"
+                                "datum.is_edit_war ? [8,4,1,4] : "
+                                "(datum.revert_kind==='exact_sha1' ? "
+                                "[1,5] : [8,5])"
                             )
                         },
                         "strokeCap": {"value": "round"},
@@ -2706,11 +2824,12 @@ def build_vega_spec(
                     "y": {"field": "arrowY"},
                     "shape": {"value": "triangle-right"},
                     "angle": {"field": "arrowAngle"},
-                    "size": {"value": 46},
+                    "size": {"signal": "datum.is_edit_war ? 54 : 46"},
                     "fill": {
                         "signal": (
-                            "datum.revert_kind==='exact_sha1' ? "
-                            f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}'"
+                            f"datum.is_edit_war ? '{EDIT_WAR_COLOR}' : "
+                            "(datum.revert_kind==='exact_sha1' ? "
+                            f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}')"
                         )
                     },
                     "fillOpacity": {
@@ -2751,12 +2870,7 @@ def build_vega_spec(
                     "shape": {"value": "triangle-right"},
                     "angle": {"field": "arrowAngle"},
                     "size": {"value": 58},
-                    "fill": {
-                        "signal": (
-                            "datum.same_cluster ? "
-                            f"scale('macroColor', datum.colour_group) : '{TRAJECTORY_COLOR}'"
-                        )
-                    },
+                    "fill": {"value": TRAJECTORY_COLOR},
                     "fillOpacity": {
                         "signal": (
                             "selectedMacro===null || "
@@ -2784,12 +2898,22 @@ def build_vega_spec(
             {
                 "name": "revisionPoints", "type": "symbol", "from": {"data": "normalRevisionPoints"},
                 "encode": {"enter": {
-                    "tooltip": {"signal": "{'Revision ID': datum.revision_id, 'Timestamp': datum.timestamp, 'Author': datum.author}"}
+                    "tooltip": {
+                        "signal": (
+                            "{'Revision ID': datum.revision_id, "
+                            "'Timestamp': datum.timestamp, "
+                            "'Author': datum.author, "
+                            "'Incoming text change': datum.word_change_label}"
+                        )
+                    }
                 }, "update": {
                     "x": {"scale": "xscale", "field": "x"}, "y": {"scale": "yscale", "field": "y"},
                     "shape": {"value": "circle"},
                     "size": {"value": REVISION_POINT_SIZE},
-                    "fill": {"scale": "macroColor", "field": "colour_group"},
+                    "fill": {
+                        "scale": "wordChangeColor",
+                        "field": "word_change_type",
+                    },
                     "fillOpacity": {
                         "signal": (
                             "(datum.colour_group==='noise' && "
@@ -2799,43 +2923,12 @@ def build_vega_spec(
                             "datum.colour_group===selectedMacro || "
                             "(datum.colour_group==='noise' && "
                             "indexof(datum.context_colour_groups,selectedMacro)>=0) ? "
-                            "0.62 + 0.24*min(zoomLevel/4,1) : 0.08)"
+                            "0.9 + 0.1*min(zoomLevel/4,1) : 0.08)"
                         )
                     },
-                    "stroke": {"value": BACKGROUND_COLOR},
-                    "strokeOpacity": {
-                        "signal": (
-                            "selectedMacro===null || "
-                            "datum.colour_group===selectedMacro || "
-                            "(datum.colour_group==='noise' && "
-                            "indexof(datum.context_colour_groups,selectedMacro)>=0) ? "
-                            "1 : 0.12"
-                        )
-                    },
-                    "strokeWidth": {"value": 1.2},
+                    "strokeOpacity": {"value": 0},
+                    "strokeWidth": {"value": 0},
                     "cursor": {"value": "pointer"},
-                }}
-            },
-            {
-                "name": "sectionPointHighlights", "type": "symbol",
-                "interactive": False,
-                "from": {"data": "labelledSectionPoints"},
-                "encode": {"update": {
-                    "x": {"scale": "xscale", "field": "x"},
-                    "y": {"scale": "yscale", "field": "y"},
-                    "size": {"value": SECTION_POINT_HIGHLIGHT_SIZE},
-                    "fillOpacity": {"value": 0},
-                    "stroke": {"scale": "macroColor", "field": "colour_group"},
-                    "strokeOpacity": {
-                        "signal": (
-                            "selectedMacro===null || "
-                            "datum.colour_group===selectedMacro || "
-                            "(datum.colour_group==='noise' && "
-                            "indexof(datum.context_colour_groups,selectedMacro)>=0) ? "
-                            "0.92 : 0.05"
-                        )
-                    },
-                    "strokeWidth": {"value": 2.6},
                 }}
             },
             {
@@ -2859,7 +2952,8 @@ def build_vega_spec(
                         "signal": (
                             "{'Revision ID': datum.revision_id, "
                             "'Timestamp': datum.timestamp, "
-                            "'Author': datum.author}"
+                            "'Author': datum.author, "
+                            "'Incoming text change': datum.word_change_label}"
                         )
                     },
                 }},
@@ -2974,7 +3068,7 @@ def build_vega_spec(
                     "opacity": {"signal": "indexof(blockedEdgeLabelIds, datum.node_id)<0 ? 1 : 0"},
                     "fillOpacity": {"value": 1},
                     "limit": {"value": 340},
-                    "fill": {"value": "#4f5750"},
+                    "fill": {"field": "label_colour"},
                     "stroke": {"value": "#ffffff"},
                     "strokeWidth": {"value": 2},
                     "strokeOpacity": {"value": 1},
@@ -2986,33 +3080,15 @@ def build_vega_spec(
 
 def render_html(article: str, spec: dict) -> str:
     encoded = json.dumps(spec, ensure_ascii=False, separators=(",", ":"))
-    macro_scale = next(
-        scale for scale in spec.get("scales", [])
-        if scale.get("name") == "macroColor"
-    )
-    data_by_name = {
-        data.get("name"): data.get("values", [])
-        for data in spec.get("data", [])
-    }
-    macro_labels = {
-        str(row["colour_group"]): str(row.get("label") or "").strip()
-        for row in data_by_name.get("macroLegend", [])
-        if row.get("colour_group") is not None
-        and str(row.get("label") or "").strip()
-    }
-    macro_legend = "".join(
+    word_change_legend = "".join(
         (
-            '<li><button type="button" class="macro-filter" '
-            f'data-colour-group="{html.escape(str(colour_group))}" '
-            'aria-pressed="false"><span class="legend-dot" '
-            'style="--legend-color:'
-            f'{html.escape(str(colour))}"></span><span>'
-            f'{html.escape(macro_labels.get(str(colour_group), str(colour_group)))}'
-            "</span></button></li>"
+            '<li><span class="legend-dot" style="--legend-color:'
+            f'{html.escape(WORD_CHANGE_COLOURS[change_type])}'
+            '"></span><span>'
+            f'{html.escape(WORD_CHANGE_LABELS[change_type])}'
+            "</span></li>"
         )
-        for colour_group, colour in zip(
-            macro_scale.get("domain", []), macro_scale.get("range", [])
-        )
+        for change_type in ("start", "added", "removed", "mixed", "no_change")
     )
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -3034,19 +3110,13 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 #legend h2{{font-size:17px;margin:0 0 15px}}
 #legend h3{{font-size:12px;line-height:1.2;letter-spacing:.06em;text-transform:uppercase;color:#687068;margin:18px 0 9px}}
 .legend-list{{list-style:none;margin:0;padding:0;display:grid;gap:8px}}
-.macro-list{{grid-template-columns:1fr;gap:7px}}
-.macro-list li{{width:100%}}
 .legend-list li{{min-width:0;display:flex;align-items:center;gap:8px;font-size:12px;line-height:1.25}}
-.macro-filter{{width:100%;min-width:0;min-height:46px;appearance:none;border:1px solid transparent;border-radius:7px;background:transparent;color:inherit;padding:9px 10px;display:flex;align-items:center;gap:10px;font:inherit;line-height:1.3;text-align:left;cursor:pointer;touch-action:manipulation}}
-.macro-filter:hover,.macro-filter:focus-visible{{background:#ebe9e2;border-color:#cbc9c1;outline:none}}
-.macro-filter[aria-pressed="true"]{{background:#e2dfd5;border-color:#85877f;font-weight:700}}
-#legend[data-selected-macro] .macro-filter[aria-pressed="false"]{{opacity:.38}}
 .legend-dot{{--legend-color:{NOISE_COLOR};width:14px;height:14px;box-sizing:border-box;border-radius:50%;background:var(--legend-color);border:1px solid {BACKGROUND_COLOR};box-shadow:0 0 0 1px color-mix(in srgb,var(--legend-color) 75%,#777);flex:none}}
-.legend-ring{{width:12px;height:12px;box-sizing:border-box;border:2px solid {NOISE_COLOR};border-radius:50%;background:transparent;flex:none}}
 .legend-line{{width:30px;height:0;border-top:2.25px solid {TRAJECTORY_COLOR};flex:none}}
 .legend-line.thick{{border-top-width:4.45px}}
 .legend-arc{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dotted {EXACT_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
 .legend-partial{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dashed {PARTIAL_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
+.legend-edit-war{{width:30px;height:12px;display:block;flex:none;overflow:visible;opacity:{REVERT_ARC_STROKE_OPACITY}}}
 .legend-arrow{{width:30px;flex:none;text-align:center;color:{TRAJECTORY_COLOR};font-size:23px;font-weight:800;line-height:10px}}
 @media(max-width:760px){{#content{{grid-template-columns:minmax(0,1fr) 205px}}#legend{{padding:12px 10px}}}}
 </style></head><body><main id="app">
@@ -3057,16 +3127,15 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 <h2>Legend</h2>
 <h3>Display</h3>
 <ul class="legend-list">
-<li><span class="legend-dot"></span><span>Revision point</span></li>
-<li><span class="legend-ring"></span><span>Temporal-section point</span></li>
 <li><span class="legend-line"></span><span>Standard trajectory edge</span></li>
 <li><span class="legend-arrow">&#8594;</span><span>Revision direction</span></li>
 <li><span class="legend-line thick"></span><span>Repeated projected path</span></li>
+<li><svg class="legend-edit-war" viewBox="0 0 30 12" aria-hidden="true"><path d="M1 10 Q15 0 29 10" fill="none" stroke="{EDIT_WAR_COLOR}" stroke-width="{EDIT_WAR_ARC_STROKE_WIDTH}" stroke-dasharray="8 4 1 4" stroke-linecap="round"/></svg><span>Edit War</span></li>
 <li><span class="legend-arc"></span><span>Exact revert return</span></li>
 <li><span class="legend-partial"></span><span>Partial revert</span></li>
 </ul>
-<h3>Macro clusters</h3>
-<ul class="legend-list macro-list">{macro_legend}</ul>
+<h3>Revision changes</h3>
+<ul class="legend-list">{word_change_legend}</ul>
 </aside>
 </div>
 </main>
@@ -3075,7 +3144,6 @@ const spec={encoded};
 const handler=new vegaTooltip.Handler({{theme:'light'}});
 const vis=document.getElementById('vis');
 const legend=document.getElementById('legend');
-const macroFilters=Array.from(document.querySelectorAll('.macro-filter'));
 const view=new vega.View(vega.parse(spec),{{renderer:'svg',hover:true}})
   .initialize(vis).tooltip(handler.call);
 let resizeFrame=0;
@@ -3343,26 +3411,12 @@ function updateMacroSelection(_name,value){{
   if(selected)legend.dataset.selectedMacro=selected;
   else delete legend.dataset.selectedMacro;
   vis.dataset.selectedMacro=selected;
-  for(const button of macroFilters){{
-    button.setAttribute(
-      'aria-pressed',
-      String(Boolean(selected)&&button.dataset.colourGroup===selected)
-    );
-  }}
   view.signal('blockedParentLabelIds',[]);
   view.signal('blockedEdgeLabelIds',[]);
   view.signal('detailedEdgeLabelIds',[]);
   view.signal('stableParentLabelIds',[]);
   view.signal('stableEdgeLabelIds',[]);
   scheduleLabelStability();
-}}
-for(const button of macroFilters){{
-  button.addEventListener('click',async()=>{{
-    const requested=String(button.dataset.colourGroup||'');
-    const current=view.signal('selectedMacro');
-    view.signal('selectedMacro',current===requested?null:requested);
-    await view.runAsync();
-  }});
 }}
 view.addSignalListener('selectedMacro',updateMacroSelection);
 view.addSignalListener('zooming',(_name,value)=>{{if(!value)scheduleLabelStability();}});
@@ -3569,6 +3623,7 @@ def main() -> int:
             "direct full-revision analysis, one 2-to-3-word label plus a detailed description"
         ),
         "trajectory_width_encoding": TRAJECTORY_WIDTH_ENCODING,
+        "revision_point_colour_encoding": REVISION_POINT_COLOUR_ENCODING,
         "edit_wars": revert_analysis,
         "pipeline_snapshot_id": SEMANTIC_ZOOM_SNAPSHOT_ID,
         "source_sha256": source_sha256(

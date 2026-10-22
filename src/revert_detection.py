@@ -156,6 +156,7 @@ def load_revert_history(
             "timestamp": child_text(element, "timestamp"),
             "sha1": child_text(element, "sha1"),
             "user": user,
+            "comment": child_text(element, "comment"),
             "tags": tags,
             "probable_bot": probable_bot(user, tags),
             "history_index": len(history),
@@ -842,6 +843,10 @@ def analyze_reverts(
             "interval_confirmed_edit_war_event_count": len(
                 interval_edit_war_events
             ),
+            "interval_edit_war_event_session_ids": [
+                event.get("edit_war_session_id", "")
+                for event in interval_edit_war_events
+            ],
             "interval_confirmed_edit_war_sessions": interval_sessions,
             "cumulative_revert_count": len(prefix_events),
             "cumulative_yasseri_m": measure["value"],
