@@ -29,9 +29,9 @@ from revert_detection import (
     history_window_for_points,
     load_revert_history,
 )
-from revision_keywords import (
+from git_word_diff import (
     DEFAULT_GIT_DIFF_ALGORITHM,
-    diff_opcodes,
+    git_word_opcodes,
 )
 from revision_io import (
     iter_revisions,
@@ -627,8 +627,8 @@ def _counts_from_xml(xml_path: Path, points: list[dict]) -> list[tuple[int, int]
     for previous, current in zip(revisions, revisions[1:]):
         old_words = previous["text"].split()
         new_words = current["text"].split()
-        opcodes = diff_opcodes(
-            old_words, new_words, "git", DEFAULT_GIT_DIFF_ALGORITHM
+        opcodes = git_word_opcodes(
+            old_words, new_words, algorithm=DEFAULT_GIT_DIFF_ALGORITHM
         )
         removed = sum(i2 - i1 for tag, i1, i2, _, _ in opcodes if tag in {"delete", "replace"})
         added = sum(j2 - j1 for tag, _, _, j1, j2 in opcodes if tag in {"insert", "replace"})

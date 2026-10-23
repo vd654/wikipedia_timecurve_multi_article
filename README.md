@@ -371,15 +371,11 @@ src/
 ├── main_pipeline.py      embeddings, MDS, HDBSCAN, and base map
 ├── revert_detection.py   detect exact SHA1 reverts
 ├── edge_labels.py        one Terra label per complete revision pair
-├── apply_edge_labels.py  apply reviewed edge labels to an existing dataset
-├── estimate_label_cost.py
-│                          estimate the scope and cost of a label run
 ├── semantic_zoom.py      hierarchy and Vega specification
 ├── semantic_zoom_runtime.py
 │                          HTML shell and browser interaction runtime
 ├── trajectory_geometry.py
 │                          spline, cluster-region, and revert geometry
-├── revision_keywords.py  optional detailed diff-audit pipeline
 ├── git_word_diff.py      validated word diff for audit data
 ├── llm_provider.py       OpenAI client and model configuration
 ├── config.py             shared paths and CLI arguments
@@ -391,6 +387,8 @@ output/Palestine_final_data/
                           four reviewed source files for the final build
 output/Palestine_final.html
 final_build.json          relative inputs for the reproducible final build
+requirements.txt         runtime dependencies
+requirements-dev.txt     runtime plus local test dependencies
 ```
 
 ## Local tests
@@ -400,6 +398,7 @@ not part of the public repository. A fresh clone therefore contains no tests.
 When the local test suite is available, run it with:
 
 ```bash
+python -m pip install -r requirements-dev.txt
 PYTHONPATH=src python -m pytest -q
 ```
 
