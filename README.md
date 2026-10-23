@@ -1,6 +1,6 @@
 # Wikipedia Timecurve
 
-Wikipedia Timecurve turns the revision history of an English Wikipedia article
+Wikipedia Timecurve turns the revision history of a Wikipedia article
 into an interactive two-dimensional semantic map. Each point is one complete
 article revision, consecutive revisions form a chronological trajectory, and
 labels describe changes at several semantic levels. Zooming reveals more detail
@@ -15,7 +15,7 @@ The project separates two use cases:
 
 | Component | Implementation |
 | --- | --- |
-| Revision source | English Wikipedia MediaWiki API, stored locally as XML |
+| Revision source | Wikipedia MediaWiki API, stored locally as XML |
 | Semantic representation | `sentence-transformers/all-MiniLM-L6-v2` |
 | Projection | Classical metric MDS over cosine distances |
 | Clustering | HDBSCAN on the two-dimensional projection |
@@ -64,12 +64,6 @@ The result is written to:
 output/Palestine_final.html
 ```
 
-The expected SHA-256 checksum is:
-
-```text
-cbe62b112554bde8e0ad4703c97e044aa03a567417ce2718c81ef12a02e4fffb
-```
-
 `build_final.py` reads four reviewed inputs from `final_build.json`:
 
 1. Revision projection
@@ -104,8 +98,7 @@ The ready-to-open file is
 - Internet access on the first projection run to download the embedding model
 - An OpenAI API key only when generating new edge or hierarchy labels
 
-Install all project and local-test dependencies from the single requirements
-file:
+Install all pipeline dependencies from the requirements file:
 
 ```bash
 python3 -m venv .venv
@@ -113,9 +106,7 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-`pytest` is included in this file only for the local test suite; the production
-pipeline does not import it. The project does not use Altair, pandas, or
-tiktoken directly.
+The project does not use Altair, pandas, or tiktoken directly.
 
 For LLM-backed labeling, store the key in the ignored `.env` file:
 
@@ -128,7 +119,7 @@ Never commit `.env` or API credentials.
 ## Run the complete pipeline
 
 The following example recreates the Palestine analysis period. Replace the
-article name and dates to process another English Wikipedia article. Article
+article name and dates to process another Wikipedia article. Article
 names containing spaces should be quoted.
 
 ### 1. Download the revision history
@@ -355,22 +346,9 @@ src/
 final_build.json                           reviewed Palestine input manifest
 output/Palestine_final_data/               four reviewed build inputs
 output/Palestine_final.html                presentation-ready visualization
-requirements.txt                           runtime and local-test dependencies
+requirements.txt                           pipeline runtime dependencies
 ```
 
 Only the four JSON inputs referenced by `final_build.json` are required to
 reconstruct `Palestine_final`. The XML dump, embeddings, distance matrix,
 resumable API caches, and earlier HTML outputs are not required for that build.
-
-## Local tests
-
-The local test directory is deliberately excluded from the public repository.
-When it is available, run:
-
-```bash
-PYTHONPATH=src python -m pytest -q
-```
-
-The suite covers revision ordering, complete-text selection, word-diff
-reconstruction, exact reverts, final-build reproducibility, geometry, label
-priorities, and collision handling.
