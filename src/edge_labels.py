@@ -448,7 +448,7 @@ def parse_args() -> argparse.Namespace:
         "--metadata",
         type=Path,
         help=(
-            "Optional metadata JSON override from revision_metadata.py; by default "
+            "Optional revision-metadata JSON override; by default "
             "author, timestamp, and comment are read directly from the XML"
         ),
     )

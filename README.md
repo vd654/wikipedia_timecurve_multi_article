@@ -369,15 +369,8 @@ src/
 ├── text_cleaning.py      convert wikitext into comparison text
 ├── main_pipeline.py      embeddings, MDS, HDBSCAN, and base map
 ├── revert_detection.py   detect exact SHA1 reverts
-├── revision_metadata.py  optional metadata fallback for older XML files
 ├── edge_labels.py        one Terra label per complete revision pair
 ├── apply_edge_labels.py  apply reviewed edge labels to an existing dataset
-├── apply_fixed_edge_label_overrides.py
-│                          apply fixed edge-label corrections
-├── apply_hierarchy_label_overrides.py
-│                          apply reviewed hierarchy labels
-├── refine_edge_labels_from_descriptions.py
-│                          refine short labels from detailed descriptions
 ├── estimate_label_cost.py
 │                          estimate the scope and cost of a label run
 ├── semantic_zoom.py      hierarchy and interactive final map
