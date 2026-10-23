@@ -106,7 +106,7 @@ def main() -> int:
                     article,
                     projection,
                     payload["hierarchy"],
-                    payload.get("edit_wars"),
+                    payload.get("revert_analysis"),
                 ),
             ),
             encoding="utf-8",

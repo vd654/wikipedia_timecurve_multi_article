@@ -467,10 +467,7 @@ def build_visualization(
         render_html,
     )
 
-    projection = {
-        "points": points,
-        "edit_wars": revert_analysis,
-    }
+    projection = {"points": points}
     hierarchy = build_unlabelled_hierarchy(
         projection,
         root_label=article,
@@ -531,15 +528,13 @@ def main() -> int:
         cluster_labels,
         cluster_probabilities,
     )
-    full_revert_history = load_revert_history(
-        Path(paths["xml_path"]), include_text_changes=True
-    )
-    conflict_history, sampled_for_conflict = history_window_for_points(
+    full_revert_history = load_revert_history(Path(paths["xml_path"]))
+    revert_history, sampled_for_reverts = history_window_for_points(
         full_revert_history, points
     )
     revert_analysis = analyze_reverts(
-        conflict_history,
-        sampled_for_conflict,
+        revert_history,
+        sampled_for_reverts,
     )
     for point, statistics in zip(points, revert_analysis["point_statistics"]):
         point.update(statistics)
@@ -578,7 +573,7 @@ def main() -> int:
         },
         "projection": projection,
         "clustering": clustering,
-        "edit_wars": revert_analysis,
+        "revert_analysis": revert_analysis,
         "display_interaction": {
             "zoom": "wheel or trackpad",
             "pan": "drag",

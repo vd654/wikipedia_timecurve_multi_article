@@ -1,12 +1,11 @@
 {
   "article": "Palestine",
-  "visualization": "/Users/vanessadungl/Desktop/wikipedia_timecurve_multi_article/output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json",
+  "visualization": "output/Palestine_final_data/Palestine_small_bert_timecurve_002_projection.json",
   "llm_provider": "openai",
   "model": "gpt-5.6-terra",
   "prompt_version": "full-revision-metadata-label-and-description-v8",
   "sampling": "exact_revision_order_from_visualization",
   "context": "two_complete_cleaned_revisions_plus_metadata_per_edge",
-  "revision_metadata": "output/Palestine_small/Palestine_small_bert_timecurve_002_revision_metadata.json",
   "word_diff_sent_to_llm": false,
   "maximum_label_words": 3,
   "minimum_label_words": 2,

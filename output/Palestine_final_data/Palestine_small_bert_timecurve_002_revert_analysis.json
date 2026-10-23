@@ -1,0 +1,4604 @@
+{
+  "analysis_version": "2026-10-22-exact-sha1-reverts-v15",
+  "method": "exact SHA1 state restoration",
+  "definition": "A revision is a revert when it restores an earlier SHA1-identical article state.",
+  "total_revert_count": 71,
+  "exact_sha1_revert_count": 71,
+  "probable_bot_revert_count": 2,
+  "excluded_probable_bot_revert_count": 0,
+  "events": [
+    {
+      "revision_index": 5,
+      "revision_id": "525968373",
+      "timestamp": "2012-12-02T04:42:19Z",
+      "reverter": "Malik Shabazz",
+      "reverted_editor": "Huntington",
+      "reverted_revision_id": "525968106",
+      "reverted_revision_index": 4,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "525963070",
+      "restored_revision_index": 3,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Huntington",
+        "Malik Shabazz"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 16,
+      "revision_id": "526044072",
+      "timestamp": "2012-12-02T17:55:23Z",
+      "reverter": "Macedonian",
+      "reverted_editor": "67.87.171.116",
+      "reverted_revision_id": "526042800",
+      "reverted_revision_index": 15,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "526035948",
+      "restored_revision_index": 14,
+      "intervening_revision_count": 1,
+      "pair": [
+        "67.87.171.116",
+        "Macedonian"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 18,
+      "revision_id": "526048509",
+      "timestamp": "2012-12-02T18:28:42Z",
+      "reverter": "Sean.hoyland",
+      "reverted_editor": "67.87.171.116",
+      "reverted_revision_id": "526046209",
+      "reverted_revision_index": 17,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "526044072",
+      "restored_revision_index": 16,
+      "intervening_revision_count": 1,
+      "pair": [
+        "67.87.171.116",
+        "Sean.hoyland"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 25,
+      "revision_id": "526071385",
+      "timestamp": "2012-12-02T21:23:11Z",
+      "reverter": "E4024",
+      "reverted_editor": "68.174.107.67",
+      "reverted_revision_id": "526070897",
+      "reverted_revision_index": 24,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "526057617",
+      "restored_revision_index": 23,
+      "intervening_revision_count": 1,
+      "pair": [
+        "68.174.107.67",
+        "E4024"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 30,
+      "revision_id": "526098287",
+      "timestamp": "2012-12-03T00:49:05Z",
+      "reverter": "Arthur Rubin",
+      "reverted_editor": "AnomieBOT",
+      "reverted_revision_id": "526095974",
+      "reverted_revision_index": 29,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "526090212",
+      "restored_revision_index": 26,
+      "intervening_revision_count": 3,
+      "pair": [
+        "AnomieBOT",
+        "Arthur Rubin"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": true
+    },
+    {
+      "revision_index": 96,
+      "revision_id": "526505026",
+      "timestamp": "2012-12-05T12:45:16Z",
+      "reverter": "Mor2",
+      "reverted_editor": "161.52.14.39",
+      "reverted_revision_id": "526500956",
+      "reverted_revision_index": 95,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "526476289",
+      "restored_revision_index": 93,
+      "intervening_revision_count": 2,
+      "pair": [
+        "161.52.14.39",
+        "Mor2"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 97,
+      "revision_id": "526506171",
+      "timestamp": "2012-12-05T12:52:58Z",
+      "reverter": "Mor2",
+      "reverted_editor": "Mor2",
+      "reverted_revision_id": "526505026",
+      "reverted_revision_index": 96,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "526462496",
+      "restored_revision_index": 90,
+      "intervening_revision_count": 6,
+      "pair": [
+        "Mor2",
+        "Mor2"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": true,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 102,
+      "revision_id": "526509109",
+      "timestamp": "2012-12-05T13:12:13Z",
+      "reverter": "Kintetsubuffalo",
+      "reverted_editor": "Kintetsubuffalo",
+      "reverted_revision_id": "526508412",
+      "reverted_revision_index": 101,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "526506960",
+      "restored_revision_index": 100,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Kintetsubuffalo",
+        "Kintetsubuffalo"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": true,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 105,
+      "revision_id": "526637347",
+      "timestamp": "2012-12-06T02:04:36Z",
+      "reverter": "Kevin12xd",
+      "reverted_editor": "24.188.250.236",
+      "reverted_revision_id": "526637199",
+      "reverted_revision_index": 104,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "526624882",
+      "restored_revision_index": 103,
+      "intervening_revision_count": 1,
+      "pair": [
+        "24.188.250.236",
+        "Kevin12xd"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 148,
+      "revision_id": "528023288",
+      "timestamp": "2012-12-14T15:33:51Z",
+      "reverter": "Webclient101",
+      "reverted_editor": "Mor2",
+      "reverted_revision_id": "527962988",
+      "reverted_revision_index": 147,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "527793497",
+      "restored_revision_index": 146,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Mor2",
+        "Webclient101"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 149,
+      "revision_id": "528024168",
+      "timestamp": "2012-12-14T15:40:58Z",
+      "reverter": "Webclient101",
+      "reverted_editor": "Webclient101",
+      "reverted_revision_id": "528023288",
+      "reverted_revision_index": 148,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "527962988",
+      "restored_revision_index": 147,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Webclient101",
+        "Webclient101"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": true,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 151,
+      "revision_id": "528143930",
+      "timestamp": "2012-12-15T11:33:58Z",
+      "reverter": "Arthur Rubin",
+      "reverted_editor": "Japinderum",
+      "reverted_revision_id": "528132595",
+      "reverted_revision_index": 150,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "528024168",
+      "restored_revision_index": 149,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Arthur Rubin",
+        "Japinderum"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 154,
+      "revision_id": "528401981",
+      "timestamp": "2012-12-17T01:43:22Z",
+      "reverter": "Mor2",
+      "reverted_editor": "Japinderum",
+      "reverted_revision_id": "528275249",
+      "reverted_revision_index": 153,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "528249861",
+      "restored_revision_index": 152,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Japinderum",
+        "Mor2"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 188,
+      "revision_id": "529957211",
+      "timestamp": "2012-12-27T10:00:52Z",
+      "reverter": "Mor2",
+      "reverted_editor": "Japinderum",
+      "reverted_revision_id": "529949416",
+      "reverted_revision_index": 187,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "529745900",
+      "restored_revision_index": 186,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Japinderum",
+        "Mor2"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 195,
+      "revision_id": "530259637",
+      "timestamp": "2012-12-29T06:57:34Z",
+      "reverter": "Mor2",
+      "reverted_editor": "Japinderum",
+      "reverted_revision_id": "530258913",
+      "reverted_revision_index": 194,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "530116484",
+      "restored_revision_index": 193,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Japinderum",
+        "Mor2"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 196,
+      "revision_id": "530392376",
+      "timestamp": "2012-12-30T02:54:00Z",
+      "reverter": "Night w",
+      "reverted_editor": "Mor2",
+      "reverted_revision_id": "530259637",
+      "reverted_revision_index": 195,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "530258913",
+      "restored_revision_index": 194,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Mor2",
+        "Night w"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 197,
+      "revision_id": "530402554",
+      "timestamp": "2012-12-30T04:36:18Z",
+      "reverter": "Mor2",
+      "reverted_editor": "Night w",
+      "reverted_revision_id": "530392376",
+      "reverted_revision_index": 196,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "530259637",
+      "restored_revision_index": 195,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Mor2",
+        "Night w"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 198,
+      "revision_id": "530410491",
+      "timestamp": "2012-12-30T06:01:44Z",
+      "reverter": "Mor2",
+      "reverted_editor": "Mor2",
+      "reverted_revision_id": "530402554",
+      "reverted_revision_index": 197,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "530392376",
+      "restored_revision_index": 196,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Mor2",
+        "Mor2"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": true,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 246,
+      "revision_id": "533004105",
+      "timestamp": "2013-01-14T09:05:35Z",
+      "reverter": "Japinderum",
+      "reverted_editor": "Student7",
+      "reverted_revision_id": "532581504",
+      "reverted_revision_index": 245,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "532517360",
+      "restored_revision_index": 244,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Japinderum",
+        "Student7"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 256,
+      "revision_id": "534798771",
+      "timestamp": "2013-01-25T09:46:08Z",
+      "reverter": "عبد المؤمن",
+      "reverted_editor": "عبد المؤمن",
+      "reverted_revision_id": "534798601",
+      "reverted_revision_index": 255,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "534469939",
+      "restored_revision_index": 254,
+      "intervening_revision_count": 1,
+      "pair": [
+        "عبد المؤمن",
+        "عبد المؤمن"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": true,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 258,
+      "revision_id": "534909955",
+      "timestamp": "2013-01-26T00:08:09Z",
+      "reverter": "Emmette Hernandez Coleman",
+      "reverted_editor": "عبد المؤمن",
+      "reverted_revision_id": "534798889",
+      "reverted_revision_index": 257,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "534798771",
+      "restored_revision_index": 256,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Emmette Hernandez Coleman",
+        "عبد المؤمن"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 260,
+      "revision_id": "536582240",
+      "timestamp": "2013-02-04T21:11:00Z",
+      "reverter": "Emmette Hernandez Coleman",
+      "reverted_editor": "ZacharyGeorge",
+      "reverted_revision_id": "536527490",
+      "reverted_revision_index": 259,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "534909955",
+      "restored_revision_index": 258,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Emmette Hernandez Coleman",
+        "ZacharyGeorge"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 280,
+      "revision_id": "541240119",
+      "timestamp": "2013-02-28T13:34:00Z",
+      "reverter": "Emmette Hernandez Coleman",
+      "reverted_editor": "ZacharyGeorge",
+      "reverted_revision_id": "540017769",
+      "reverted_revision_index": 279,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "539791409",
+      "restored_revision_index": 278,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Emmette Hernandez Coleman",
+        "ZacharyGeorge"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 302,
+      "revision_id": "550779066",
+      "timestamp": "2013-04-17T09:15:43Z",
+      "reverter": "Wickey-nl",
+      "reverted_editor": "Wickey-nl",
+      "reverted_revision_id": "550778536",
+      "reverted_revision_index": 301,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "550447653",
+      "restored_revision_index": 300,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Wickey-nl",
+        "Wickey-nl"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": true,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 311,
+      "revision_id": "555291009",
+      "timestamp": "2013-05-16T00:00:53Z",
+      "reverter": "Hmrox",
+      "reverted_editor": "Aaron823",
+      "reverted_revision_id": "555290977",
+      "reverted_revision_index": 310,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "554209273",
+      "restored_revision_index": 309,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Aaron823",
+        "Hmrox"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 324,
+      "revision_id": "560687466",
+      "timestamp": "2013-06-20T00:59:55Z",
+      "reverter": "Chicago Style (without pants)",
+      "reverted_editor": "Nableezy",
+      "reverted_revision_id": "560408583",
+      "reverted_revision_index": 323,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "560399069",
+      "restored_revision_index": 322,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Nableezy"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 325,
+      "revision_id": "560692055",
+      "timestamp": "2013-06-20T01:50:27Z",
+      "reverter": "Malik Shabazz",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "560687466",
+      "reverted_revision_index": 324,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "560408583",
+      "restored_revision_index": 323,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Malik Shabazz"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 327,
+      "revision_id": "561349271",
+      "timestamp": "2013-06-24T11:59:55Z",
+      "reverter": "Ajnem",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "561312166",
+      "reverted_revision_index": 326,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "560692055",
+      "restored_revision_index": 325,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Ajnem",
+        "Chicago Style (without pants)"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 335,
+      "revision_id": "564937798",
+      "timestamp": "2013-07-19T15:38:46Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "564936005",
+      "reverted_revision_index": 334,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "564269113",
+      "restored_revision_index": 333,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AsceticRose",
+        "Chicago Style (without pants)"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 337,
+      "revision_id": "565282056",
+      "timestamp": "2013-07-22T04:43:45Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "565278622",
+      "reverted_revision_index": 336,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "564937798",
+      "restored_revision_index": 335,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AsceticRose",
+        "Chicago Style (without pants)"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 339,
+      "revision_id": "566689030",
+      "timestamp": "2013-08-01T08:37:53Z",
+      "reverter": "Sean.hoyland",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "566687333",
+      "reverted_revision_index": 338,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "565282056",
+      "restored_revision_index": 337,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Sean.hoyland"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 343,
+      "revision_id": "567790193",
+      "timestamp": "2013-08-09T08:33:11Z",
+      "reverter": "Soffredo",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "567788649",
+      "reverted_revision_index": 342,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "567742034",
+      "restored_revision_index": 341,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Soffredo"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 347,
+      "revision_id": "569092403",
+      "timestamp": "2013-08-18T15:30:01Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "569061652",
+      "reverted_revision_index": 346,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "568363548",
+      "restored_revision_index": 345,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AsceticRose",
+        "Chicago Style (without pants)"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 360,
+      "revision_id": "571927317",
+      "timestamp": "2013-09-07T15:37:16Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Danlaycock",
+      "reverted_revision_id": "571802413",
+      "reverted_revision_index": 359,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "571428503",
+      "restored_revision_index": 357,
+      "intervening_revision_count": 2,
+      "pair": [
+        "AsceticRose",
+        "Danlaycock"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 363,
+      "revision_id": "572151948",
+      "timestamp": "2013-09-09T05:44:24Z",
+      "reverter": "Dlv999",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "572149884",
+      "reverted_revision_index": 362,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "572031449",
+      "restored_revision_index": 361,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Dlv999"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 367,
+      "revision_id": "572834318",
+      "timestamp": "2013-09-14T02:18:22Z",
+      "reverter": "Malik Shabazz",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "572833125",
+      "reverted_revision_index": 366,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "572490287",
+      "restored_revision_index": 365,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Malik Shabazz"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 368,
+      "revision_id": "573583730",
+      "timestamp": "2013-09-19T02:12:41Z",
+      "reverter": "Chicago Style (without pants)",
+      "reverted_editor": "Malik Shabazz",
+      "reverted_revision_id": "572834318",
+      "reverted_revision_index": 367,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "572833125",
+      "restored_revision_index": 366,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Malik Shabazz"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 369,
+      "revision_id": "573592797",
+      "timestamp": "2013-09-19T04:15:30Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "573583730",
+      "reverted_revision_index": 368,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "572834318",
+      "restored_revision_index": 367,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AsceticRose",
+        "Chicago Style (without pants)"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 377,
+      "revision_id": "573775227",
+      "timestamp": "2013-09-20T13:03:19Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Enthusiast01",
+      "reverted_revision_id": "573767864",
+      "reverted_revision_index": 376,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "573728990",
+      "restored_revision_index": 371,
+      "intervening_revision_count": 5,
+      "pair": [
+        "AsceticRose",
+        "Enthusiast01"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 379,
+      "revision_id": "573863209",
+      "timestamp": "2013-09-21T03:01:10Z",
+      "reverter": "Malik Shabazz",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "573862648",
+      "reverted_revision_index": 378,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "573775227",
+      "restored_revision_index": 377,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Malik Shabazz"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 381,
+      "revision_id": "573864138",
+      "timestamp": "2013-09-21T03:11:49Z",
+      "reverter": "Dlv999",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "573863443",
+      "reverted_revision_index": 380,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "573863209",
+      "restored_revision_index": 379,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Dlv999"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 383,
+      "revision_id": "574056888",
+      "timestamp": "2013-09-22T15:40:35Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Sundostund",
+      "reverted_revision_id": "574047668",
+      "reverted_revision_index": 382,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "573864138",
+      "restored_revision_index": 381,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AsceticRose",
+        "Sundostund"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 388,
+      "revision_id": "576258074",
+      "timestamp": "2013-10-08T08:13:34Z",
+      "reverter": "Dlv999",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "576256448",
+      "reverted_revision_index": 387,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "574611866",
+      "restored_revision_index": 386,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Dlv999"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 394,
+      "revision_id": "576993592",
+      "timestamp": "2013-10-13T14:29:36Z",
+      "reverter": "Pluto2012",
+      "reverted_editor": "Lanlan lanwan",
+      "reverted_revision_id": "576984737",
+      "reverted_revision_index": 393,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "576970004",
+      "restored_revision_index": 391,
+      "intervening_revision_count": 2,
+      "pair": [
+        "Lanlan lanwan",
+        "Pluto2012"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 395,
+      "revision_id": "576994141",
+      "timestamp": "2013-10-13T14:34:53Z",
+      "reverter": "Lanlan lanwan",
+      "reverted_editor": "Pluto2012",
+      "reverted_revision_id": "576993592",
+      "reverted_revision_index": 394,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "576984737",
+      "restored_revision_index": 393,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Lanlan lanwan",
+        "Pluto2012"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 396,
+      "revision_id": "576994382",
+      "timestamp": "2013-10-13T14:37:22Z",
+      "reverter": "Lanlan lanwan",
+      "reverted_editor": "Lanlan lanwan",
+      "reverted_revision_id": "576994141",
+      "reverted_revision_index": 395,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "576993592",
+      "restored_revision_index": 394,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Lanlan lanwan",
+        "Lanlan lanwan"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": true,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 398,
+      "revision_id": "577010733",
+      "timestamp": "2013-10-13T16:59:04Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Lanlan lanwan",
+      "reverted_revision_id": "577005448",
+      "reverted_revision_index": 397,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "576994382",
+      "restored_revision_index": 396,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AsceticRose",
+        "Lanlan lanwan"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 401,
+      "revision_id": "577281265",
+      "timestamp": "2013-10-15T13:46:45Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "577249563",
+      "reverted_revision_index": 400,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "577025638",
+      "restored_revision_index": 399,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AsceticRose",
+        "Chicago Style (without pants)"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 404,
+      "revision_id": "578072497",
+      "timestamp": "2013-10-21T05:07:08Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "578055445",
+      "reverted_revision_index": 403,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "577869365",
+      "restored_revision_index": 402,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AsceticRose",
+        "Chicago Style (without pants)"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 407,
+      "revision_id": "578612781",
+      "timestamp": "2013-10-24T22:24:12Z",
+      "reverter": "Soffredo",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "578379607",
+      "reverted_revision_index": 406,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "578345371",
+      "restored_revision_index": 405,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Soffredo"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 408,
+      "revision_id": "578944722",
+      "timestamp": "2013-10-27T11:52:34Z",
+      "reverter": "Chicago Style (without pants)",
+      "reverted_editor": "Soffredo",
+      "reverted_revision_id": "578612781",
+      "reverted_revision_index": 407,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "578379607",
+      "restored_revision_index": 406,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Soffredo"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 409,
+      "revision_id": "578953924",
+      "timestamp": "2013-10-27T13:37:39Z",
+      "reverter": "Soffredo",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "578944722",
+      "reverted_revision_index": 408,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "578612781",
+      "restored_revision_index": 407,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Soffredo"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 413,
+      "revision_id": "579875875",
+      "timestamp": "2013-11-02T15:04:08Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Pluto2012",
+      "reverted_revision_id": "579854321",
+      "reverted_revision_index": 412,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "579078284",
+      "restored_revision_index": 410,
+      "intervening_revision_count": 2,
+      "pair": [
+        "AsceticRose",
+        "Pluto2012"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 416,
+      "revision_id": "580105021",
+      "timestamp": "2013-11-04T03:45:14Z",
+      "reverter": "Malik Shabazz",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "580023852",
+      "reverted_revision_index": 415,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "579875875",
+      "restored_revision_index": 413,
+      "intervening_revision_count": 2,
+      "pair": [
+        "Chicago Style (without pants)",
+        "Malik Shabazz"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 420,
+      "revision_id": "580425948",
+      "timestamp": "2013-11-06T08:59:46Z",
+      "reverter": "AsceticRose",
+      "reverted_editor": "Chicago Style (without pants)",
+      "reverted_revision_id": "580412940",
+      "reverted_revision_index": 419,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "580250757",
+      "restored_revision_index": 418,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AsceticRose",
+        "Chicago Style (without pants)"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 421,
+      "revision_id": "580557476",
+      "timestamp": "2013-11-07T05:53:51Z",
+      "reverter": "Chicago Style (without pants)",
+      "reverted_editor": "AsceticRose",
+      "reverted_revision_id": "580425948",
+      "reverted_revision_index": 420,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "580412940",
+      "restored_revision_index": 419,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AsceticRose",
+        "Chicago Style (without pants)"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 436,
+      "revision_id": "583923296",
+      "timestamp": "2013-11-30T16:24:40Z",
+      "reverter": "Sean.hoyland",
+      "reverted_editor": "Sparkyb10123",
+      "reverted_revision_id": "583922407",
+      "reverted_revision_index": 435,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "582306172",
+      "restored_revision_index": 434,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Sean.hoyland",
+        "Sparkyb10123"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 444,
+      "revision_id": "587042963",
+      "timestamp": "2013-12-21T02:25:28Z",
+      "reverter": "Sean.hoyland",
+      "reverted_editor": "Sparkyb10123",
+      "reverted_revision_id": "587034838",
+      "reverted_revision_index": 443,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "586549216",
+      "restored_revision_index": 442,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Sean.hoyland",
+        "Sparkyb10123"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 458,
+      "revision_id": "589612682",
+      "timestamp": "2014-01-07T15:37:56Z",
+      "reverter": "Malik Shabazz",
+      "reverted_editor": "Soffredo",
+      "reverted_revision_id": "589611784",
+      "reverted_revision_index": 457,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "589583603",
+      "restored_revision_index": 456,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Malik Shabazz",
+        "Soffredo"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 473,
+      "revision_id": "593544130",
+      "timestamp": "2014-02-02T06:27:53Z",
+      "reverter": "PLNR",
+      "reverted_editor": "User02062000",
+      "reverted_revision_id": "593543122",
+      "reverted_revision_index": 472,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "593317973",
+      "restored_revision_index": 471,
+      "intervening_revision_count": 1,
+      "pair": [
+        "PLNR",
+        "User02062000"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 485,
+      "revision_id": "594089961",
+      "timestamp": "2014-02-05T19:40:11Z",
+      "reverter": "SiBr4",
+      "reverted_editor": "Minsar",
+      "reverted_revision_id": "594084528",
+      "reverted_revision_index": 484,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "593922618",
+      "restored_revision_index": 483,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Minsar",
+        "SiBr4"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 493,
+      "revision_id": "595151571",
+      "timestamp": "2014-02-12T15:33:23Z",
+      "reverter": "Ronbarak",
+      "reverted_editor": "Ronbarak",
+      "reverted_revision_id": "595146719",
+      "reverted_revision_index": 492,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "595146309",
+      "restored_revision_index": 491,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Ronbarak",
+        "Ronbarak"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": true,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 501,
+      "revision_id": "596480615",
+      "timestamp": "2014-02-21T12:31:28Z",
+      "reverter": "Sean.hoyland",
+      "reverted_editor": "Pgold1",
+      "reverted_revision_id": "596479948",
+      "reverted_revision_index": 500,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "596176450",
+      "restored_revision_index": 499,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Pgold1",
+        "Sean.hoyland"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 507,
+      "revision_id": "597826669",
+      "timestamp": "2014-03-02T16:40:59Z",
+      "reverter": "Sean.hoyland",
+      "reverted_editor": "AnomieBOT",
+      "reverted_revision_id": "597748067",
+      "reverted_revision_index": 506,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "597183024",
+      "restored_revision_index": 504,
+      "intervening_revision_count": 2,
+      "pair": [
+        "AnomieBOT",
+        "Sean.hoyland"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": true
+    },
+    {
+      "revision_index": 536,
+      "revision_id": "608267352",
+      "timestamp": "2014-05-12T19:23:42Z",
+      "reverter": "Sepsis II",
+      "reverted_editor": "Sirius85",
+      "reverted_revision_id": "608266943",
+      "reverted_revision_index": 535,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "607982109",
+      "restored_revision_index": 534,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Sepsis II",
+        "Sirius85"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 540,
+      "revision_id": "609775013",
+      "timestamp": "2014-05-23T07:02:33Z",
+      "reverter": "Sean.hoyland",
+      "reverted_editor": "L.tak",
+      "reverted_revision_id": "609771306",
+      "reverted_revision_index": 539,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "609204233",
+      "restored_revision_index": 538,
+      "intervening_revision_count": 1,
+      "pair": [
+        "L.tak",
+        "Sean.hoyland"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 545,
+      "revision_id": "611264165",
+      "timestamp": "2014-06-02T18:15:55Z",
+      "reverter": "Sepsis II",
+      "reverted_editor": "AnnicAllus",
+      "reverted_revision_id": "611262715",
+      "reverted_revision_index": 544,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "610200453",
+      "restored_revision_index": 543,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AnnicAllus",
+        "Sepsis II"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 548,
+      "revision_id": "611553309",
+      "timestamp": "2014-06-04T17:09:13Z",
+      "reverter": "Sean.hoyland",
+      "reverted_editor": "AnnicAllus",
+      "reverted_revision_id": "611551270",
+      "reverted_revision_index": 547,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "611297800",
+      "restored_revision_index": 546,
+      "intervening_revision_count": 1,
+      "pair": [
+        "AnnicAllus",
+        "Sean.hoyland"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 550,
+      "revision_id": "611592566",
+      "timestamp": "2014-06-04T22:18:56Z",
+      "reverter": "Sepsis II",
+      "reverted_editor": "Here come the Suns",
+      "reverted_revision_id": "611591233",
+      "reverted_revision_index": 549,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "611553309",
+      "restored_revision_index": 548,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Here come the Suns",
+        "Sepsis II"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 551,
+      "revision_id": "611592915",
+      "timestamp": "2014-06-04T22:22:07Z",
+      "reverter": "Here come the Suns",
+      "reverted_editor": "Sepsis II",
+      "reverted_revision_id": "611592566",
+      "reverted_revision_index": 550,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "611591233",
+      "restored_revision_index": 549,
+      "intervening_revision_count": 1,
+      "pair": [
+        "Here come the Suns",
+        "Sepsis II"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    },
+    {
+      "revision_index": 553,
+      "revision_id": "611597569",
+      "timestamp": "2014-06-04T23:06:56Z",
+      "reverter": "Dlv999",
+      "reverted_editor": "Here come the Suns",
+      "reverted_revision_id": "611593014",
+      "reverted_revision_index": 552,
+      "directly_reverts_previous_revision": true,
+      "restored_revision_id": "611592566",
+      "restored_revision_index": 550,
+      "intervening_revision_count": 2,
+      "pair": [
+        "Dlv999",
+        "Here come the Suns"
+      ],
+      "revert_kind": "exact_sha1",
+      "reversal_score": 1.0,
+      "is_self_revert": false,
+      "involves_probable_bot": false
+    }
+  ],
+  "point_statistics": [
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 0
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 0
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 0
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 0
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 0
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 1
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 1
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 1
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 1
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 1
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 1
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 1
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 1
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 1
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 1
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 1
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 2
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 2
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 3
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 3
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 3
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 3
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 3
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 3
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 3
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 4
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 4
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 4
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 4
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 4
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 5
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 6
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 7
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 7
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 7
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 7
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 7
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 8
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 8
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 8
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 9
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 10
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 11
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 11
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 12
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 12
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 12
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 13
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 14
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 14
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 14
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 14
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 14
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 14
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 14
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 15
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 16
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 17
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 18
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 19
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 19
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 19
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 19
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 19
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 19
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 19
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 19
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 19
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 19
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 20
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 20
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 21
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 21
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 22
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 23
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 24
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 24
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 24
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 24
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 24
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 24
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 24
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 24
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 24
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 25
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 26
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 27
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 27
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 28
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 28
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 28
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 28
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 28
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 28
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 28
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 28
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 29
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 29
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 30
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 30
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 31
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 31
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 31
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 31
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 32
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 32
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 32
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 32
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 33
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 34
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 34
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 34
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 35
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 35
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 35
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 35
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 36
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 37
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 38
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 38
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 38
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 38
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 38
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 38
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 38
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 38
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 39
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 39
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 40
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 40
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 41
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 41
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 42
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 42
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 42
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 42
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 42
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 43
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 43
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 43
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 43
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 43
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 43
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 44
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 45
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 46
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 46
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 47
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 47
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 47
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 48
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 48
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 48
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 49
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 49
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 49
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 50
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 51
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 52
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 52
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 52
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 52
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 53
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 53
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 53
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 54
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 54
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 54
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 54
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 55
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 56
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 57
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 57
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 57
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 57
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 57
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 57
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 57
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 57
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 58
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 59
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 60
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 61
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 61
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 61
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 61
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 61
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 61
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 61
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 61
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 62
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 62
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 62
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 62
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 62
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 62
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 62
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 62
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 63
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 63
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 63
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 63
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 63
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 63
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 64
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 65
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 65
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 65
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 65
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 66
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 66
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 66
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 66
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 66
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 67
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 67
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 67
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 68
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 68
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 69
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 70
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 70
+    },
+    {
+      "interval_revert_count": 1,
+      "interval_exact_sha1_revert_count": 1,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    },
+    {
+      "interval_revert_count": 0,
+      "interval_exact_sha1_revert_count": 0,
+      "cumulative_revert_count": 71
+    }
+  ]
+}

@@ -1,7 +1,9 @@
 {
   "schema_version": 1,
   "article": "Palestine",
-  "projection": "output/Palestine_small/Palestine_small_bert_timecurve_002_projection.json",
-  "reviewed_hierarchy": "output/Palestine_small/Palestine_small_bert_timecurve_002_semantic_zoom_full_revision_terra_v8.json",
+  "projection": "output/Palestine_final_data/Palestine_small_bert_timecurve_002_projection.json",
+  "reviewed_hierarchy": "output/Palestine_final_data/Palestine_small_bert_timecurve_002_semantic_zoom_full_revision_terra_v8.json",
+  "revision_edge_labels": "output/Palestine_final_data/Palestine_small_bert_timecurve_002_full_revision_edge_labels_gpt-5.6-terra_v8.json",
+  "revert_analysis": "output/Palestine_final_data/Palestine_small_bert_timecurve_002_revert_analysis.json",
   "html_output": "output/Palestine_final.html"
 }

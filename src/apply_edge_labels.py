@@ -378,7 +378,7 @@ def main() -> int:
                 article,
                 projection,
                 hierarchy,
-                payload.get("edit_wars"),
+                payload.get("revert_analysis"),
             ),
         ),
     )

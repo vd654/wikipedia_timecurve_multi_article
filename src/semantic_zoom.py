@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import colorsys
 import hashlib
 import html
 import json
@@ -40,7 +39,7 @@ from revision_keywords import (
 
 
 MODEL = DEFAULT_OPENAI_MODEL
-SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-10-22-v092"
+SEMANTIC_ZOOM_SNAPSHOT_ID = "2026-10-22-v101"
 MIN_VIEW_SCALE = 0.01
 MAX_VIEW_SCALE = 200.0
 MIN_PARENT_LABEL_WORDS = 2
@@ -48,22 +47,10 @@ MAX_PARENT_LABEL_WORDS = 3
 BACKGROUND_COLOR = "#fbfaf7"
 TRAJECTORY_COLOR = "#72806f"
 NOISE_COLOR = "#a8a8a8"
-MAX_MACRO_COLOURS = 6
-# Six fixed, coordinated hues distinguish the macro groups. Together with
-# neutral grey for Noise, they are the only group colours used by the
-# visualization. Cluster identity remains available through direct labels and
-# hulls; colour communicates the broader macro topic.
-MACRO_COLOURS = (
-    "#d4a017",  # ochre yellow — Statehood Designation
-    "#f8711a",  # orange — UN Status
-    "#8b5a2b",  # sienna brown — State Formation
-    "#b5179e",  # magenta — Sovereignty
-    "#4a1942",  # deep plum — State Development
-    "#9b7bc8",  # light indigo/lavender — UN Observer Status
-)
+MAX_MACRO_GROUPS = 6
 # Revision-point colour is a deterministic code for the incoming cleaned-text
-# transition. Macro colours remain available for regions, section rings, and
-# interactive spatial filtering; they no longer determine the point fill.
+# transition. Macro topics remain visible through their direct labels; they do
+# not receive their own colour encoding or interactive focus state.
 WORD_CHANGE_COLOURS = {
     "start": "#343a40",
     "added": "#f2c14e",
@@ -93,38 +80,72 @@ REVISION_POINT_COLOUR_ENCODING = {
     "colours": WORD_CHANGE_COLOURS,
 }
 EXACT_REVERT_COLOR = "#d64545"
-PARTIAL_REVERT_COLOR = "#00875a"
-EDIT_WAR_COLOR = "#2457d6"
 REVERT_ARC_STROKE_WIDTH = 1.6
-EDIT_WAR_ARC_STROKE_WIDTH = 2.0
 REVERT_ARC_STROKE_OPACITY = 0.45
 REVERT_ARROW_OPACITY = 0.45
+# Exact returns can land a few projection units apart even when their arcs are
+# visually the same connection.  Treat endpoints within five percent of the
+# connection length as one visual pair, independently of direction, and retain
+# only the chronologically last return below.
+REVERT_CONNECTION_ENDPOINT_TOLERANCE_RATIO = 0.05
 REVISION_POINT_SIZE = 80
-CLUSTER_SELECTION_TARGET_SIZE = 700
 CLUSTER_CORRIDOR_STROKE_WIDTH = 1.4
 EDGE_SHORT_LABEL_OFFSET = 9
 EDGE_DETAILED_LABEL_OFFSET = 28
-# Treat sub-pixel projected edges as visually zero-length. They keep their
-# short label even in focus mode, while longer visible edges show full text.
-MIN_DETAILED_EDGE_SCREEN_LENGTH = 1
+EDGE_LABEL_FONT_SIZE = 10
+EDGE_LABEL_LINE_HEIGHT = 12
+# Detailed descriptions need enough visible trajectory context; otherwise a
+# long free-floating paragraph can dominate an only barely separated edge.
+MIN_DETAILED_EDGE_SCREEN_LENGTH = 140
+LABEL_COLLISION_PADDING = 6
+LABEL_SPATIAL_HASH_CELL_SIZE = 64
+PARENT_LABEL_RADIAL_GAP = 10
+PARENT_LABEL_DATA_PADDING = 12
+EDGE_LABEL_REPEAT_DISTANCE = 120
+LABEL_DETAIL_MIN_ZOOM_LEVEL = 4.25
+LABEL_OBSTACLE_GRID_SIZE = 8
+LABEL_EDGE_DENSITY_ENTER = 0.34
+LABEL_EDGE_DENSITY_EXIT = 0.46
+LABEL_DETAIL_DENSITY_ENTER = 0.16
+LABEL_DETAIL_DENSITY_EXIT = 0.24
+# Every 1.5 binary zoom levels moves the preferred semantic depth one step:
+# macro -> cluster -> section -> short edge label -> detailed edge label.
+# Other levels remain candidates and can still appear wherever screen space is
+# genuinely free; this value controls priority, not hard visibility windows.
+SEMANTIC_DEPTH_ZOOM_STEP = 1.5
+# A slightly reduced forward penalty lets the next, finer semantic level enter
+# the competition before it becomes the exact target depth. Coarser context
+# remains somewhat more persistent while zooming in.
+LABEL_FINER_DEPTH_PENALTY = 210
+LABEL_COARSER_DEPTH_PENALTY = 120
 
 # Line width is an event code, not a semantic-distance scale. A normal edge is
 # clearly legible, and repeatedly traversed undirected MDS segments receive an
-# increment for every extra traversal. Exact SHA1 reverts are encoded by an
-# undo glyph at their target revision instead of by line width or line colour.
+# increment for every extra traversal. Exact SHA1 reverts are encoded by a
+# separate directed dotted arc instead of by line width or line colour.
 TRAJECTORY_WIDTH_SIGNAL = (
     "min(8, 2.25 + 1.1*max(datum.overlap_count-1, 0))"
 )
 TRAJECTORY_WIDTH_ENCODING = {
     "normal_edge_px": 2.25,
     "exact_sha1_revert_increment_px": 0.0,
-    "exact_sha1_revert_encoding": "undo glyph at target revision",
+    "exact_sha1_revert_encoding": (
+        "directed dotted arc from reverted revision to reverting revision"
+    ),
     "additional_same_geometry_increment_px": 1.1,
     "maximum_px": 8.0,
     "overlap_definition": (
         "same undirected MDS endpoints rounded to 12 decimal places"
     ),
     "semantic_jump_controls_width": False,
+}
+TRAJECTORY_SPLINE_ENCODING = {
+    "type": "centripetal Catmull-Rom",
+    "alpha": 0.5,
+    "interpolates_revision_points": True,
+    "rendering": "one cubic Bezier path per consecutive revision pair",
+    "endpoint_rule": "reflected neighbour",
+    "coincident_point_rule": "zero-length segment with bounded tangents",
 }
 LABEL_SYSTEM_PROMPT = """You create concise English map labels for a semantic revision
 trajectory. Use only the supplied full-revision comparison labels, detailed descriptions,
@@ -351,15 +372,12 @@ def deduplicate_label_rows(label_rows: list[dict]) -> list[dict]:
                 round(float(row["edge_y2"]), 12),
             ),
         )))
-        if row.get("is_edit_war") and row.get("edit_war_label_session_id"):
-            return endpoints, str(row["edit_war_label_session_id"])
         return endpoints
 
-    def rank(row: dict) -> tuple[int, int, int, int, int, float, float, int]:
+    def rank(row: dict) -> tuple[int, int, int, int, float, float, int]:
         description = _normalise_term(row.get("detailed_description", ""))
         return (
             int(row.get("label_priority", 0)),
-            int(row.get("is_edit_war", False)),
             int(bool(description)),
             int(row.get("change_magnitude") or 0),
             len(_term_key(description).split()),
@@ -378,7 +396,6 @@ def deduplicate_label_rows(label_rows: list[dict]) -> list[dict]:
             -rank(item[1])[4],
             -rank(item[1])[5],
             -rank(item[1])[6],
-            -rank(item[1])[7],
             str(item[1].get("node_id", "")),
         ),
     )
@@ -546,7 +563,7 @@ def spatial_macro_groups(
         return []
     if target_count is None:
         target_count = min(
-            MAX_MACRO_COLOURS,
+            MAX_MACRO_GROUPS,
             max(1, round(math.sqrt(len(clusters)))),
         )
     target_count = max(1, min(int(target_count), len(clusters)))
@@ -738,7 +755,6 @@ def build_hierarchy(
             "change_type": pair.get("change_type", "legacy_keyword_fallback"),
             "word_change_type": word_change_type,
             "label_confidence": pair.get("confidence"),
-            "conflict_description": pair.get("conflict_description", ""),
             "label_source": (
                 "full_revision_lod_llm" if direct_label
                 else "legacy_keyword_fallback"
@@ -1251,37 +1267,97 @@ def _finite_extent(values: list[float]) -> list[float]:
     return [low - padding, high + padding]
 
 
-def cluster_colour(cluster_id: int) -> str:
-    """Return the stable HDBSCAN colour used by the original timecurve."""
-    if cluster_id == -1:
-        return NOISE_COLOR
-    hue = (cluster_id * 0.61803398875) % 1.0
-    lightness = 0.48 if cluster_id % 2 == 0 else 0.60
-    red, green, blue = colorsys.hls_to_rgb(hue, lightness, 0.72)
-    return f"#{round(red * 255):02x}{round(green * 255):02x}{round(blue * 255):02x}"
+def catmull_rom_bezier_controls(
+    points: list[tuple[float, float]],
+    *,
+    alpha: float = 0.5,
+) -> list[tuple[float, float, float, float]]:
+    """Return cubic Bezier controls for an open Catmull-Rom point chain.
 
+    Each result describes the segment from ``points[i]`` to ``points[i+1]``
+    as ``(c1x, c1y, c2x, c2y)``.  The centripetal parameterisation
+    (``alpha=0.5``) is deliberately used for the highly non-uniform distances
+    in a 2D semantic projection: it is less prone to loops and overshoot than
+    the uniform variant while still interpolating every revision point.
 
-def cluster_label_colour(cluster_id: int) -> str:
-    """Return a darker, readable variant of the stable cluster hue."""
-    if cluster_id == -1:
-        return "#555b5e"
-    hue = (cluster_id * 0.61803398875) % 1.0
-    red, green, blue = colorsys.hls_to_rgb(hue, 0.32, 0.68)
-    return f"#{round(red * 255):02x}{round(green * 255):02x}{round(blue * 255):02x}"
+    Exact reverts can place consecutive revisions at identical coordinates.
+    Those segments remain zero-length; neighbouring tangent handles are
+    bounded to half the segment length so a duplicate cannot create a spike.
+    """
+    if len(points) < 2:
+        return []
+    if not 0.0 <= alpha <= 1.0:
+        raise ValueError("Catmull-Rom alpha must be between 0 and 1.")
 
+    def reflected(point: tuple[float, float], neighbour: tuple[float, float]):
+        return (2.0 * point[0] - neighbour[0], 2.0 * point[1] - neighbour[1])
 
-def macro_colour(macro_id: str) -> str:
-    """Return one of the six stable categorical macro-topic colours."""
-    try:
-        index = int(str(macro_id).rsplit("-", 1)[-1]) - 1
-    except ValueError as error:
-        raise ValueError(f"Ungültige Makro-ID: {macro_id}") from error
-    if not 0 <= index < len(MACRO_COLOURS):
-        raise ValueError(
-            f"Makro-ID {macro_id} überschreitet das Limit von "
-            f"{MAX_MACRO_COLOURS} Farben."
+    def distance(first: tuple[float, float], second: tuple[float, float]):
+        return math.hypot(second[0] - first[0], second[1] - first[1])
+
+    def knot_delta(first: tuple[float, float], second: tuple[float, float]):
+        # A tiny positive interval keeps the non-uniform tangent formula
+        # defined when two exact-revert points coincide.
+        return max(distance(first, second) ** alpha, 1e-12)
+
+    def bounded(vector: tuple[float, float], maximum: float):
+        length = math.hypot(*vector)
+        if length <= maximum or length <= 1e-18:
+            return vector
+        scale = maximum / length
+        return (vector[0] * scale, vector[1] * scale)
+
+    controls = []
+    for index in range(len(points) - 1):
+        p1, p2 = points[index], points[index + 1]
+        if distance(p1, p2) <= 1e-18:
+            controls.append((p1[0], p1[1], p2[0], p2[1]))
+            continue
+        p0 = points[index - 1] if index > 0 else reflected(p1, p2)
+        p3 = (
+            points[index + 2]
+            if index + 2 < len(points)
+            else reflected(p2, p1)
         )
-    return MACRO_COLOURS[index]
+        dt01 = knot_delta(p0, p1)
+        dt12 = knot_delta(p1, p2)
+        dt23 = knot_delta(p2, p3)
+        dt02 = dt01 + dt12
+        dt13 = dt12 + dt23
+
+        tangent1 = tuple(
+            dt12 * (
+                (p1[axis] - p0[axis]) / dt01
+                - (p2[axis] - p0[axis]) / dt02
+                + (p2[axis] - p1[axis]) / dt12
+            )
+            for axis in (0, 1)
+        )
+        tangent2 = tuple(
+            dt12 * (
+                (p2[axis] - p1[axis]) / dt12
+                - (p3[axis] - p1[axis]) / dt13
+                + (p3[axis] - p2[axis]) / dt23
+            )
+            for axis in (0, 1)
+        )
+        # The Bezier handle is one third of the Hermite tangent. Limiting the
+        # handle itself to half the chord protects sparse/duplicate sequences
+        # without moving either interpolated revision point.
+        maximum_handle = distance(p1, p2) * 0.5
+        handle1 = bounded(
+            (tangent1[0] / 3.0, tangent1[1] / 3.0), maximum_handle
+        )
+        handle2 = bounded(
+            (tangent2[0] / 3.0, tangent2[1] / 3.0), maximum_handle
+        )
+        controls.append((
+            p1[0] + handle1[0],
+            p1[1] + handle1[1],
+            p2[0] - handle2[0],
+            p2[1] - handle2[1],
+        ))
+    return controls
 
 
 def convex_hull(points: Iterable[tuple[float, float]]) -> list[tuple[float, float]]:
@@ -1311,46 +1387,6 @@ def convex_hull(points: Iterable[tuple[float, float]]) -> list[tuple[float, floa
             upper.pop()
         upper.append(point)
     return lower[:-1] + upper[:-1]
-
-
-def point_in_polygon(
-    point: tuple[float, float],
-    polygon: Iterable[tuple[float, float]],
-) -> bool:
-    """Return whether a projected point lies inside or on a polygon."""
-    vertices = list(polygon)
-    if len(vertices) >= 2 and vertices[0] == vertices[-1]:
-        vertices.pop()
-    if len(vertices) < 3:
-        return False
-
-    x, y = point
-    inside = False
-    tolerance = 1e-15
-    previous_x, previous_y = vertices[-1]
-    for current_x, current_y in vertices:
-        dx = current_x - previous_x
-        dy = current_y - previous_y
-        cross = (x - previous_x) * dy - (y - previous_y) * dx
-        if (
-            abs(cross) <= tolerance
-            and min(previous_x, current_x) - tolerance <= x
-            <= max(previous_x, current_x) + tolerance
-            and min(previous_y, current_y) - tolerance <= y
-            <= max(previous_y, current_y) + tolerance
-        ):
-            return True
-        intersects = (
-            (current_y > y) != (previous_y > y)
-            and x
-            < (previous_x - current_x) * (y - current_y)
-            / (previous_y - current_y)
-            + current_x
-        )
-        if intersects:
-            inside = not inside
-        previous_x, previous_y = current_x, current_y
-    return inside
 
 
 def cluster_region_rows(
@@ -1412,121 +1448,16 @@ def cluster_region_rows(
     return polygons, corridors
 
 
-def cluster_hull_rows(point_rows: list[dict], expansion: float = 1.08) -> list[dict]:
-    """Return regular closed HDBSCAN polygons for compatibility."""
-    polygons, _ = cluster_region_rows(point_rows, expansion=expansion)
-    return polygons
-
-
-def macro_hull_rows(point_rows: list[dict], expansion: float = 1.04) -> list[dict]:
-    """Create closed overview polygons around the clusters of each macro topic."""
-    grouped: dict[str, list[tuple[float, float]]] = defaultdict(list)
-    for point in point_rows:
-        if point.get("macro_id"):
-            grouped[point["macro_id"]].append((point["x"], point["y"]))
-
-    rows = []
-    for macro_id, coordinates in sorted(grouped.items()):
-        hull = convex_hull(coordinates)
-        if len(hull) < 3:
-            continue
-        center_x = sum(x for x, _ in hull) / len(hull)
-        center_y = sum(y for _, y in hull) / len(hull)
-        expanded = [
-            (
-                center_x + (x - center_x) * expansion,
-                center_y + (y - center_y) * expansion,
-            )
-            for x, y in hull
-        ]
-        for order, (x, y) in enumerate(expanded + expanded[:1]):
-            rows.append({"macro_id": macro_id, "order": order, "x": x, "y": y})
-    return rows
-
-
-def section_region_rows(
-    point_rows: list[dict],
-    sections: list[dict],
-    expansion: float = 1.12,
-) -> tuple[list[dict], list[dict], list[dict]]:
-    """Create section hulls, with fixed-width path capsules as a fallback."""
-    polygons: list[dict] = []
-    corridors: list[dict] = []
-    corridor_points: list[dict] = []
-    for section in sections:
-        edge_indices = [int(index) for index in section["edge_indices"]]
-        point_indices = sorted({
-            point_index
-            for edge_index in edge_indices
-            for point_index in (edge_index, edge_index + 1)
-        })
-        coordinates = [
-            (point_rows[index]["x"], point_rows[index]["y"])
-            for index in point_indices
-        ]
-        hull = convex_hull(coordinates)
-        twice_area = abs(sum(
-            first[0] * second[1] - second[0] * first[1]
-            for first, second in zip(hull, hull[1:] + hull[:1])
-        )) if len(hull) >= 3 else 0.0
-        section_id = section["node_id"]
-        cluster_id = int(section["cluster_id"])
-        # Near-identical embeddings can technically form a three-point hull
-        # whose area is too small to be visible. Those sections use a
-        # screen-space capsule around their actual trajectory instead.
-        if len(hull) >= 3 and twice_area > 1e-24:
-            center_x = sum(x for x, _ in hull) / len(hull)
-            center_y = sum(y for _, y in hull) / len(hull)
-            expanded = [
-                (
-                    center_x + (x - center_x) * expansion,
-                    center_y + (y - center_y) * expansion,
-                )
-                for x, y in hull
-            ]
-            for order, (x, y) in enumerate(expanded + expanded[:1]):
-                polygons.append({
-                    "section_id": section_id,
-                    "cluster_id": cluster_id,
-                    "order": order,
-                    "x": x,
-                    "y": y,
-                })
-            continue
-
-        for edge_index in edge_indices:
-            start = point_rows[edge_index]
-            end = point_rows[edge_index + 1]
-            corridors.append({
-                "section_id": section_id,
-                "cluster_id": cluster_id,
-                "edge": edge_index,
-                "x": start["x"],
-                "y": start["y"],
-                "x2": end["x"],
-                "y2": end["y"],
-            })
-        for point_index in point_indices:
-            point = point_rows[point_index]
-            corridor_points.append({
-                "section_id": section_id,
-                "cluster_id": cluster_id,
-                "point": point_index,
-                "x": point["x"],
-                "y": point["y"],
-            })
-    return polygons, corridors, corridor_points
-
-
 def build_revert_arc_rows(
     point_rows: list[dict], revert_analysis: dict | None
 ) -> list[dict]:
     """Map revert events to styled screen-space arcs between plotted revisions.
 
-    Each exact arc starts at the revision whose change was undone and ends at
-    the plotted anchor of ``restored_revision_id``. Partial counter-edits use
-    their consecutive return segments. Membership in a confirmed Edit-War
-    session takes visual precedence over the underlying exact/partial method.
+    An exact SHA1 revert runs from the reverted revision to the reverting
+    revision.  If the same visual return connection occurs repeatedly in
+    either direction, near-identical endpoints are treated as one pair and
+    only its chronologically last event is drawn.  Its retained orientation
+    therefore always points towards that final revert data point.
     """
     if not revert_analysis:
         return []
@@ -1541,17 +1472,6 @@ def build_revert_arc_rows(
         )
         for point in point_rows
     )
-    session_metadata = {
-        str(session.get("session_id", "")): {
-            "event_count": int(session.get("event_count", 0)),
-            "conflict_label": str(session.get("conflict_label", "")),
-            "conflict_description": str(
-                session.get("conflict_description", "")
-            ),
-        }
-        for session in revert_analysis.get("edit_war_sessions", [])
-        if session.get("session_id")
-    }
     rows = []
     for event_order, event in enumerate(revert_analysis.get("events", [])):
         source_id = str(event.get("revision_id", ""))
@@ -1566,178 +1486,117 @@ def build_revert_arc_rows(
             continue
         reverter = str(event.get("reverter", ""))
         reverted_editor = str(event.get("reverted_editor", ""))
-        session_id = str(event.get("edit_war_session_id", ""))
-        is_edit_war = bool(session_id)
         revert_kind = str(event.get("revert_kind", "exact_sha1"))
-        if revert_kind not in {"exact_sha1", "partial"}:
+        if revert_kind != "exact_sha1":
             raise ValueError(
                 f"Unsupported revert category: {revert_kind!r}"
             )
-        partial_detection_basis = (
-            "trajectory" if revert_kind == "partial" else ""
-        )
         restored_id = str(event.get("restored_revision_id") or "")
-        restored_point = points_by_revision.get(restored_id)
-        return_anchor = (
-            restored_point
-            if revert_kind == "exact_sha1" and restored_point is not None
-            else revert_point
-        )
-        return_anchor_id = (
-            restored_id
-            if revert_kind == "exact_sha1" and restored_point is not None
-            else source_id
-        )
         pair = [str(editor) for editor in event.get("pair", []) if editor]
-        trajectory_path = event.get("trajectory_path_revision_ids", [])
-        path_ids = [
-            str(revision_id)
-            for revision_id in trajectory_path
-            if str(revision_id) in points_by_revision
+        start_revision_id = target_id
+        end_revision_id = source_id
+        segment_start = points_by_revision[start_revision_id]
+        segment_end = points_by_revision[end_revision_id]
+        source_key = (
+            round(float(segment_start["x"]), 12),
+            round(float(segment_start["y"]), 12),
+        )
+        target_key = (
+            round(float(segment_end["x"]), 12),
+            round(float(segment_end["y"]), 12),
+        )
+        rows.append({
+            "arc_id": f"revert-{event_order + 1}-{source_id}-{target_id}",
+            "event_order": int(event.get("revision_index", event_order)),
+            "segment_order": 0,
+            "x": segment_start["x"],
+            "y": segment_start["y"],
+            "x2": segment_end["x"],
+            "y2": segment_end["y"],
+            "revision_id": source_id,
+            "start_revision_id": start_revision_id,
+            "end_revision_id": end_revision_id,
+            "reverted_revision_id": target_id,
+            "restored_revision_id": restored_id,
+            "return_anchor_revision_id": end_revision_id,
+            "source_overlap_count": coordinate_counts[source_key],
+            "target_overlap_count": coordinate_counts[target_key],
+            "reverter": reverter,
+            "reverted_editor": reverted_editor,
+            "pair_text": " ↔ ".join(pair),
+            "revert_kind": revert_kind,
+            "revert_kind_label": "Exact revert",
+            "visual_category": revert_kind,
+            "visual_category_label": "Exact revert",
+            "reversal_score": float(event.get("reversal_score", 1.0)),
+        })
+
+    def endpoint_match_score(left: dict, right: dict) -> float | None:
+        """Return the best undirected endpoint error for one visual arc pair."""
+        left_length = math.hypot(
+            float(left["x2"]) - float(left["x"]),
+            float(left["y2"]) - float(left["y"]),
+        )
+        right_length = math.hypot(
+            float(right["x2"]) - float(right["x"]),
+            float(right["y2"]) - float(right["y"]),
+        )
+        direct_error = max(
+            math.hypot(
+                float(left["x"]) - float(right["x"]),
+                float(left["y"]) - float(right["y"]),
+            ),
+            math.hypot(
+                float(left["x2"]) - float(right["x2"]),
+                float(left["y2"]) - float(right["y2"]),
+            ),
+        )
+        reverse_error = max(
+            math.hypot(
+                float(left["x"]) - float(right["x2"]),
+                float(left["y"]) - float(right["y2"]),
+            ),
+            math.hypot(
+                float(left["x2"]) - float(right["x"]),
+                float(left["y2"]) - float(right["y"]),
+            ),
+        )
+        best_error = min(direct_error, reverse_error)
+        tolerance = (
+            min(left_length, right_length)
+            * REVERT_CONNECTION_ENDPOINT_TOLERANCE_RATIO
+        )
+        if tolerance <= 1e-15:
+            return best_error if best_error <= 1e-12 else None
+        return best_error if best_error <= tolerance else None
+
+    grouped: list[list[dict]] = []
+    for row in sorted(rows, key=lambda item: (item["event_order"], item["arc_id"])):
+        matches = [
+            (score, group_index)
+            for group_index, group in enumerate(grouped)
+            if (score := endpoint_match_score(row, group[-1])) is not None
         ]
-        segment_ids = (
-            list(zip(path_ids, path_ids[1:]))
-            if (
-                revert_kind == "partial"
-                and len(path_ids) >= 2
-            )
-            else [(target_id, return_anchor_id)]
-        )
-        for segment_index, (segment_start_id, segment_end_id) in enumerate(
-            segment_ids
-        ):
-            segment_start = points_by_revision[segment_start_id]
-            segment_end = points_by_revision[segment_end_id]
-            source_key = (
-                round(float(segment_start["x"]), 12),
-                round(float(segment_start["y"]), 12),
-            )
-            target_key = (
-                round(float(segment_end["x"]), 12),
-                round(float(segment_end["y"]), 12),
-            )
-            rows.append({
-                "arc_id": (
-                    f"revert-{event_order + 1}-{source_id}-{target_id}-"
-                    f"segment-{segment_index + 1}"
-                ),
-                "event_order": int(event.get("revision_index", event_order)),
-                "segment_order": segment_index,
-                # Every partial-return segment follows chronological movement.
-                "x": segment_start["x"],
-                "y": segment_start["y"],
-                "x2": segment_end["x"],
-                "y2": segment_end["y"],
-                "revision_id": source_id,
-                "reverted_revision_id": target_id,
-                "restored_revision_id": restored_id,
-                "return_anchor_revision_id": segment_end_id,
-                "source_colour_group": segment_start.get("colour_group", "noise"),
-                "target_colour_group": segment_end.get("colour_group", "noise"),
-                "source_context_colour_groups": segment_start.get(
-                    "context_colour_groups",
-                    [segment_start.get("colour_group", "noise")],
-                ),
-                "target_context_colour_groups": segment_end.get(
-                    "context_colour_groups",
-                    [segment_end.get("colour_group", "noise")],
-                ),
-                "source_overlap_count": coordinate_counts[source_key],
-                "target_overlap_count": coordinate_counts[target_key],
-                "reverter": reverter,
-                "reverted_editor": reverted_editor,
-                "pair_text": " ↔ ".join(pair),
-                "revert_kind": revert_kind,
-                "partial_detection_basis": (
-                    partial_detection_basis if revert_kind == "partial" else ""
-                ),
-                "revert_kind_label": (
-                    "Exact revert"
-                    if revert_kind == "exact_sha1"
-                    else "Partial revert"
-                ),
-                "visual_category": (
-                    "edit_war" if is_edit_war else revert_kind
-                ),
-                "visual_category_label": (
-                    "Edit War"
-                    if is_edit_war
-                    else (
-                        "Exact revert"
-                        if revert_kind == "exact_sha1"
-                        else "Partial revert"
-                    )
-                ),
-                "reversal_score": float(event.get("reversal_score", 1.0)),
-                "session_id": session_id,
-                "is_edit_war": is_edit_war,
-                "edit_war_label": (
-                    session_metadata.get(session_id, {}).get(
-                        "conflict_label", ""
-                    ) or "Edit War"
-                ) if is_edit_war else "",
-                "edit_war_description": (
-                    session_metadata.get(session_id, {}).get(
-                        "conflict_description", ""
-                    )
-                ) if is_edit_war else "",
-                "session_event_count": session_metadata.get(
-                    session_id, {}
-                ).get("event_count", 0),
-            })
+        if matches:
+            _, group_index = min(matches)
+            grouped[group_index].append(row)
+        else:
+            grouped.append([row])
 
-    grouped: dict[tuple, list[dict]] = defaultdict(list)
-    for row in rows:
-        endpoints = tuple(sorted((
-            (round(float(row["x"]), 12), round(float(row["y"]), 12)),
-            (round(float(row["x2"]), 12), round(float(row["y2"]), 12)),
-        )))
-        grouped[endpoints].append(row)
-
-    for group in grouped.values():
-        group.sort(key=lambda row: (row["event_order"], row["arc_id"]))
-        has_exact = any(
-            row["revert_kind"] == "exact_sha1" for row in group
-        )
-        has_partial = any(
-            row["revert_kind"] != "exact_sha1" for row in group
-        )
-        mixed_revert_kinds = has_exact and has_partial
-        for rank, row in enumerate(group):
-            row["arc_rank"] = rank
-            row["arc_level"] = rank // 2
-            row["arc_count"] = len(group)
-            row["mixed_revert_kinds"] = mixed_revert_kinds
-            if mixed_revert_kinds:
-                source_key = (
-                    round(float(row["x"]), 12),
-                    round(float(row["y"]), 12),
-                )
-                target_key = (
-                    round(float(row["x2"]), 12),
-                    round(float(row["y2"]), 12),
-                )
-                # Canonicalise the undirected connection before assigning
-                # exact and partial arcs to opposite visual sides. This keeps
-                # the separation stable even when the two revisions traverse
-                # the same connection in opposite chronological directions.
-                row["arc_direction"] = 1 if source_key <= target_key else -1
-                row["arc_side"] = (
-                    1 if row["revert_kind"] == "exact_sha1" else -1
-                )
-            else:
-                row["arc_direction"] = 1
-                row["arc_side"] = 1
-    # Vega paints later paths on top. Confirmed Edit Wars are therefore drawn
-    # after standalone exact and partial reverts, preserving chronology within
-    # each category.
+    retained_rows = []
+    for group in grouped:
+        row = group[-1]
+        row["arc_rank"] = 0
+        row["arc_level"] = 0
+        row["arc_count"] = 1
+        row["revert_occurrence_count"] = len(group)
+        row["suppressed_revert_arc_count"] = len(group) - 1
+        row["arc_direction"] = 1
+        row["arc_side"] = 1
+        retained_rows.append(row)
     return sorted(
-        rows,
-        key=lambda row: (
-            bool(row["is_edit_war"]),
-            row["event_order"],
-            row["arc_id"],
-        ),
+        retained_rows,
+        key=lambda row: (row["event_order"], row["arc_id"]),
     )
 
 
@@ -1748,8 +1607,8 @@ def snap_exact_revert_positions(
 
     Identical SHA1 states are semantically identical even when an embedding or
     projection round-trip leaves their stored coordinates a few pixels apart.
-    Snapping only exact reverts makes the visual return literally coincide
-    with the restored state while partial reverts retain their own positions.
+    Snapping exact reverts makes the visual return literally coincide with the
+    restored state.
     """
     if not revert_analysis:
         return
@@ -1780,7 +1639,7 @@ def build_vega_spec(
     hierarchy: dict,
     revert_analysis: dict | None = None,
 ) -> dict:
-    revert_analysis = revert_analysis or projection.get("edit_wars")
+    revert_analysis = revert_analysis or projection.get("revert_analysis")
     points = [dict(point) for point in projection["points"]]
     point_statistics = (
         revert_analysis.get("point_statistics", [])
@@ -1793,17 +1652,6 @@ def build_vega_spec(
         )
     for point, statistics in zip(points, point_statistics):
         point.update(statistics)
-    cluster_to_macro = {
-        int(cluster_id): macro["node_id"]
-        for macro in hierarchy.get("macros", [])
-        for cluster_id in macro["cluster_ids"]
-    }
-    macro_ids = [str(macro["node_id"]) for macro in hierarchy.get("macros", [])]
-    if len(macro_ids) > MAX_MACRO_COLOURS:
-        raise ValueError(
-            f"Die Visualisierung enthält {len(macro_ids)} Makrogruppen, "
-            f"aber höchstens {MAX_MACRO_COLOURS} Farben sind erlaubt."
-        )
     incoming_word_change_types = ["start", *(
         str(edge.get("word_change_type", "unavailable"))
         for edge in hierarchy["edges"]
@@ -1823,10 +1671,6 @@ def build_vega_spec(
             "author": point["author"],
             "words": int(point["clean_word_count"]),
             "cluster_id": int(point["cluster_id"]),
-            "macro_id": cluster_to_macro.get(int(point["cluster_id"])),
-            "colour_group": (
-                cluster_to_macro.get(int(point["cluster_id"])) or "noise"
-            ),
             "cluster_label": (
                 "Noise"
                 if int(point["cluster_id"]) == -1
@@ -1843,73 +1687,20 @@ def build_vega_spec(
             "interval_exact_sha1_revert_count": int(
                 point.get("interval_exact_sha1_revert_count", 0)
             ),
-            "interval_partial_revert_count": int(
-                point.get("interval_partial_revert_count", 0)
-            ),
-            "interval_mutual_revert_count": int(
-                point.get("interval_mutual_revert_count", 0)
-            ),
-            "gandica_c": float(point.get("cumulative_gandica_c", 0.0)),
-            "confirmed_edit_war_event_count": int(
-                point.get("interval_confirmed_edit_war_event_count", 0)
-            ),
-            "confirmed_edit_war_sessions": point.get(
-                "interval_confirmed_edit_war_sessions", []
-            ),
         }
         for point_index, point in enumerate(points)
     ]
     snap_exact_revert_positions(point_rows, revert_analysis)
     hull_rows, cluster_corridor_rows = cluster_region_rows(point_rows)
-    for rows in (hull_rows, cluster_corridor_rows):
-        for row in rows:
-            row["colour_group"] = cluster_to_macro[int(row["cluster_id"])]
-    macro_context_polygons: dict[str, list[tuple[float, float]]] = defaultdict(list)
-    for macro_hull_row in macro_hull_rows(point_rows):
-        macro_context_polygons[str(macro_hull_row["macro_id"])].append(
-            (float(macro_hull_row["x"]), float(macro_hull_row["y"]))
-        )
-
-    # Preserve spatial context in focus mode. A Noise point stays visible for
-    # its nearest macro group and for every macro group's overall spatial hull
-    # that geometrically contains it. The macro hull is used only for this
-    # visibility test and is not rendered as an additional region.
-    clustered_point_rows = [
-        row for row in point_rows if row["colour_group"] != "noise"
-    ]
-    for row in point_rows:
-        if row["colour_group"] != "noise":
-            row["nearby_colour_group"] = row["colour_group"]
-            row["context_colour_groups"] = [row["colour_group"]]
-            continue
-        nearest_clustered_point = min(
-            clustered_point_rows,
-            key=lambda candidate: (
-                (candidate["x"] - row["x"]) ** 2
-                + (candidate["y"] - row["y"]) ** 2,
-                candidate["order"],
-            ),
-            default=None,
-        )
-        row["nearby_colour_group"] = (
-            nearest_clustered_point["colour_group"]
-            if nearest_clustered_point is not None
-            else None
-        )
-        context_colour_groups = {
-            row["nearby_colour_group"]
-        } if row["nearby_colour_group"] else set()
-        context_colour_groups.update(
-            macro_id
-            for macro_id, polygon in macro_context_polygons.items()
-            if point_in_polygon((row["x"], row["y"]), polygon)
-        )
-        row["context_colour_groups"] = sorted(context_colour_groups)
     revert_arc_rows = build_revert_arc_rows(point_rows, revert_analysis)
 
+    spline_controls = catmull_rom_bezier_controls([
+        (float(point["x"]), float(point["y"])) for point in point_rows
+    ])
     edge_rows = []
     for index, edge in enumerate(hierarchy["edges"]):
         a, b = point_rows[index], point_rows[index + 1]
+        c1x, c1y, c2x, c2y = spline_controls[index]
         semantic_jump = b["semantic_jump"]
         edge_rows.append({
             "edge": index,
@@ -1917,6 +1708,10 @@ def build_vega_spec(
             "y": a["y"],
             "x2": b["x"],
             "y2": b["y"],
+            "spline_c1x": c1x,
+            "spline_c1y": c1y,
+            "spline_c2x": c2x,
+            "spline_c2y": c2y,
             "label": edge["label"],
             "change_type": edge.get("change_type", "legacy_keyword_fallback"),
             "evidence_text": " · ".join(edge.get("evidence", [])),
@@ -1927,24 +1722,8 @@ def build_vega_spec(
             "semantic_jump": semantic_jump,
             "revert_count": b["interval_revert_count"],
             "exact_revert_count": b["interval_exact_sha1_revert_count"],
-            "partial_revert_count": b["interval_partial_revert_count"],
             "has_exact_revert": b["interval_exact_sha1_revert_count"] > 0,
-            "mutual_revert_count": b["interval_mutual_revert_count"],
-            "gandica_c": b["gandica_c"],
-            "is_edit_war": b["confirmed_edit_war_event_count"] > 0,
-            "edit_war_event_count": b["confirmed_edit_war_event_count"],
-            "edit_war_pairs_text": " · ".join(
-                " ↔ ".join(session.get("pair", []))
-                for session in b["confirmed_edit_war_sessions"]
-                if session.get("pair")
-            ),
-            "edit_war_description": edge.get("conflict_description", ""),
             "cluster_id": b["cluster_id"],
-            "colour_group": b["colour_group"],
-            "source_colour_group": a["colour_group"],
-            "target_colour_group": b["colour_group"],
-            "source_context_colour_groups": a["context_colour_groups"],
-            "target_context_colour_groups": b["context_colour_groups"],
             "in_section": str(edge.get("parent_id", "")).startswith("section-"),
             "same_cluster": (
                 a["cluster_id"] >= 0 and a["cluster_id"] == b["cluster_id"]
@@ -1980,14 +1759,9 @@ def build_vega_spec(
     root_node = hierarchy["roots"][0]
 
     def fixed_parent_placement(node: dict) -> dict:
-        """Choose one deterministic placement towards the parent centre.
-
-        The rendered label may disappear when this position is occupied, but
-        it must never search another side of its anchor while zooming or
-        panning.
-        """
+        """Anchor hierarchy areas at their data centre; offset endpoints."""
         level = str(node["level"])
-        if level == "root":
+        if level in {"root", "macro", "cluster", "section"}:
             return {
                 "label_dx": 0,
                 "label_dy": 0,
@@ -1995,16 +1769,11 @@ def build_vega_spec(
                 "label_baseline": "middle",
             }
         parent = node_by_id.get(str(node.get("parent_id", "")), root_node)
-        # Point towards the parent centre: peripheral labels then extend into
-        # the available map interior rather than beyond the viewport edge.
+        # Start and End remain point-feature labels and point towards the map
+        # centre so they do not drift outside the plotted trajectory.
         dx = float(parent["x"]) - float(node["x"])
         dy = float(parent["y"]) - float(node["y"])
-        offset = {
-            "macro": 16,
-            "cluster": 14,
-            "section": 12,
-            "endpoint": 14,
-        }.get(level, 12)
+        offset = 14
         if abs(dx) < 1e-18 and abs(dy) < 1e-18:
             # A single-child parent can share the exact anchor and wording of
             # its child. Give the child enough separation for both labels to
@@ -2050,25 +1819,25 @@ def build_vega_spec(
             "content unchanged",
         }
 
-    def node_colour_group(node: dict) -> str | None:
-        if node.get("level") == "macro":
-            return str(node["node_id"])
-        if node.get("level") == "edge":
-            return str(point_rows[int(node["pair_index"]) + 1]["colour_group"])
-        cluster_id = node.get("cluster_id")
-        if cluster_id is None:
-            return None
-        return cluster_to_macro.get(int(cluster_id)) or "noise"
-
-    def node_context_colour_groups(node: dict) -> list[str]:
-        if node.get("level") == "edge":
-            pair_index = int(node["pair_index"])
-            return sorted({
-                *point_rows[pair_index]["context_colour_groups"],
-                *point_rows[pair_index + 1]["context_colour_groups"],
-            })
-        colour_group = node_colour_group(node)
-        return [colour_group] if colour_group else []
+    def node_support_point_indices(node: dict) -> list[int]:
+        """Return the revision points whose area a hierarchy label describes."""
+        level = str(node.get("level", ""))
+        if level == "macro":
+            cluster_ids = {int(value) for value in node.get("cluster_ids", [])}
+            return [
+                index for index, point in enumerate(point_rows)
+                if int(point["cluster_id"]) in cluster_ids
+            ]
+        if level == "cluster":
+            return sorted({int(index) for index in node.get("point_indices", [])})
+        if level == "section":
+            point_indices: set[int] = set()
+            for edge_index in node.get("edge_indices", []):
+                point_indices.update((int(edge_index), int(edge_index) + 1))
+            return sorted(
+                index for index in point_indices if 0 <= index < len(point_rows)
+            )
+        return []
 
     def edge_display_text(node: dict) -> str | list[str]:
         """Render detailed edge descriptions as readable multiline labels."""
@@ -2098,28 +1867,15 @@ def build_vega_spec(
             "label": node["label"],
             "display_label": edge_display_text(node),
             "detailed_description": node.get("detailed_description", ""),
-            "is_edit_war": bool(node.get("is_edit_war", False)),
-            "edit_war_label_session_id": node.get(
-                "edit_war_label_session_id", ""
-            ),
             "cluster_id": node.get("cluster_id"),
-            "colour_group": node_colour_group(node),
-            "context_colour_groups": node_context_colour_groups(node),
-            # Validated Edit-War labels use the same signal blue as their
-            # dash-dot arcs. Other edge and hierarchy labels stay neutral.
-            "label_colour": (
-                EDIT_WAR_COLOR
-                if node["level"] == "edge" and node.get("is_edit_war") is True
-                else ("#4f5750" if node["level"] == "edge" else "#25322a")
-            ),
+            "label_colour": "#25322a",
             # Every level competes for screen space at every zoom scale. Broad
             # labels win collisions first, and increasingly detailed labels
-            # fill every remaining gap as zooming creates room around their
-            # fixed anchors.
+            # fill every remaining gap as zooming creates room. The reviewed
+            # semantic centre remains the origin for a bounded set of
+            # screen-space variable-anchor alternatives.
             "label_priority": (
-                2
-                if node["level"] == "edge" and node.get("is_edit_war") is True
-                else {
+                {
                     "macro": 4,
                     "cluster": 3,
                     "section": 2,
@@ -2138,6 +1894,7 @@ def build_vega_spec(
             "revision_count": node.get("revision_count"),
             "parent_id": node.get("parent_id"),
             "ancestor_ids": label_ancestor_ids(node),
+            "support_point_indices": node_support_point_indices(node),
             **fixed_parent_placement(node),
             "edge_x": (
                 point_rows[node["pair_index"]]["x"]
@@ -2153,6 +1910,22 @@ def build_vega_spec(
             ),
             "edge_y2": (
                 point_rows[node["pair_index"] + 1]["y"]
+                if node["level"] == "edge" else None
+            ),
+            "edge_c1x": (
+                spline_controls[node["pair_index"]][0]
+                if node["level"] == "edge" else None
+            ),
+            "edge_c1y": (
+                spline_controls[node["pair_index"]][1]
+                if node["level"] == "edge" else None
+            ),
+            "edge_c2x": (
+                spline_controls[node["pair_index"]][2]
+                if node["level"] == "edge" else None
+            ),
+            "edge_c2y": (
+                spline_controls[node["pair_index"]][3]
                 if node["level"] == "edge" else None
             ),
         }
@@ -2172,8 +1945,7 @@ def build_vega_spec(
             "label": hierarchy["roots"][0]["label"],
             "display_label": hierarchy["roots"][0]["label"],
             "cluster_id": None,
-            "colour_group": None,
-            "label_colour": "#151915",
+            "label_colour": "#25322a",
             # The article is the final overview label. Once the geometry has
             # collapsed at extreme zoom-out, it must win over Start, End, and
             # every thematic detail occupying the same screen-space point.
@@ -2182,6 +1954,7 @@ def build_vega_spec(
             "revision_count": hierarchy["roots"][0]["revision_count"],
             "parent_id": None,
             "ancestor_ids": [],
+            "support_point_indices": list(range(len(point_rows))),
             **fixed_parent_placement(hierarchy["roots"][0]),
         },
         {
@@ -2192,13 +1965,13 @@ def build_vega_spec(
             "label": "Start",
             "display_label": "Start",
             "cluster_id": point_rows[0]["cluster_id"],
-            "colour_group": point_rows[0]["colour_group"],
-            "label_colour": "#263029",
+            "label_colour": "#25322a",
             "label_priority": 6,
             "importance": 1e12,
             "revision_count": 1,
             "parent_id": "root",
             "ancestor_ids": ["root"],
+            "support_point_indices": [0],
             **fixed_parent_placement({
                 "node_id": "trajectory-start",
                 "level": "endpoint",
@@ -2215,13 +1988,13 @@ def build_vega_spec(
             "label": "End",
             "display_label": "End",
             "cluster_id": point_rows[-1]["cluster_id"],
-            "colour_group": point_rows[-1]["colour_group"],
-            "label_colour": "#263029",
+            "label_colour": "#25322a",
             "label_priority": 6,
             "importance": 1e12,
             "revision_count": 1,
             "parent_id": "root",
             "ancestor_ids": ["root"],
+            "support_point_indices": [len(point_rows) - 1],
             **fixed_parent_placement({
                 "node_id": "trajectory-end",
                 "level": "endpoint",
@@ -2294,69 +2067,27 @@ def build_vega_spec(
             ]},
             {"name": "zoomLevel", "update": "max(0, log((xext[1]-xext[0])/(xdom[1]-xdom[0]))/log(2))"},
             {
-                "name": "selectedMacro",
-                "value": None,
-                "on": [
-                    {
-                        "events": "@revisionPoints:click",
-                        "update": (
-                            "selectedMacro===datum.colour_group ? null : "
-                            "datum.colour_group"
-                        ),
-                    },
-                    {
-                        "events": "@clusterSelectionTargets:click",
-                        "update": (
-                            "selectedMacro===datum.colour_group ? null : "
-                            "datum.colour_group"
-                        ),
-                    },
-                    {
-                        "events": "@clusterRegionShape:click",
-                        "update": (
-                            "selectedMacro===datum.colour_group ? null : "
-                            "datum.colour_group"
-                        ),
-                    },
-                    {
-                        "events": "@clusterRegionCorridor:click",
-                        "update": (
-                            "selectedMacro===datum.colour_group ? null : "
-                            "datum.colour_group"
-                        ),
-                    },
-                    {
-                        "events": "@semanticLabels:click",
-                        "update": (
-                            "datum.colour_group ? "
-                            "(selectedMacro===datum.colour_group ? null : "
-                            "datum.colour_group) : selectedMacro"
-                        ),
-                    },
-                    {"events": "dblclick", "update": "null"},
-                    {
-                        "events": {
-                            "source": "window",
-                            "type": "keydown",
-                            "filter": ["event.key === 'Escape'"],
-                        },
-                        "update": "null",
-                    },
-                ],
+                "name": "semanticTargetDepth",
+                "update": (
+                    f"min(5, 1 + zoomLevel/{SEMANTIC_DEPTH_ZOOM_STEP})"
+                ),
             },
-            # Filled from the actually rendered label marks by render_html().
-            # A large sort bonus keeps previously visible labels stable across
-            # small zoom and pan changes without introducing zoom stages.
-            {"name": "stableParentLabelIds", "value": []},
-            {"name": "stableEdgeLabelIds", "value": []},
-            # Filled by a post-render screen-space bounds audit. Labels have one
-            # fixed anchor position; these signals hide a label when that
-            # position collides instead of searching another side.
+            # Filled by a post-render screen-space bounds audit. Hierarchy
+            # labels use MapLibre-style variable anchors around their semantic
+            # centre; edge labels slide along the visible spline.
             {"name": "blockedParentLabelIds", "value": []},
             {"name": "blockedEdgeLabelIds", "value": []},
+            {"name": "parentLabelPlacementIds", "value": []},
+            {"name": "parentLabelPlacementDx", "value": []},
+            {"name": "parentLabelPlacementDy", "value": []},
+            # The browser-side free-space search stores the selected Bezier
+            # sample and normal side for every accepted edge label here.
+            {"name": "edgeLabelPlacementIds", "value": []},
+            {"name": "edgeLabelPlacementTs", "value": []},
+            {"name": "edgeLabelPlacementSides", "value": []},
             # Filled by the screen-space collision audit. Detailed edge text
-            # is preferred whenever its measured bounds fit; otherwise the
-            # short label is used without relying on a zoom threshold.
+            # is preferred only when its bounds and trajectory length fit;
+            # otherwise the short label is tried.
             {"name": "detailedEdgeLabelIds", "value": []},
         ],
         "data": [
@@ -2366,79 +2097,69 @@ def build_vega_spec(
             {"name": "exactRevertEdges", "source": "edges", "transform": [
                 {"type": "filter", "expr": "datum.has_exact_revert"},
             ]},
-            {"name": "visibleDirectionArrows", "source": "edges", "transform": [
-                {"type": "filter", "expr": "!datum.has_exact_revert"},
+            {"name": "splineEdgeGeometry", "source": "edges", "transform": [
                 {"type": "formula", "as": "screenX1", "expr": "scale('xscale', datum.x)"},
                 {"type": "formula", "as": "screenY1", "expr": "scale('yscale', datum.y)"},
+                {"type": "formula", "as": "screenC1X", "expr": "scale('xscale', datum.spline_c1x)"},
+                {"type": "formula", "as": "screenC1Y", "expr": "scale('yscale', datum.spline_c1y)"},
+                {"type": "formula", "as": "screenC2X", "expr": "scale('xscale', datum.spline_c2x)"},
+                {"type": "formula", "as": "screenC2Y", "expr": "scale('yscale', datum.spline_c2y)"},
                 {"type": "formula", "as": "screenX2", "expr": "scale('xscale', datum.x2)"},
                 {"type": "formula", "as": "screenY2", "expr": "scale('yscale', datum.y2)"},
-                {"type": "formula", "as": "screenDx", "expr": "datum.screenX2-datum.screenX1"},
-                {"type": "formula", "as": "screenDy", "expr": "datum.screenY2-datum.screenY1"},
                 {
                     "type": "formula",
-                    "as": "screenLength",
-                    "expr": "sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2))",
-                },
-                {
-                    "type": "formula",
-                    "as": "xClipMin",
+                    "as": "splinePath",
                     "expr": (
-                        "abs(datum.screenDx)<1e-9 ? "
-                        "(datum.screenX1>=0 && datum.screenX1<=width ? -1e9 : 1) : "
-                        "min((0-datum.screenX1)/datum.screenDx,"
-                        "(width-datum.screenX1)/datum.screenDx)"
+                        "'M'+datum.screenX1+','+datum.screenY1+' C'+"
+                        "datum.screenC1X+','+datum.screenC1Y+' '+"
+                        "datum.screenC2X+','+datum.screenC2Y+' '+"
+                        "datum.screenX2+','+datum.screenY2"
                     ),
                 },
                 {
                     "type": "formula",
-                    "as": "xClipMax",
+                    "as": "splineLength",
                     "expr": (
-                        "abs(datum.screenDx)<1e-9 ? "
-                        "(datum.screenX1>=0 && datum.screenX1<=width ? 1e9 : 0) : "
-                        "max((0-datum.screenX1)/datum.screenDx,"
-                        "(width-datum.screenX1)/datum.screenDx)"
+                        "sqrt(pow(datum.screenC1X-datum.screenX1,2)+"
+                        "pow(datum.screenC1Y-datum.screenY1,2))+"
+                        "sqrt(pow(datum.screenC2X-datum.screenC1X,2)+"
+                        "pow(datum.screenC2Y-datum.screenC1Y,2))+"
+                        "sqrt(pow(datum.screenX2-datum.screenC2X,2)+"
+                        "pow(datum.screenY2-datum.screenC2Y,2))"
                     ),
                 },
                 {
                     "type": "formula",
-                    "as": "yClipMin",
-                    "expr": (
-                        "abs(datum.screenDy)<1e-9 ? "
-                        "(datum.screenY1>=0 && datum.screenY1<=height ? -1e9 : 1) : "
-                        "min((0-datum.screenY1)/datum.screenDy,"
-                        "(height-datum.screenY1)/datum.screenDy)"
-                    ),
+                    "as": "splineMidX",
+                    "expr": "(datum.screenX1+3*datum.screenC1X+3*datum.screenC2X+datum.screenX2)/8",
                 },
                 {
                     "type": "formula",
-                    "as": "yClipMax",
-                    "expr": (
-                        "abs(datum.screenDy)<1e-9 ? "
-                        "(datum.screenY1>=0 && datum.screenY1<=height ? 1e9 : 0) : "
-                        "max((0-datum.screenY1)/datum.screenDy,"
-                        "(height-datum.screenY1)/datum.screenDy)"
-                    ),
+                    "as": "splineMidY",
+                    "expr": "(datum.screenY1+3*datum.screenC1Y+3*datum.screenC2Y+datum.screenY2)/8",
                 },
-                {"type": "formula", "as": "clipT0", "expr": "max(0,datum.xClipMin,datum.yClipMin)"},
-                {"type": "formula", "as": "clipT1", "expr": "min(1,datum.xClipMax,datum.yClipMax)"},
-                {"type": "filter", "expr": "datum.clipT0<=datum.clipT1"},
                 {
                     "type": "formula",
-                    "as": "visibleScreenLength",
-                    "expr": "(datum.clipT1-datum.clipT0)*datum.screenLength",
+                    "as": "splineTangentX",
+                    "expr": "0.75*(datum.screenC1X-datum.screenX1)+1.5*(datum.screenC2X-datum.screenC1X)+0.75*(datum.screenX2-datum.screenC2X)",
                 },
-                {"type": "filter", "expr": "datum.visibleScreenLength>=34"},
                 {
                     "type": "formula",
-                    "as": "arrowT",
-                    "expr": (
-                        "datum.clipT0 + "
-                        "min(30,datum.visibleScreenLength*0.5)/datum.screenLength"
-                    ),
+                    "as": "splineTangentY",
+                    "expr": "0.75*(datum.screenC1Y-datum.screenY1)+1.5*(datum.screenC2Y-datum.screenC1Y)+0.75*(datum.screenY2-datum.screenC2Y)",
                 },
-                {"type": "formula", "as": "arrowScreenX", "expr": "datum.screenX1+datum.screenDx*datum.arrowT"},
-                {"type": "formula", "as": "arrowScreenY", "expr": "datum.screenY1+datum.screenDy*datum.arrowT"},
-                {"type": "formula", "as": "arrowAngle", "expr": "atan2(datum.screenDy,datum.screenDx)*57.29577951308232"},
+            ]},
+            {"name": "visibleDirectionArrows", "source": "splineEdgeGeometry", "transform": [
+                {"type": "filter", "expr": "!datum.has_exact_revert"},
+                {"type": "filter", "expr": "datum.splineLength>=34"},
+                {"type": "filter", "expr": "datum.splineMidX>=0 && datum.splineMidX<=width && datum.splineMidY>=0 && datum.splineMidY<=height"},
+                {
+                    "type": "formula",
+                    "as": "arrowScreenX",
+                    "expr": "datum.splineMidX",
+                },
+                {"type": "formula", "as": "arrowScreenY", "expr": "datum.splineMidY"},
+                {"type": "formula", "as": "arrowAngle", "expr": "atan2(datum.splineTangentY,datum.splineTangentX)*57.29577951308232"},
             ]},
             {"name": "revertArcs", "values": revert_arc_rows},
             {"name": "revertArcGeometry", "source": "revertArcs", "transform": [
@@ -2458,14 +2179,8 @@ def build_vega_spec(
                     "type": "formula",
                     "as": "arcHeight",
                     "expr": (
-                        "datum.is_edit_war ? "
-                        "min(190,max(22,datum.screenLength*"
-                        "(0.25+0.075*datum.arc_level)+8*datum.arc_level)) : "
-                        "datum.revert_kind==='exact_sha1' ? "
                         "min(190,max(22,datum.screenLength*0.28+"
-                        "8*datum.arc_level)) : "
-                        "min(95,max(10,datum.screenLength*0.12+"
-                        "4*datum.arc_level))"
+                        "8*datum.arc_level))"
                     ),
                 },
                 {
@@ -2533,41 +2248,40 @@ def build_vega_spec(
                     "expr": "atan2(datum.arrowDy,datum.arrowDx)*57.29577951308232",
                 },
             ]},
-            {"name": "intraClusterEdges", "source": "edges", "transform": [
+            {"name": "intraClusterEdges", "source": "splineEdgeGeometry", "transform": [
                 {"type": "filter", "expr": "datum.same_cluster"},
             ]},
             {"name": "labels", "values": label_rows},
             {"name": "clusterHulls", "values": hull_rows},
             {"name": "clusterCorridors", "values": cluster_corridor_rows},
             {"name": "visibleParentLabels", "source": "labels", "transform": [
-                {"type": "filter", "expr": "rootOnlyOverview ? datum.level==='root' : (datum.level==='root' || datum.level==='macro' || datum.level==='endpoint' || datum.level==='cluster' || datum.level==='section')"},
                 {
                     "type": "filter",
                     "expr": (
-                        "selectedMacro===null || "
-                        "(datum.colour_group===selectedMacro && "
-                        "(datum.level==='cluster' || "
-                        "datum.level==='endpoint'))"
+                        "rootOnlyOverview ? datum.level==='root' : "
+                        "datum.level!=='edge'"
                     ),
                 },
                 {"type": "filter", "expr": "datum.x >= min(xdom[0], xdom[1]) && datum.x <= max(xdom[0], xdom[1]) && datum.y >= min(ydom[0], ydom[1]) && datum.y <= max(ydom[0], ydom[1])"},
                 {"type": "filter", "expr": "datum.level!=='root' || (scale('xscale', datum.x) >= 95 && scale('xscale', datum.x) <= width-95 && scale('yscale', datum.y) >= 24 && scale('yscale', datum.y) <= height-24)"},
-                {"type": "formula", "as": "placementOrder", "expr": "-(datum.label_priority*1e15 + (indexof(stableParentLabelIds, datum.node_id)>=0 ? 1e14 : 0) + datum.importance)"},
+                {"type": "formula", "as": "parentPlacementIndex", "expr": "indexof(parentLabelPlacementIds, datum.node_id)"},
+                {"type": "formula", "as": "parentPlacementDx", "expr": "datum.parentPlacementIndex>=0 ? parentLabelPlacementDx[datum.parentPlacementIndex] : 0"},
+                {"type": "formula", "as": "parentPlacementDy", "expr": "datum.parentPlacementIndex>=0 ? parentLabelPlacementDy[datum.parentPlacementIndex] : 0"},
+                {"type": "formula", "as": "placementOrder", "expr": "-(datum.label_priority*1e15 + datum.importance)"},
                 {"type": "collect", "sort": {"field": "placementOrder", "order": "ascending"}},
             ]},
             {"name": "visibleEdgeLabels", "source": "labels", "transform": [
                 {"type": "filter", "expr": "datum.level==='edge'"},
-                {"type": "filter", "expr": "!rootOnlyOverview"},
                 {
                     "type": "filter",
-                    "expr": (
-                        "selectedMacro===null || "
-                        "datum.colour_group===selectedMacro || "
-                        "indexof(datum.context_colour_groups,selectedMacro)>=0"
-                    ),
+                    "expr": "!rootOnlyOverview",
                 },
                 {"type": "formula", "as": "screenX1", "expr": "scale('xscale', datum.edge_x)"},
                 {"type": "formula", "as": "screenY1", "expr": "scale('yscale', datum.edge_y)"},
+                {"type": "formula", "as": "screenC1X", "expr": "scale('xscale', datum.edge_c1x)"},
+                {"type": "formula", "as": "screenC1Y", "expr": "scale('yscale', datum.edge_c1y)"},
+                {"type": "formula", "as": "screenC2X", "expr": "scale('xscale', datum.edge_c2x)"},
+                {"type": "formula", "as": "screenC2Y", "expr": "scale('yscale', datum.edge_c2y)"},
                 {"type": "formula", "as": "screenX2", "expr": "scale('xscale', datum.edge_x2)"},
                 {"type": "formula", "as": "screenY2", "expr": "scale('yscale', datum.edge_y2)"},
                 {"type": "formula", "as": "screenDx", "expr": "datum.screenX2-datum.screenX1"},
@@ -2576,28 +2290,6 @@ def build_vega_spec(
                     "type": "formula",
                     "as": "screenLength",
                     "expr": "sqrt(pow(datum.screenDx,2)+pow(datum.screenDy,2))",
-                },
-                {
-                    "type": "formula",
-                    "as": "labelUnitX",
-                    "expr": (
-                        "datum.screenLength>=1 ? "
-                        "-datum.screenDy/datum.screenLength : "
-                        "(abs(datum.label_dx)+abs(datum.label_dy)>0 ? "
-                        "datum.label_dx/max(sqrt(pow(datum.label_dx,2)+"
-                        "pow(datum.label_dy,2)),1) : 1)"
-                    ),
-                },
-                {
-                    "type": "formula",
-                    "as": "labelUnitY",
-                    "expr": (
-                        "datum.screenLength>=1 ? "
-                        "datum.screenDx/datum.screenLength : "
-                        "(abs(datum.label_dx)+abs(datum.label_dy)>0 ? "
-                        "datum.label_dy/max(sqrt(pow(datum.label_dx,2)+"
-                        "pow(datum.label_dy,2)),1) : 0)"
-                    ),
                 },
                 {
                     "type": "formula",
@@ -2642,10 +2334,76 @@ def build_vega_spec(
                 {"type": "formula", "as": "clipT0", "expr": "max(0,datum.xClipMin,datum.yClipMin)"},
                 {"type": "formula", "as": "clipT1", "expr": "min(1,datum.xClipMax,datum.yClipMax)"},
                 {"type": "filter", "expr": "datum.clipT0<=datum.clipT1"},
-                {"type": "formula", "as": "labelT", "expr": "(datum.clipT0+datum.clipT1)/2"},
-                {"type": "formula", "as": "labelScreenX", "expr": "datum.screenX1+datum.screenDx*datum.labelT"},
-                {"type": "formula", "as": "labelScreenY", "expr": "datum.screenY1+datum.screenDy*datum.labelT"},
-                {"type": "formula", "as": "placementOrder", "expr": "-(datum.label_priority*1e15 + (indexof(stableEdgeLabelIds, datum.node_id)>=0 ? 1e14 : 0) + datum.importance)"},
+                {
+                    "type": "formula",
+                    "as": "labelPlacementIndex",
+                    "expr": "indexof(edgeLabelPlacementIds, datum.node_id)",
+                },
+                {
+                    "type": "formula",
+                    "as": "labelT",
+                    "expr": (
+                        "datum.labelPlacementIndex>=0 ? "
+                        "edgeLabelPlacementTs[datum.labelPlacementIndex] : "
+                        "(datum.clipT0+datum.clipT1)/2"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "labelSide",
+                    "expr": (
+                        "datum.labelPlacementIndex>=0 ? "
+                        "edgeLabelPlacementSides[datum.labelPlacementIndex] : 1"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "labelScreenX",
+                    "expr": "pow(1-datum.labelT,3)*datum.screenX1+3*pow(1-datum.labelT,2)*datum.labelT*datum.screenC1X+3*(1-datum.labelT)*pow(datum.labelT,2)*datum.screenC2X+pow(datum.labelT,3)*datum.screenX2",
+                },
+                {
+                    "type": "formula",
+                    "as": "labelScreenY",
+                    "expr": "pow(1-datum.labelT,3)*datum.screenY1+3*pow(1-datum.labelT,2)*datum.labelT*datum.screenC1Y+3*(1-datum.labelT)*pow(datum.labelT,2)*datum.screenC2Y+pow(datum.labelT,3)*datum.screenY2",
+                },
+                {
+                    "type": "formula",
+                    "as": "labelTangentX",
+                    "expr": "3*pow(1-datum.labelT,2)*(datum.screenC1X-datum.screenX1)+6*(1-datum.labelT)*datum.labelT*(datum.screenC2X-datum.screenC1X)+3*pow(datum.labelT,2)*(datum.screenX2-datum.screenC2X)",
+                },
+                {
+                    "type": "formula",
+                    "as": "labelTangentY",
+                    "expr": "3*pow(1-datum.labelT,2)*(datum.screenC1Y-datum.screenY1)+6*(1-datum.labelT)*datum.labelT*(datum.screenC2Y-datum.screenC1Y)+3*pow(datum.labelT,2)*(datum.screenY2-datum.screenC2Y)",
+                },
+                {
+                    "type": "formula",
+                    "as": "labelTangentLength",
+                    "expr": "sqrt(pow(datum.labelTangentX,2)+pow(datum.labelTangentY,2))",
+                },
+                {
+                    "type": "formula",
+                    "as": "labelUnitX",
+                    "expr": (
+                        "datum.labelSide*(datum.labelTangentLength>=1 ? "
+                        "-datum.labelTangentY/datum.labelTangentLength : "
+                        "(abs(datum.label_dx)+abs(datum.label_dy)>0 ? "
+                        "datum.label_dx/max(sqrt(pow(datum.label_dx,2)+"
+                        "pow(datum.label_dy,2)),1) : 1))"
+                    ),
+                },
+                {
+                    "type": "formula",
+                    "as": "labelUnitY",
+                    "expr": (
+                        "datum.labelSide*(datum.labelTangentLength>=1 ? "
+                        "datum.labelTangentX/datum.labelTangentLength : "
+                        "(abs(datum.label_dx)+abs(datum.label_dy)>0 ? "
+                        "datum.label_dy/max(sqrt(pow(datum.label_dx,2)+"
+                        "pow(datum.label_dy,2)),1) : 0))"
+                    ),
+                },
+                {"type": "formula", "as": "placementOrder", "expr": "-(datum.label_priority*1e15 + datum.importance)"},
                 {"type": "collect", "sort": {"field": "placementOrder", "order": "ascending"}},
             ]},
         ],
@@ -2672,21 +2430,10 @@ def build_vega_spec(
                         "order": {"field": "order"},
                         "interpolate": {"value": "linear"},
                         "fill": {"value": TRAJECTORY_COLOR},
-                        "fillOpacity": {
-                            "signal": (
-                                "selectedMacro===null || "
-                                "datum.colour_group===selectedMacro ? 0.075 : 0.008"
-                            )
-                        },
+                        "fillOpacity": {"value": 0.075},
                         "stroke": {"value": TRAJECTORY_COLOR},
-                        "strokeOpacity": {
-                            "signal": (
-                                "selectedMacro===null || "
-                                "datum.colour_group===selectedMacro ? 0.38 : 0.045"
-                            )
-                        },
+                        "strokeOpacity": {"value": 0.38},
                         "strokeWidth": {"value": 1.4},
-                        "cursor": {"value": "pointer"},
                     }}
                 }],
             },
@@ -2700,55 +2447,35 @@ def build_vega_spec(
                     "x2": {"scale": "xscale", "field": "x2"},
                     "y2": {"scale": "yscale", "field": "y2"},
                     "stroke": {"value": TRAJECTORY_COLOR},
-                    "strokeOpacity": {
-                        "signal": (
-                            "selectedMacro===null || "
-                            "datum.colour_group===selectedMacro ? 0.42 : 0.035"
-                        )
-                    },
+                    "strokeOpacity": {"value": 0.42},
                     "strokeWidth": {"value": CLUSTER_CORRIDOR_STROKE_WIDTH},
-                    "cursor": {"value": "pointer"},
                 }},
             },
             {
                 "name": "trajectory",
-                "type": "rule",
-                "from": {"data": "edges"},
+                "type": "path",
+                "from": {"data": "splineEdgeGeometry"},
                 "encode": {"update": {
-                    "x": {"scale": "xscale", "field": "x"},
-                    "y": {"scale": "yscale", "field": "y"},
-                    "x2": {"scale": "xscale", "field": "x2"},
-                    "y2": {"scale": "yscale", "field": "y2"},
+                    "path": {"field": "splinePath"},
+                    "fillOpacity": {"value": 0},
                     "stroke": {"value": TRAJECTORY_COLOR},
-                    "strokeOpacity": {
-                        "signal": (
-                            "selectedMacro===null || "
-                            "datum.source_colour_group===selectedMacro || "
-                            "datum.target_colour_group===selectedMacro || "
-                            "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
-                            "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
-                            "0.42 : 0.045"
-                        )
-                    },
+                    "strokeOpacity": {"value": 0.42},
                     "strokeWidth": {"signal": TRAJECTORY_WIDTH_SIGNAL},
+                    "strokeCap": {"value": "round"},
+                    "strokeJoin": {"value": "round"},
                 }}
             },
             {
                 "name": "intraClusterTrajectory",
-                "type": "rule", "from": {"data": "intraClusterEdges"},
+                "type": "path", "from": {"data": "intraClusterEdges"},
                 "encode": {"update": {
-                    "x": {"scale": "xscale", "field": "x"},
-                    "y": {"scale": "yscale", "field": "y"},
-                    "x2": {"scale": "xscale", "field": "x2"},
-                    "y2": {"scale": "yscale", "field": "y2"},
+                    "path": {"field": "splinePath"},
+                    "fillOpacity": {"value": 0},
                     "stroke": {"value": TRAJECTORY_COLOR},
-                    "strokeOpacity": {
-                        "signal": (
-                            "selectedMacro===null || "
-                            "datum.colour_group===selectedMacro ? 0.52 : 0.05"
-                        )
-                    },
+                    "strokeOpacity": {"value": 0.52},
                     "strokeWidth": {"signal": TRAJECTORY_WIDTH_SIGNAL},
+                    "strokeCap": {"value": "round"},
+                    "strokeJoin": {"value": "round"},
                 }}
             },
             {
@@ -2761,53 +2488,24 @@ def build_vega_spec(
                             "signal": (
                                 "{'Type': datum.visual_category_label, "
                                 "'Revert method': datum.revert_kind_label, "
+                                "'Start revision': datum.start_revision_id, "
+                                "'End revision': datum.end_revision_id, "
                                 "'Revert revision': datum.revision_id, "
                                 "'Undone revision': datum.reverted_revision_id, "
                                 "'Restored revision': datum.restored_revision_id, "
                                 "'Return anchor': datum.return_anchor_revision_id, "
                                 "'Points at return anchor': datum.target_overlap_count, "
-                                "'Editors': datum.pair_text, "
-                                "'Edit-War session': datum.session_id, "
-                                "'Conflict': datum.edit_war_label, "
-                                "'Conflict description': datum.edit_war_description, "
-                                "'Session events': datum.session_event_count}"
+                                "'Editors': datum.pair_text}"
                             )
                         },
                     },
                     "update": {
                         "path": {"field": "arcPath"},
                         "fillOpacity": {"value": 0},
-                        "stroke": {
-                            "signal": (
-                                f"datum.is_edit_war ? '{EDIT_WAR_COLOR}' : "
-                                "(datum.revert_kind==='exact_sha1' ? "
-                                f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}')"
-                            )
-                        },
-                        "strokeOpacity": {
-                            "signal": (
-                                "selectedMacro===null || "
-                                "datum.source_colour_group===selectedMacro || "
-                                "datum.target_colour_group===selectedMacro || "
-                                "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
-                                "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
-                                f"{REVERT_ARC_STROKE_OPACITY} : 0.05"
-                            )
-                        },
-                        "strokeWidth": {
-                            "signal": (
-                                "datum.is_edit_war ? "
-                                f"{EDIT_WAR_ARC_STROKE_WIDTH} : "
-                                f"{REVERT_ARC_STROKE_WIDTH}"
-                            )
-                        },
-                        "strokeDash": {
-                            "signal": (
-                                "datum.is_edit_war ? [8,4,1,4] : "
-                                "(datum.revert_kind==='exact_sha1' ? "
-                                "[1,5] : [8,5])"
-                            )
-                        },
+                        "stroke": {"value": EXACT_REVERT_COLOR},
+                        "strokeOpacity": {"value": REVERT_ARC_STROKE_OPACITY},
+                        "strokeWidth": {"value": REVERT_ARC_STROKE_WIDTH},
+                        "strokeDash": {"value": [1, 5]},
                         "strokeCap": {"value": "round"},
                         "strokeJoin": {"value": "round"},
                     },
@@ -2824,35 +2522,11 @@ def build_vega_spec(
                     "y": {"field": "arrowY"},
                     "shape": {"value": "triangle-right"},
                     "angle": {"field": "arrowAngle"},
-                    "size": {"signal": "datum.is_edit_war ? 54 : 46"},
-                    "fill": {
-                        "signal": (
-                            f"datum.is_edit_war ? '{EDIT_WAR_COLOR}' : "
-                            "(datum.revert_kind==='exact_sha1' ? "
-                            f"'{EXACT_REVERT_COLOR}' : '{PARTIAL_REVERT_COLOR}')"
-                        )
-                    },
-                    "fillOpacity": {
-                        "signal": (
-                            "selectedMacro===null || "
-                            "datum.source_colour_group===selectedMacro || "
-                            "datum.target_colour_group===selectedMacro || "
-                            "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
-                            "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
-                            f"{REVERT_ARROW_OPACITY} : 0.05"
-                        )
-                    },
+                    "size": {"value": 46},
+                    "fill": {"value": EXACT_REVERT_COLOR},
+                    "fillOpacity": {"value": REVERT_ARROW_OPACITY},
                     "stroke": {"value": BACKGROUND_COLOR},
-                    "strokeOpacity": {
-                        "signal": (
-                            "selectedMacro===null || "
-                            "datum.source_colour_group===selectedMacro || "
-                            "datum.target_colour_group===selectedMacro || "
-                            "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
-                            "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
-                            f"{REVERT_ARROW_OPACITY} : 0.05"
-                        )
-                    },
+                    "strokeOpacity": {"value": REVERT_ARROW_OPACITY},
                     "strokeWidth": {"value": 0.8},
                 }},
             },
@@ -2871,27 +2545,9 @@ def build_vega_spec(
                     "angle": {"field": "arrowAngle"},
                     "size": {"value": 58},
                     "fill": {"value": TRAJECTORY_COLOR},
-                    "fillOpacity": {
-                        "signal": (
-                            "selectedMacro===null || "
-                            "datum.source_colour_group===selectedMacro || "
-                            "datum.target_colour_group===selectedMacro || "
-                            "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
-                            "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
-                            "0.9 : 0.08"
-                        )
-                    },
+                    "fillOpacity": {"value": 0.9},
                     "stroke": {"value": BACKGROUND_COLOR},
-                    "strokeOpacity": {
-                        "signal": (
-                            "selectedMacro===null || "
-                            "datum.source_colour_group===selectedMacro || "
-                            "datum.target_colour_group===selectedMacro || "
-                            "indexof(datum.source_context_colour_groups,selectedMacro)>=0 || "
-                            "indexof(datum.target_context_colour_groups,selectedMacro)>=0 ? "
-                            "0.95 : 0.08"
-                        )
-                    },
+                    "strokeOpacity": {"value": 0.95},
                     "strokeWidth": {"value": 0.8},
                 }},
             },
@@ -2915,72 +2571,33 @@ def build_vega_spec(
                         "field": "word_change_type",
                     },
                     "fillOpacity": {
-                        "signal": (
-                            "(datum.colour_group==='noise' && "
-                            "selectedMacro!==null && "
-                            "indexof(datum.context_colour_groups,selectedMacro)>=0) "
-                            "? 1 : (selectedMacro===null || "
-                            "datum.colour_group===selectedMacro || "
-                            "(datum.colour_group==='noise' && "
-                            "indexof(datum.context_colour_groups,selectedMacro)>=0) ? "
-                            "0.9 + 0.1*min(zoomLevel/4,1) : 0.08)"
-                        )
+                        "signal": "0.9 + 0.1*min(zoomLevel/4,1)"
                     },
                     "strokeOpacity": {"value": 0},
                     "strokeWidth": {"value": 0},
-                    "cursor": {"value": "pointer"},
                 }}
             },
             {
-                # A generous, invisible hit target makes cluster selection
-                # independent of zoom and of the visible point radius.
-                "name": "clusterSelectionTargets",
-                "type": "symbol",
-                "from": {"data": "normalRevisionPoints"},
-                # Keep the hit targets above every visible layer so paths and
-                # labels cannot intercept a click intended for a data point.
-                "zindex": 10,
-                "encode": {"update": {
-                    "x": {"scale": "xscale", "field": "x"},
-                    "y": {"scale": "yscale", "field": "y"},
-                    "size": {"value": CLUSTER_SELECTION_TARGET_SIZE},
-                    "fill": {"value": BACKGROUND_COLOR},
-                    "fillOpacity": {"value": 0.001},
-                    "strokeOpacity": {"value": 0},
-                    "cursor": {"value": "pointer"},
-                    "tooltip": {
-                        "signal": (
-                            "{'Revision ID': datum.revision_id, "
-                            "'Timestamp': datum.timestamp, "
-                            "'Author': datum.author, "
-                            "'Incoming text change': datum.word_change_label}"
-                        )
-                    },
-                }},
-            },
-            {
                 "name": "semanticLabels", "type": "text",
+                "clip": True,
                 "key": "node_id",
                 "zindex": 3,
                 "from": {"data": "visibleParentLabels"},
                 "encode": {"update": {
                     "text": {"field": "display_label"},
-                    "x": {"signal": "scale('xscale', datum.x) + datum.label_dx"},
-                    "y": {"signal": "scale('yscale', datum.y) + datum.label_dy"},
+                    "x": {"signal": "scale('xscale', datum.x) + datum.label_dx + datum.parentPlacementDx"},
+                    "y": {"signal": "scale('yscale', datum.y) + datum.label_dy + datum.parentPlacementDy"},
                     "align": {"field": "label_align"},
                     "baseline": {"field": "label_baseline"},
                     "opacity": {"signal": "indexof(blockedParentLabelIds, datum.node_id)>=0 ? 0 : 1"},
                     "fillOpacity": {"value": 1},
                     "fill": {"field": "label_colour"},
                     "stroke": {"value": "#ffffff"},
-                    "strokeWidth": {"value": 4},
                     "strokeOpacity": {"value": 1},
+                    "strokeWidth": {"value": 4},
                     "font": {"value": "Inter, Arial, sans-serif"},
-                    "fontSize": {"signal": "datum.level==='root' ? 28 : datum.level==='macro' ? 19 : datum.level==='cluster' ? 16 : datum.level==='section' ? 12 : 14"},
+                    "fontSize": {"signal": "datum.level==='root' ? 28 : datum.level==='macro' ? 24 : datum.level==='cluster' ? 18 : datum.level==='section' ? 13 : 14"},
                     "fontWeight": {"value": 700},
-                    "cursor": {
-                        "signal": "datum.colour_group ? 'pointer' : 'default'"
-                    },
                 }}
             },
             {
@@ -2995,8 +2612,8 @@ def build_vega_spec(
                     "align": {"value": "center"},
                     "baseline": {"value": "middle"},
                     "font": {"value": "Inter, Arial, sans-serif"},
-                    "fontSize": {"value": 8},
-                    "lineHeight": {"value": 10},
+                    "fontSize": {"value": EDGE_LABEL_FONT_SIZE},
+                    "lineHeight": {"value": EDGE_LABEL_LINE_HEIGHT},
                     "fontWeight": {"value": 700},
                     "opacity": {"value": 0},
                     "fillOpacity": {"value": 0},
@@ -3011,13 +2628,13 @@ def build_vega_spec(
                 "from": {"data": "visibleEdgeLabels"},
                 "encode": {"update": {
                     "text": {"field": "display_label"},
-                    "x": {"signal": f"max(min(170,width/2),min(width-min(170,width/2),datum.labelScreenX + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitX))"},
-                    "y": {"signal": f"max(min(8+5*datum.display_line_count,height/2),min(height-min(8+5*datum.display_line_count,height/2),datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitY))"},
+                    "x": {"signal": f"datum.labelScreenX + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitX"},
+                    "y": {"signal": f"datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitY"},
                     "align": {"value": "center"},
                     "baseline": {"value": "middle"},
                     "font": {"value": "Inter, Arial, sans-serif"},
-                    "fontSize": {"value": 8},
-                    "lineHeight": {"value": 10},
+                    "fontSize": {"value": EDGE_LABEL_FONT_SIZE},
+                    "lineHeight": {"value": EDGE_LABEL_LINE_HEIGHT},
                     "fontWeight": {"value": 700},
                     "opacity": {"value": 0},
                     "fillOpacity": {"value": 0},
@@ -3027,14 +2644,15 @@ def build_vega_spec(
             },
             {
                 "name": "edgeDetailLeaders", "type": "rule",
+                "clip": True,
                 "interactive": False,
                 "from": {"data": "visibleEdgeLabels"},
                 "zindex": 6,
                 "encode": {"update": {
                     "x": {"field": "labelScreenX"},
                     "y": {"field": "labelScreenY"},
-                    "x2": {"signal": f"max(min(170,width/2),min(width-min(170,width/2),datum.labelScreenX + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitX)) - 8*datum.labelUnitX"},
-                    "y2": {"signal": f"max(min(8+5*datum.display_line_count,height/2),min(height-min(8+5*datum.display_line_count,height/2),datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitY)) - 8*datum.labelUnitY"},
+                    "x2": {"signal": f"datum.labelScreenX + {EDGE_DETAILED_LABEL_OFFSET - 8}*datum.labelUnitX"},
+                    "y2": {"signal": f"datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET - 8}*datum.labelUnitY"},
                     "stroke": {"field": "label_colour"},
                     "strokeWidth": {"value": 1.25},
                     "strokeOpacity": {
@@ -3047,31 +2665,39 @@ def build_vega_spec(
             },
             {
                 "name": "edgeLabels", "type": "text",
+                "clip": True,
                 "key": "node_id",
                 "zindex": 7,
                 "from": {"data": "visibleEdgeLabels"},
-                "encode": {"update": {
+                "encode": {"enter": {
+                    "tooltip": {
+                        "signal": (
+                            "{'Change': datum.label, "
+                            "'Details': datum.detailed_description}"
+                        )
+                    },
+                }, "update": {
                     "text": {
                         "signal": (
                             "indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? "
                             "datum.display_label : datum.label"
                         )
                     },
-                    "x": {"signal": f"indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? max(min(170,width/2),min(width-min(170,width/2),datum.labelScreenX + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitX)) : datum.labelScreenX + {EDGE_SHORT_LABEL_OFFSET}*datum.labelUnitX"},
-                    "y": {"signal": f"indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? max(min(8+5*datum.display_line_count,height/2),min(height-min(8+5*datum.display_line_count,height/2),datum.labelScreenY + {EDGE_DETAILED_LABEL_OFFSET}*datum.labelUnitY)) : datum.labelScreenY + {EDGE_SHORT_LABEL_OFFSET}*datum.labelUnitY"},
+                    "x": {"signal": f"datum.labelScreenX + (indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? {EDGE_DETAILED_LABEL_OFFSET} : {EDGE_SHORT_LABEL_OFFSET})*datum.labelUnitX"},
+                    "y": {"signal": f"datum.labelScreenY + (indexof(detailedEdgeLabelIds, datum.node_id)>=0 ? {EDGE_DETAILED_LABEL_OFFSET} : {EDGE_SHORT_LABEL_OFFSET})*datum.labelUnitY"},
                     "align": {"value": "center"},
                     "baseline": {"value": "middle"},
                     "font": {"value": "Inter, Arial, sans-serif"},
-                    "fontSize": {"value": 8},
-                    "lineHeight": {"value": 10},
+                    "fontSize": {"value": EDGE_LABEL_FONT_SIZE},
+                    "lineHeight": {"value": EDGE_LABEL_LINE_HEIGHT},
                     "fontWeight": {"value": 700},
                     "opacity": {"signal": "indexof(blockedEdgeLabelIds, datum.node_id)<0 ? 1 : 0"},
                     "fillOpacity": {"value": 1},
                     "limit": {"value": 340},
                     "fill": {"field": "label_colour"},
                     "stroke": {"value": "#ffffff"},
-                    "strokeWidth": {"value": 2},
                     "strokeOpacity": {"value": 1},
+                    "strokeWidth": {"value": 2},
                 }}
             },
         ],
@@ -3102,21 +2728,19 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 #topbar{{padding:14px 20px 8px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}}
 #topbar h1{{font-size:20px;line-height:1.2;font-weight:700;margin:0}}
 #content{{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 250px;border-top:1px solid #e2e5df}}
-#vis{{flex:1;min-width:0;min-height:0}}
-#vis svg{{cursor:grab}}
+#vis{{flex:1;min-width:0;min-height:0;overflow:hidden}}
+#vis svg{{cursor:grab;overflow:hidden}}
 #vis svg:active{{cursor:grabbing}}
-#vis svg .semanticLabels text,#vis svg .edgeLabels text{{paint-order:stroke fill;stroke-linejoin:round}}
+#vis svg .semanticLabels text,#vis svg .edgeLabels text{{paint-order:stroke fill;stroke-linejoin:round;transition:opacity 150ms ease}}
 #legend{{min-width:0;overflow:auto;border-left:1px solid #d9ddd6;padding:16px 16px 22px;background:#f7f6f2;box-sizing:border-box}}
 #legend h2{{font-size:17px;margin:0 0 15px}}
 #legend h3{{font-size:12px;line-height:1.2;letter-spacing:.06em;text-transform:uppercase;color:#687068;margin:18px 0 9px}}
 .legend-list{{list-style:none;margin:0;padding:0;display:grid;gap:8px}}
 .legend-list li{{min-width:0;display:flex;align-items:center;gap:8px;font-size:12px;line-height:1.25}}
-.legend-dot{{--legend-color:{NOISE_COLOR};width:14px;height:14px;box-sizing:border-box;border-radius:50%;background:var(--legend-color);border:1px solid {BACKGROUND_COLOR};box-shadow:0 0 0 1px color-mix(in srgb,var(--legend-color) 75%,#777);flex:none}}
+.legend-dot{{--legend-color:{NOISE_COLOR};width:14px;height:14px;box-sizing:border-box;border-radius:50%;background:var(--legend-color);border:0;box-shadow:none;flex:none}}
 .legend-line{{width:30px;height:0;border-top:2.25px solid {TRAJECTORY_COLOR};flex:none}}
 .legend-line.thick{{border-top-width:4.45px}}
 .legend-arc{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dotted {EXACT_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
-.legend-partial{{width:30px;height:10px;box-sizing:border-box;border:{REVERT_ARC_STROKE_WIDTH}px dashed {PARTIAL_REVERT_COLOR};border-bottom:0;border-radius:50% 50% 0 0;flex:none;opacity:{REVERT_ARC_STROKE_OPACITY}}}
-.legend-edit-war{{width:30px;height:12px;display:block;flex:none;overflow:visible;opacity:{REVERT_ARC_STROKE_OPACITY}}}
 .legend-arrow{{width:30px;flex:none;text-align:center;color:{TRAJECTORY_COLOR};font-size:23px;font-weight:800;line-height:10px}}
 @media(max-width:760px){{#content{{grid-template-columns:minmax(0,1fr) 205px}}#legend{{padding:12px 10px}}}}
 </style></head><body><main id="app">
@@ -3127,12 +2751,9 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 <h2>Legend</h2>
 <h3>Display</h3>
 <ul class="legend-list">
-<li><span class="legend-line"></span><span>Standard trajectory edge</span></li>
 <li><span class="legend-arrow">&#8594;</span><span>Revision direction</span></li>
 <li><span class="legend-line thick"></span><span>Repeated projected path</span></li>
-<li><svg class="legend-edit-war" viewBox="0 0 30 12" aria-hidden="true"><path d="M1 10 Q15 0 29 10" fill="none" stroke="{EDIT_WAR_COLOR}" stroke-width="{EDIT_WAR_ARC_STROKE_WIDTH}" stroke-dasharray="8 4 1 4" stroke-linecap="round"/></svg><span>Edit War</span></li>
 <li><span class="legend-arc"></span><span>Exact revert return</span></li>
-<li><span class="legend-partial"></span><span>Partial revert</span></li>
 </ul>
 <h3>Revision changes</h3>
 <ul class="legend-list">{word_change_legend}</ul>
@@ -3143,15 +2764,18 @@ html,body{{height:100%;margin:0;background:{BACKGROUND_COLOR};color:#151915;font
 const spec={encoded};
 const handler=new vegaTooltip.Handler({{theme:'light'}});
 const vis=document.getElementById('vis');
-const legend=document.getElementById('legend');
 const view=new vega.View(vega.parse(spec),{{renderer:'svg',hover:true}})
   .initialize(vis).tooltip(handler.call);
 let resizeFrame=0;
-let stabilityTimer=0;
-let stabilitySyncing=false;
-let stabilityPending=false;
+let visibilityTimer=0;
+let visibilitySyncing=false;
+let visibilityPending=false;
 let lastWidth=0;
 let lastHeight=0;
+let previousAcceptedParentIds=new Set();
+let previousAcceptedEdgeIds=new Set();
+const parentPlacementCache=new Map();
+const edgePlacementCache=new Map();
 function sameIds(first,second){{
   return first.length===second.length&&first.every((value,index)=>value===second[index]);
 }}
@@ -3201,10 +2825,25 @@ function renderedLabelItems(mode,...markNames){{
           ancestorIds:Array.isArray(datum.ancestor_ids)
             ? datum.ancestor_ids.map(String)
             : [],
+          supportPointIndices:Array.isArray(datum.support_point_indices)
+            ? datum.support_point_indices.map(Number)
+            : [],
           labelKey:normalizedLabelKey(datum.label),
           priority:Number(datum.label_priority)||0,
           importance:Number(datum.importance)||0,
+          parentPlacementDx:Number(datum.parentPlacementDx)||0,
+          parentPlacementDy:Number(datum.parentPlacementDy)||0,
           edgeScreenLength:Number(datum.screenLength)||0,
+          screenX1:Number(datum.screenX1),
+          screenY1:Number(datum.screenY1),
+          screenC1X:Number(datum.screenC1X),
+          screenC1Y:Number(datum.screenC1Y),
+          screenC2X:Number(datum.screenC2X),
+          screenC2Y:Number(datum.screenC2Y),
+          screenX2:Number(datum.screenX2),
+          screenY2:Number(datum.screenY2),
+          clipT0:Number(datum.clipT0),
+          clipT1:Number(datum.clipT1),
           x1:bounds.x1,
           y1:bounds.y1,
           x2:bounds.x2,
@@ -3222,7 +2861,17 @@ function renderedLabelIds(...markNames){{
     .map(item=>item.id)
     .sort();
 }}
-const labelCollisionPadding=4;
+const labelCollisionPadding={LABEL_COLLISION_PADDING};
+const labelSpatialHashCellSize={LABEL_SPATIAL_HASH_CELL_SIZE};
+const parentLabelRadialGap={PARENT_LABEL_RADIAL_GAP};
+const parentLabelDataPadding={PARENT_LABEL_DATA_PADDING};
+const edgeLabelRepeatDistance={EDGE_LABEL_REPEAT_DISTANCE};
+const labelDetailMinZoomLevel={LABEL_DETAIL_MIN_ZOOM_LEVEL};
+const labelObstacleGridSize={LABEL_OBSTACLE_GRID_SIZE};
+const edgeDensityEnter={LABEL_EDGE_DENSITY_ENTER};
+const edgeDensityExit={LABEL_EDGE_DENSITY_EXIT};
+const detailDensityEnter={LABEL_DETAIL_DENSITY_ENTER};
+const detailDensityExit={LABEL_DETAIL_DENSITY_EXIT};
 function boxesOverlap(first,second,padding=labelCollisionPadding){{
   return first.x1-padding<=second.x2+padding&&
     first.x2+padding>=second.x1-padding&&
@@ -3234,7 +2883,7 @@ function outsideViewport(candidate,padding=4){{
     candidate.x2+padding>view.width()||candidate.y2+padding>view.height();
 }}
 class LabelSpatialHash{{
-  constructor(cellSize=48){{
+  constructor(cellSize=labelSpatialHashCellSize){{
     this.cellSize=cellSize;
     this.cells=new Map();
   }}
@@ -3267,15 +2916,332 @@ class LabelSpatialHash{{
     }}
   }}
 }}
+class ObstacleDensityGrid{{
+  constructor(cellSize=labelObstacleGridSize){{
+    this.cellSize=cellSize;
+    this.cells=new Map();
+  }}
+  add(x,y,weight=1,radius=0){{
+    if(!Number.isFinite(x)||!Number.isFinite(y))return;
+    const minX=Math.floor((x-radius)/this.cellSize);
+    const maxX=Math.floor((x+radius)/this.cellSize);
+    const minY=Math.floor((y-radius)/this.cellSize);
+    const maxY=Math.floor((y+radius)/this.cellSize);
+    for(let cellX=minX;cellX<=maxX;cellX+=1){{
+      for(let cellY=minY;cellY<=maxY;cellY+=1){{
+        const centerX=(cellX+0.5)*this.cellSize;
+        const centerY=(cellY+0.5)*this.cellSize;
+        const reach=radius+this.cellSize*0.72;
+        if(Math.hypot(centerX-x,centerY-y)>reach)continue;
+        const key=`${{cellX}},${{cellY}}`;
+        this.cells.set(key,(this.cells.get(key)||0)+weight);
+      }}
+    }}
+  }}
+  score(box){{
+    const minX=Math.floor(box.x1/this.cellSize);
+    const maxX=Math.floor(box.x2/this.cellSize);
+    const minY=Math.floor(box.y1/this.cellSize);
+    const maxY=Math.floor(box.y2/this.cellSize);
+    let total=0;
+    let occupied=0;
+    let weighted=0;
+    let maximum=0;
+    for(let cellX=minX;cellX<=maxX;cellX+=1){{
+      for(let cellY=minY;cellY<=maxY;cellY+=1){{
+        total+=1;
+        const value=this.cells.get(`${{cellX}},${{cellY}}`)||0;
+        if(value>0)occupied+=1;
+        weighted+=Math.min(value,4)/4;
+        maximum=Math.max(maximum,value);
+      }}
+    }}
+    if(!total)return 1;
+    const occupiedShare=occupied/total;
+    const weightedShare=weighted/total;
+    const peak=Math.min(maximum,4)/4;
+    return 0.55*occupiedShare+0.30*weightedShare+0.15*peak;
+  }}
+}}
+function parentSupportScreenPoints(base){{
+  const points=view.data('points')||[];
+  const xScale=view.scale('xscale');
+  const yScale=view.scale('yscale');
+  return base.supportPointIndices.map(index=>points[index])
+    .filter(Boolean)
+    .map(point=>({{x:xScale(point.x),y:yScale(point.y)}}))
+    .filter(point=>Number.isFinite(point.x)&&Number.isFinite(point.y));
+}}
+function parentPlacementOptions(base){{
+  const width=Math.max(1,base.x2-base.x1);
+  const height=Math.max(1,base.y2-base.y1);
+  const horizontal=Math.min(160,Math.max(24,width*0.5+parentLabelRadialGap));
+  const vertical=Math.min(56,Math.max(18,height+parentLabelRadialGap));
+  const currentDx=Number(base.parentPlacementDx)||0;
+  const currentDy=Number(base.parentPlacementDy)||0;
+  const baseCenterX=(base.x1+base.x2)/2-currentDx;
+  const baseCenterY=(base.y1+base.y2)/2-currentDy;
+  const cached=parentPlacementCache.get(base.id);
+  const options=[];
+  if(cached)options.push({{dx:cached.dx,dy:cached.dy,cached:true}});
+  let variable;
+  if(base.level==='root'){{
+    variable=[{{dx:0,dy:0}}];
+  }}else if(['macro','cluster','section'].includes(base.level)){{
+    const support=parentSupportScreenPoints(base);
+    if(support.length){{
+      const centroid={{
+        x:support.reduce((sum,point)=>sum+point.x,0)/support.length,
+        y:support.reduce((sum,point)=>sum+point.y,0)/support.length
+      }};
+      const centralSupport=support.slice().sort((first,second)=>
+        Math.hypot(first.x-centroid.x,first.y-centroid.y)-
+        Math.hypot(second.x-centroid.x,second.y-centroid.y)
+      ).slice(0,8);
+      variable=[centroid,...centralSupport].map(point=>({{
+        dx:point.x-baseCenterX,
+        dy:point.y-baseCenterY
+      }}));
+      variable.unshift({{dx:0,dy:0}});
+    }}else{{
+      variable=[{{dx:0,dy:0}}];
+    }}
+  }}else{{
+    variable=[
+        {{dx:0,dy:0}},{{dx:0,dy:-vertical}},{{dx:0,dy:vertical}},
+        {{dx:horizontal,dy:0}},{{dx:-horizontal,dy:0}},
+        {{dx:horizontal*0.72,dy:-vertical*0.78}},
+        {{dx:-horizontal*0.72,dy:-vertical*0.78}},
+        {{dx:horizontal*0.72,dy:vertical*0.78}},
+        {{dx:-horizontal*0.72,dy:vertical*0.78}}
+      ];
+  }}
+  for(const option of variable){{
+    if(!options.some(item=>
+      Math.abs(item.dx-option.dx)<0.1&&Math.abs(item.dy-option.dy)<0.1
+    ))options.push({{...option,cached:false}});
+  }}
+  return options;
+}}
+function parentCandidateAt(base,option){{
+  const currentDx=Number(base.parentPlacementDx)||0;
+  const currentDy=Number(base.parentPlacementDy)||0;
+  return {{
+    ...base,
+    placementDx:option.dx,
+    placementDy:option.dy,
+    x1:base.x1-currentDx+option.dx,
+    y1:base.y1-currentDy+option.dy,
+    x2:base.x2-currentDx+option.dx,
+    y2:base.y2-currentDy+option.dy
+  }};
+}}
+function parentSupportCoverage(base,candidate){{
+  const support=parentSupportScreenPoints(base);
+  let count=0;
+  for(const point of support){{
+    if(point.x>=candidate.x1-parentLabelDataPadding&&
+       point.x<=candidate.x2+parentLabelDataPadding&&
+       point.y>=candidate.y1-parentLabelDataPadding&&
+       point.y<=candidate.y2+parentLabelDataPadding)count+=1;
+  }}
+  if(count||base.supportPointIndices.length)return count;
+  // Compatibility fallback for externally supplied hierarchies without
+  // explicit membership: the reviewed semantic anchor itself is the support.
+  const anchorX=(base.x1+base.x2)/2-(Number(base.parentPlacementDx)||0);
+  const anchorY=(base.y1+base.y2)/2-(Number(base.parentPlacementDy)||0);
+  return anchorX>=candidate.x1-parentLabelDataPadding&&
+    anchorX<=candidate.x2+parentLabelDataPadding&&
+    anchorY>=candidate.y1-parentLabelDataPadding&&
+    anchorY<=candidate.y2+parentLabelDataPadding ? 1 : 0;
+}}
+function bestParentPlacement(base,occupied,obstacles){{
+  let best=null;
+  let rank=0;
+  for(const option of parentPlacementOptions(base)){{
+    const candidate=parentCandidateAt(base,option);
+    if(outsideViewport(candidate,8)||occupied.overlaps(candidate)){{
+      rank+=1;
+      continue;
+    }}
+    const supportCoverage=parentSupportCoverage(base,candidate);
+    if(supportCoverage<1){{
+      rank+=1;
+      continue;
+    }}
+    const density=obstacles.score(candidate);
+    const displacement=Math.hypot(option.dx,option.dy);
+    const supportReward=Math.min(6,supportCoverage)*0.08;
+    const score=density*0.08+Math.min(0.08,displacement/2400)+
+      rank*0.002-supportReward;
+    if(option.cached)return {{...candidate,density,supportCoverage,score}};
+    if(!best||score<best.score){{
+      best={{...candidate,density,supportCoverage,score}};
+    }}
+    rank+=1;
+  }}
+  return best;
+}}
+function cubicPoint(edge,t){{
+  const u=1-t;
+  return {{
+    x:u*u*u*edge.screenX1+3*u*u*t*edge.screenC1X+
+      3*u*t*t*edge.screenC2X+t*t*t*edge.screenX2,
+    y:u*u*u*edge.screenY1+3*u*u*t*edge.screenC1Y+
+      3*u*t*t*edge.screenC2Y+t*t*t*edge.screenY2
+  }};
+}}
+function cubicTangent(edge,t){{
+  const u=1-t;
+  return {{
+    x:3*u*u*(edge.screenC1X-edge.screenX1)+
+      6*u*t*(edge.screenC2X-edge.screenC1X)+
+      3*t*t*(edge.screenX2-edge.screenC2X),
+    y:3*u*u*(edge.screenC1Y-edge.screenY1)+
+      6*u*t*(edge.screenC2Y-edge.screenC1Y)+
+      3*t*t*(edge.screenY2-edge.screenC2Y)
+  }};
+}}
+function buildObstacleDensityGrid(){{
+  const grid=new ObstacleDensityGrid();
+  for(const edge of view.data('splineEdgeGeometry')||[]){{
+    const weight=1+0.22*Math.min(4,Math.max(0,
+      Number(edge.overlap_count||1)-1));
+    for(let step=0;step<=18;step+=1){{
+      const point=cubicPoint(edge,step/18);
+      grid.add(point.x,point.y,weight,2.5);
+    }}
+  }}
+  for(const arc of view.data('revertArcGeometry')||[]){{
+    for(let step=0;step<=14;step+=1){{
+      const t=step/14;
+      const u=1-t;
+      grid.add(
+        u*u*arc.screenX1+2*u*t*arc.controlX+t*t*arc.screenX2,
+        u*u*arc.screenY1+2*u*t*arc.controlY+t*t*arc.screenY2,
+        0.8,2
+      );
+    }}
+  }}
+  const xScale=view.scale('xscale');
+  const yScale=view.scale('yscale');
+  for(const point of view.data('points')||[]){{
+    grid.add(xScale(point.x),yScale(point.y),3.5,7);
+  }}
+  return grid;
+}}
+function candidateAt(base,t,side,offset){{
+  const point=cubicPoint(base,t);
+  const tangent=cubicTangent(base,t);
+  const length=Math.hypot(tangent.x,tangent.y);
+  const unitX=side*(length>=1 ? -tangent.y/length : 1);
+  const unitY=side*(length>=1 ? tangent.x/length : 0);
+  const width=Math.max(1,base.x2-base.x1);
+  const height=Math.max(1,base.y2-base.y1);
+  const centerX=point.x+offset*unitX;
+  const centerY=point.y+offset*unitY;
+  return {{
+    ...base,t,side,centerX,centerY,
+    x1:centerX-width/2,y1:centerY-height/2,
+    x2:centerX+width/2,y2:centerY+height/2
+  }};
+}}
+function placementOptions(base){{
+  const start=Math.max(0,Math.min(1,base.clipT0));
+  const end=Math.max(start,Math.min(1,base.clipT1));
+  const span=end-start;
+  const cached=edgePlacementCache.get(base.id);
+  const fractions=[0.5,0.35,0.65,0.2,0.8];
+  const positions=[];
+  if(cached&&cached.t>=start&&cached.t<=end){{
+    positions.push({{t:cached.t,side:cached.side,cached:true}});
+  }}
+  for(const fraction of fractions){{
+    const t=start+span*fraction;
+    for(const side of [1,-1]){{
+      if(!positions.some(item=>Math.abs(item.t-t)<1e-6&&item.side===side)){{
+        positions.push({{t,side,cached:false}});
+      }}
+    }}
+  }}
+  return positions;
+}}
+function bestEdgePlacement(base,offset,occupied,obstacles,wasVisible,
+                           enterThreshold,exitThreshold,
+                           placementAllowed=()=>true){{
+  const threshold=wasVisible?exitThreshold:enterThreshold;
+  let best=null;
+  for(const option of placementOptions(base)){{
+    const candidate=candidateAt(base,option.t,option.side,offset);
+    if(outsideViewport(candidate,8)||occupied.overlaps(candidate)||
+       !placementAllowed(candidate))continue;
+    const density=obstacles.score(candidate);
+    if(density>threshold)continue;
+    const distancePenalty=Math.abs(option.t-0.5)*0.06;
+    const sidePenalty=option.side<0?0.004:0;
+    const score=density+distancePenalty+sidePenalty;
+    if(option.cached)return {{...candidate,density}};
+    if(!best||score<best.score)best={{...candidate,density,score}};
+  }}
+  return best;
+}}
+function edgeLabelRepeatsNearby(acceptedPositions,labelKey,candidate){{
+  if(!labelKey)return false;
+  const positions=acceptedPositions.get(labelKey)||[];
+  return positions.some(position=>
+    Math.hypot(position.x-candidate.centerX,position.y-candidate.centerY)<
+      edgeLabelRepeatDistance
+  );
+}}
+function registerEdgeLabelPosition(acceptedPositions,labelKey,candidate){{
+  if(!labelKey)return;
+  const positions=acceptedPositions.get(labelKey)||[];
+  positions.push({{x:candidate.centerX,y:candidate.centerY}});
+  acceptedPositions.set(labelKey,positions);
+}}
+function semanticDepth(candidate,variant='visible'){{
+  if(candidate.kind==='edge')return variant==='detailed'?5:4;
+  if(candidate.level==='root')return 0;
+  if(candidate.level==='macro')return 1;
+  if(candidate.level==='cluster')return 2;
+  if(candidate.level==='section')return 3;
+  return 0;
+}}
+function semanticPlacementScore(candidate,variant,targetDepth){{
+  const declaredPriority=Math.min(140,Math.max(0,candidate.priority)*18);
+  const importanceBonus=Math.min(
+    180,Math.log1p(Math.max(0,candidate.importance))*24
+  );
+  const wasVisible=candidate.kind==='edge'
+    ? previousAcceptedEdgeIds.has(candidate.id)
+    : previousAcceptedParentIds.has(candidate.id);
+  const stabilityBonus=wasVisible?(candidate.kind==='edge'?220:160):0;
+  if(candidate.level==='root'){{
+    return 6000+declaredPriority+importanceBonus+stabilityBonus;
+  }}
+  if(candidate.level==='endpoint'){{
+    return 5200+declaredPriority+importanceBonus+stabilityBonus;
+  }}
+  const depth=semanticDepth(candidate,variant);
+  const depthDelta=depth-targetDepth;
+  // Finer-than-current labels are delayed more strongly than useful parent
+  // context, but they remain candidates and appear whenever space is free.
+  const distancePenalty=Math.abs(depthDelta)*(
+    depthDelta>0?{LABEL_FINER_DEPTH_PENALTY}:{LABEL_COARSER_DEPTH_PENALTY}
+  );
+  // Unlike SHACLens, this timecurve treats revision edges as first-class
+  // semantic content. Their priority rises continuously from section detail
+  // toward short and finally full descriptions as the user zooms in.
+  const edgeZoomBonus=candidate.kind==='edge'
+    ? Math.max(0,targetDepth-3)*180
+    : 0;
+  return 3000-distancePenalty+declaredPriority+importanceBonus+
+    stabilityBonus+edgeZoomBonus;
+}}
 function collisionBlocks(){{
-  const stableParents=new Set(view.signal('stableParentLabelIds')||[]);
-  const stableEdges=new Set(view.signal('stableEdgeLabelIds')||[]);
   const compareCandidates=(first,second)=>{{
     const priorityDifference=second.priority-first.priority;
     if(priorityDifference)return priorityDifference;
-    const firstStable=first.kind==='parent'?stableParents.has(first.id):stableEdges.has(first.id);
-    const secondStable=second.kind==='parent'?stableParents.has(second.id):stableEdges.has(second.id);
-    if(firstStable!==secondStable)return secondStable-firstStable;
     const importanceDifference=second.importance-first.importance;
     if(importanceDifference)return importanceDifference;
     return `${{first.kind}}:${{first.id}}`.localeCompare(`${{second.kind}}:${{second.id}}`);
@@ -3289,105 +3255,197 @@ function collisionBlocks(){{
     renderedLabelItems('collision','edgeDetailedMeasureLabels')
       .map(candidate=>[candidate.id,candidate])
   );
+  const zoomLevel=Math.max(0,Number(view.signal('zoomLevel'))||0);
+  const targetDepth=Math.max(
+    0,Math.min(5,Number(view.signal('semanticTargetDepth'))||1)
+  );
   const occupied=new LabelSpatialHash();
-  const acceptedParentLabelKeys=new Set();
-  const acceptedShortEdgeLabelKeys=new Set();
+  const obstacles=buildObstacleDensityGrid();
+  const acceptedEdgeLabelPositions=new Map();
+  const acceptedParentIds=new Set();
+  const acceptedEdgeIds=new Set();
+  const parentPlacements=new Map();
+  const placements=new Map();
   const blockedParents=[];
   const blockedEdges=[];
   const detailedEdgeIds=[];
-  for(const candidate of parents){{
-    if(outsideViewport(candidate)||occupied.overlaps(candidate)){{
-      blockedParents.push(candidate.id);
-    }}else{{
-      occupied.insert(candidate);
-      if(candidate.labelKey)acceptedParentLabelKeys.add(candidate.labelKey);
-    }}
-  }}
-  for(const shortCandidate of shortEdges){{
+  const acceptCandidate=candidate=>{{
+    occupied.insert(candidate);
+  }};
+  const edgeActions=shortEdges.map(shortCandidate=>{{
     const detailedCandidate=detailedEdges.get(shortCandidate.id);
-    const detailedFits=detailedCandidate&&detailedCandidate.hasDetailed&&
-      shortCandidate.edgeScreenLength>={MIN_DETAILED_EDGE_SCREEN_LENGTH}&&
-      !outsideViewport(detailedCandidate)&&
-      !occupied.overlaps(detailedCandidate);
-    const shortTextIsRedundant=Boolean(shortCandidate.labelKey)&&(
-      acceptedParentLabelKeys.has(shortCandidate.labelKey)||
-      acceptedShortEdgeLabelKeys.has(shortCandidate.labelKey)
+    const detailedWidth=detailedCandidate
+      ? Math.max(0,detailedCandidate.x2-detailedCandidate.x1)
+      : 0;
+    const requiredDetailLength=Math.max(
+      {MIN_DETAILED_EDGE_SCREEN_LENGTH},Math.min(240,detailedWidth*0.55)
     );
-    // A broad visible region label already explains repeated short edge text.
-    // Suppress that repetition, but let the edge return as its concrete full
-    // revision description as soon as zooming creates enough screen space.
-    if(detailedFits){{
-      occupied.insert(detailedCandidate);
-      detailedEdgeIds.push(shortCandidate.id);
-    }}else if(shortTextIsRedundant){{
-      blockedEdges.push(shortCandidate.id);
-    }}else if(!outsideViewport(shortCandidate)&&
-              !occupied.overlaps(shortCandidate)){{
-      occupied.insert(shortCandidate);
-      if(shortCandidate.labelKey){{
-        acceptedShortEdgeLabelKeys.add(shortCandidate.labelKey);
+    const detailedEligible=zoomLevel>=labelDetailMinZoomLevel&&
+      detailedCandidate&&detailedCandidate.hasDetailed&&
+      shortCandidate.edgeScreenLength>=requiredDetailLength;
+    const priorityCandidate=detailedEligible
+      ? detailedCandidate
+      : shortCandidate;
+    const variant=detailedEligible?'detailed':'short';
+    return {{
+      kind:'edge',candidate:shortCandidate,detailedCandidate,
+      detailedEligible,score:semanticPlacementScore(
+        priorityCandidate,variant,targetDepth
+      )
+    }};
+  }});
+  const actions=parents.map(candidate=>({{
+    kind:'parent',candidate,
+    score:semanticPlacementScore(candidate,'visible',targetDepth)
+  }})).concat(edgeActions).sort((first,second)=>{{
+    const scoreDifference=second.score-first.score;
+    if(scoreDifference)return scoreDifference;
+    return compareCandidates(first.candidate,second.candidate);
+  }});
+  // SHACLens-style greedy screen-space placement, adapted to make edge labels
+  // the preferred detailed layer. No semantic level is hard-disabled: coarse
+  // labels win while zoomed out, edge descriptions win close up, and every
+  // lower-priority label is still accepted when its actual screen box fits.
+  for(const action of actions){{
+    if(action.kind==='parent'){{
+      const candidate=action.candidate;
+      const parentPlacement=bestParentPlacement(
+        candidate,occupied,obstacles
+      );
+      if(!parentPlacement){{
+        blockedParents.push(candidate.id);
+      }}else{{
+        acceptCandidate(parentPlacement);
+        acceptedParentIds.add(candidate.id);
+        parentPlacements.set(candidate.id,{{
+          dx:parentPlacement.placementDx,
+          dy:parentPlacement.placementDy
+        }});
       }}
+      continue;
+    }}
+    const shortCandidate=action.candidate;
+    const detailedCandidate=action.detailedCandidate;
+    const detailedEligible=action.detailedEligible;
+    const wasVisible=previousAcceptedEdgeIds.has(shortCandidate.id);
+    const hasRepeatSpace=placement=>!edgeLabelRepeatsNearby(
+      acceptedEdgeLabelPositions,shortCandidate.labelKey,placement
+    );
+    const detailedPlacement=detailedEligible
+      ? bestEdgePlacement(
+          detailedCandidate,{EDGE_DETAILED_LABEL_OFFSET},occupied,obstacles,
+          wasVisible,detailDensityEnter,detailDensityExit,hasRepeatSpace
+        )
+      : null;
+    // Prefer the concrete full revision description whenever zooming creates
+    // enough contextual screen space. Repeated short text is permitted again
+    // after a map-like minimum screen distance instead of being hidden
+    // globally across the complete trajectory.
+    if(detailedPlacement){{
+      acceptCandidate(detailedPlacement);
+      detailedEdgeIds.push(shortCandidate.id);
+      acceptedEdgeIds.add(shortCandidate.id);
+      placements.set(shortCandidate.id,{{
+        t:detailedPlacement.t,side:detailedPlacement.side
+      }});
+      registerEdgeLabelPosition(
+        acceptedEdgeLabelPositions,shortCandidate.labelKey,detailedPlacement
+      );
     }}else{{
-      blockedEdges.push(shortCandidate.id);
+      const shortPlacement=bestEdgePlacement(
+        shortCandidate,{EDGE_SHORT_LABEL_OFFSET},occupied,obstacles,
+        wasVisible,edgeDensityEnter,edgeDensityExit,hasRepeatSpace
+      );
+      if(shortPlacement){{
+        acceptCandidate(shortPlacement);
+        acceptedEdgeIds.add(shortCandidate.id);
+        placements.set(shortCandidate.id,{{
+          t:shortPlacement.t,side:shortPlacement.side
+        }});
+        registerEdgeLabelPosition(
+          acceptedEdgeLabelPositions,shortCandidate.labelKey,shortPlacement
+        );
+      }}else{{
+        blockedEdges.push(shortCandidate.id);
+      }}
     }}
   }}
+  const parentPlacementRows=Array.from(parentPlacements.entries())
+    .sort((first,second)=>first[0].localeCompare(second[0]));
+  const placementRows=Array.from(placements.entries())
+    .sort((first,second)=>first[0].localeCompare(second[0]));
   return {{
     parentIds:Array.from(new Set(blockedParents)).sort(),
     edgeIds:Array.from(new Set(blockedEdges)).sort(),
-    detailedEdgeIds:Array.from(new Set(detailedEdgeIds)).sort()
+    detailedEdgeIds:Array.from(new Set(detailedEdgeIds)).sort(),
+    acceptedParentIds:Array.from(acceptedParentIds).sort(),
+    acceptedEdgeIds:Array.from(acceptedEdgeIds).sort(),
+    parentPlacementIds:parentPlacementRows.map(row=>row[0]),
+    parentPlacementDx:parentPlacementRows.map(row=>row[1].dx),
+    parentPlacementDy:parentPlacementRows.map(row=>row[1].dy),
+    placementIds:placementRows.map(row=>row[0]),
+    placementTs:placementRows.map(row=>row[1].t),
+    placementSides:placementRows.map(row=>row[1].side)
   }};
 }}
-async function syncLabelStability(){{
+async function syncLabelVisibility(){{
   if(view.signal('down'))return;
-  if(stabilitySyncing){{
-    stabilityPending=true;
+  if(visibilitySyncing){{
+    visibilityPending=true;
     return;
   }}
-  stabilitySyncing=true;
+  visibilitySyncing=true;
   try{{
-    let blocked=collisionBlocks();
+    const blocked=collisionBlocks();
     let currentBlockedParents=(view.signal('blockedParentLabelIds')||[]).slice().sort();
     let currentBlockedEdges=(view.signal('blockedEdgeLabelIds')||[]).slice().sort();
     let currentDetailedEdges=(view.signal('detailedEdgeLabelIds')||[]).slice().sort();
+    let currentParentPlacementIds=(view.signal('parentLabelPlacementIds')||[]).slice();
+    let currentParentPlacementDx=(view.signal('parentLabelPlacementDx')||[]).slice();
+    let currentParentPlacementDy=(view.signal('parentLabelPlacementDy')||[]).slice();
+    let currentPlacementIds=(view.signal('edgeLabelPlacementIds')||[]).slice();
+    let currentPlacementTs=(view.signal('edgeLabelPlacementTs')||[]).slice();
+    let currentPlacementSides=(view.signal('edgeLabelPlacementSides')||[]).slice();
     if(!sameIds(blocked.parentIds,currentBlockedParents)||
        !sameIds(blocked.edgeIds,currentBlockedEdges)||
-       !sameIds(blocked.detailedEdgeIds,currentDetailedEdges)){{
+       !sameIds(blocked.detailedEdgeIds,currentDetailedEdges)||
+       !sameIds(blocked.parentPlacementIds,currentParentPlacementIds)||
+       !sameIds(blocked.parentPlacementDx,currentParentPlacementDx)||
+       !sameIds(blocked.parentPlacementDy,currentParentPlacementDy)||
+       !sameIds(blocked.placementIds,currentPlacementIds)||
+       !sameIds(blocked.placementTs,currentPlacementTs)||
+       !sameIds(blocked.placementSides,currentPlacementSides)){{
       view.signal('blockedParentLabelIds',blocked.parentIds);
       view.signal('blockedEdgeLabelIds',blocked.edgeIds);
       view.signal('detailedEdgeLabelIds',blocked.detailedEdgeIds);
+      view.signal('parentLabelPlacementIds',blocked.parentPlacementIds);
+      view.signal('parentLabelPlacementDx',blocked.parentPlacementDx);
+      view.signal('parentLabelPlacementDy',blocked.parentPlacementDy);
+      view.signal('edgeLabelPlacementIds',blocked.placementIds);
+      view.signal('edgeLabelPlacementTs',blocked.placementTs);
+      view.signal('edgeLabelPlacementSides',blocked.placementSides);
       await view.runAsync();
     }}
-    let parentIds=renderedLabelIds('semanticLabels');
-    let edgeIds=renderedLabelIds('edgeLabels');
-    const oldParentIds=(view.signal('stableParentLabelIds')||[]).slice().sort();
-    const oldEdgeIds=(view.signal('stableEdgeLabelIds')||[]).slice().sort();
-    if(!sameIds(parentIds,oldParentIds)||!sameIds(edgeIds,oldEdgeIds)){{
-      view.signal('stableParentLabelIds',parentIds);
-      view.signal('stableEdgeLabelIds',edgeIds);
-      await view.runAsync();
+    previousAcceptedParentIds=new Set(blocked.acceptedParentIds);
+    previousAcceptedEdgeIds=new Set(blocked.acceptedEdgeIds);
+    for(let index=0;index<blocked.parentPlacementIds.length;index+=1){{
+      parentPlacementCache.set(blocked.parentPlacementIds[index],{{
+        dx:blocked.parentPlacementDx[index],
+        dy:blocked.parentPlacementDy[index]
+      }});
     }}
-    // Audit once more after the stability order update. Collision-hidden
-    // candidates remain measurable, so a former loser can return as soon as
-    // it has sufficient room at its fixed anchor.
-    const residual=collisionBlocks();
-    if(!sameIds(residual.parentIds,blocked.parentIds)||
-       !sameIds(residual.edgeIds,blocked.edgeIds)||
-       !sameIds(residual.detailedEdgeIds,blocked.detailedEdgeIds)){{
-      blocked=residual;
-      view.signal('blockedParentLabelIds',blocked.parentIds);
-      view.signal('blockedEdgeLabelIds',blocked.edgeIds);
-      view.signal('detailedEdgeLabelIds',blocked.detailedEdgeIds);
-      await view.runAsync();
-      parentIds=renderedLabelIds('semanticLabels');
-      edgeIds=renderedLabelIds('edgeLabels');
-      view.signal('stableParentLabelIds',parentIds);
-      view.signal('stableEdgeLabelIds',edgeIds);
-      await view.runAsync();
+    for(let index=0;index<blocked.placementIds.length;index+=1){{
+      edgePlacementCache.set(blocked.placementIds[index],{{
+        t:blocked.placementTs[index],
+        side:blocked.placementSides[index]
+      }});
     }}
+    const parentIds=renderedLabelIds('semanticLabels');
+    const edgeIds=renderedLabelIds('edgeLabels');
     vis.dataset.zoom=Number(view.signal('zoomLevel')).toFixed(3);
     vis.dataset.visibleLabels=String(parentIds.length+edgeIds.length);
-    vis.dataset.stableParentLabels=String(parentIds.length);
-    vis.dataset.stableEdgeLabels=String(edgeIds.length);
+    vis.dataset.visibleHierarchyLabels=String(parentIds.length);
+    vis.dataset.visibleEdgeLabels=String(edgeIds.length);
     vis.dataset.blockedParentLabels=String(blocked.parentIds.length);
     vis.dataset.blockedEdgeLabels=String(blocked.edgeIds.length);
     vis.dataset.detailedEdgeLabels=String(blocked.detailedEdgeIds.length);
@@ -3395,33 +3453,22 @@ async function syncLabelStability(){{
       Math.max(0,edgeIds.length-blocked.detailedEdgeIds.length)
     );
   }}finally{{
-    stabilitySyncing=false;
-    if(stabilityPending){{
-      stabilityPending=false;
-      scheduleLabelStability();
+    visibilitySyncing=false;
+    if(visibilityPending){{
+      visibilityPending=false;
+      scheduleLabelVisibility();
     }}
   }}
 }}
-function scheduleLabelStability(){{
-  clearTimeout(stabilityTimer);
-  stabilityTimer=setTimeout(()=>{{void syncLabelStability();}},0);
+function scheduleLabelVisibility(){{
+  clearTimeout(visibilityTimer);
+  visibilityTimer=setTimeout(()=>{{void syncLabelVisibility();}},20);
 }}
-function updateMacroSelection(_name,value){{
-  const selected=value==null?'':String(value);
-  if(selected)legend.dataset.selectedMacro=selected;
-  else delete legend.dataset.selectedMacro;
-  vis.dataset.selectedMacro=selected;
-  view.signal('blockedParentLabelIds',[]);
-  view.signal('blockedEdgeLabelIds',[]);
-  view.signal('detailedEdgeLabelIds',[]);
-  view.signal('stableParentLabelIds',[]);
-  view.signal('stableEdgeLabelIds',[]);
-  scheduleLabelStability();
-}}
-view.addSignalListener('selectedMacro',updateMacroSelection);
-view.addSignalListener('zooming',(_name,value)=>{{if(!value)scheduleLabelStability();}});
-view.addSignalListener('zoomLevel',()=>{{scheduleLabelStability();}});
-view.addSignalListener('down',(_name,value)=>{{if(value===null)scheduleLabelStability();}});
+view.addSignalListener('zooming',(_name,value)=>{{if(!value)scheduleLabelVisibility();}});
+view.addSignalListener('zoomLevel',()=>{{
+  if(!view.signal('zooming'))scheduleLabelVisibility();
+}});
+view.addSignalListener('down',(_name,value)=>{{if(value===null)scheduleLabelVisibility();}});
 function resizeView(){{
   cancelAnimationFrame(resizeFrame);
   resizeFrame=requestAnimationFrame(async()=>{{
@@ -3430,7 +3477,7 @@ function resizeView(){{
     if(width===lastWidth&&height===lastHeight)return;
     lastWidth=width;lastHeight=height;
     await view.width(width).height(height).runAsync();
-    scheduleLabelStability();
+    scheduleLabelVisibility();
   }});
 }}
 new ResizeObserver(resizeView).observe(vis);
@@ -3523,15 +3570,15 @@ def main() -> int:
             fixed_parent_labels = existing_payload.get("fixed_parent_labels")
 
     xml_path = (args.xml or Path(article_paths(args.article)["xml_path"])).expanduser().resolve()
-    revert_analysis = projection.get("edit_wars")
+    revert_analysis = projection.get("revert_analysis")
     if (
         not revert_analysis
         or revert_analysis.get("analysis_version") != REVERT_ANALYSIS_VERSION
         or not all(
-            "interval_mutual_revert_count" in point for point in points
+            "interval_exact_sha1_revert_count" in point for point in points
         )
     ):
-        full_history = load_revert_history(xml_path, include_text_changes=True)
+        full_history = load_revert_history(xml_path)
         conflict_history, sampled_for_conflict = history_window_for_points(
             full_history, points
         )
@@ -3623,8 +3670,9 @@ def main() -> int:
             "direct full-revision analysis, one 2-to-3-word label plus a detailed description"
         ),
         "trajectory_width_encoding": TRAJECTORY_WIDTH_ENCODING,
+        "trajectory_spline_encoding": TRAJECTORY_SPLINE_ENCODING,
         "revision_point_colour_encoding": REVISION_POINT_COLOUR_ENCODING,
-        "edit_wars": revert_analysis,
+        "revert_analysis": revert_analysis,
         "pipeline_snapshot_id": SEMANTIC_ZOOM_SNAPSHOT_ID,
         "source_sha256": source_sha256(
             [Path(__file__), projection_path, keywords_path]

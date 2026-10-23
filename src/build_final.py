@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from pathlib import Path
 
@@ -53,12 +54,27 @@ def load_final_inputs(config_path: Path) -> tuple[dict, dict, dict]:
     hierarchy_path = resolve_config_path(
         config_path, config.get("reviewed_hierarchy"), "reviewed_hierarchy"
     )
-    for path in (projection_path, hierarchy_path):
+    edge_labels_path = resolve_config_path(
+        config_path, config.get("revision_edge_labels"), "revision_edge_labels"
+    )
+    revert_analysis_path = resolve_config_path(
+        config_path, config.get("revert_analysis"), "revert_analysis"
+    )
+    for path in (
+        projection_path,
+        hierarchy_path,
+        edge_labels_path,
+        revert_analysis_path,
+    ):
         if not path.exists():
             raise FileNotFoundError(f"Final-Build-Eingabe fehlt: {path}")
 
     projection = json.loads(projection_path.read_text(encoding="utf-8"))
     reviewed = json.loads(hierarchy_path.read_text(encoding="utf-8"))
+    edge_labels = json.loads(edge_labels_path.read_text(encoding="utf-8"))
+    revert_analysis = json.loads(
+        revert_analysis_path.read_text(encoding="utf-8")
+    )
     article = str(config.get("article") or reviewed.get("article") or "").strip()
     if not article:
         raise ValueError("Final-Build-Konfiguration enthält keinen Artikelnamen.")
@@ -66,17 +82,45 @@ def load_final_inputs(config_path: Path) -> tuple[dict, dict, dict]:
         raise ValueError("Artikelname und geprüfte Hierarchie passen nicht zusammen.")
     if not isinstance(projection.get("points"), list) or not projection["points"]:
         raise ValueError("Projektionsdatei enthält keine Revisionspunkte.")
-    hierarchy = reviewed.get("hierarchy")
+    hierarchy = copy.deepcopy(reviewed.get("hierarchy"))
     if not isinstance(hierarchy, dict) or not hierarchy.get("edges"):
         raise ValueError("Geprüfte Hierarchiedatei enthält keine Kanten.")
-    edit_wars = reviewed.get("edit_wars")
-    if not isinstance(edit_wars, dict):
+    if not isinstance(revert_analysis, dict) or not revert_analysis.get("events"):
         raise ValueError("Geprüfte Hierarchiedatei enthält keine Revert-Analyse.")
+
+    edges_by_pair = {
+        (
+            str(edge.get("previous_revision_id", "")),
+            str(edge.get("current_revision_id", "")),
+        ): edge
+        for edge in hierarchy["edges"]
+    }
+    labelled_pairs = edge_labels.get("revision_pairs", [])
+    if len(labelled_pairs) != len(hierarchy["edges"]):
+        raise ValueError("Vollrevisionslabels passen nicht zur Hierarchie.")
+    for label_row in labelled_pairs:
+        key = (
+            str(label_row.get("previous_revision_id", "")),
+            str(label_row.get("current_revision_id", "")),
+        )
+        edge = edges_by_pair.get(key)
+        label = " ".join(str(label_row.get("edge_label", "")).split())
+        description = " ".join(
+            str(label_row.get("detailed_description", "")).split()
+        )
+        if edge is None or not label or not description:
+            raise ValueError(f"Ungültiges Vollrevisionslabel für {key}.")
+        edge["label"] = label
+        edge["short_label"] = label
+        edge["detailed_description"] = description
+        edge["label_source"] = "full_revision_lod_llm"
+        edge["detailed_description_source"] = "full_revision_lod_llm"
+        edge["suppress_map_label"] = False
 
     return config, projection, {
         "article": article,
         "hierarchy": hierarchy,
-        "edit_wars": edit_wars,
+        "revert_analysis": revert_analysis,
     }
 
 
@@ -94,7 +138,7 @@ def build_final_html(config_path: Path, output_override: Path | None = None) -> 
             reviewed["article"],
             projection,
             reviewed["hierarchy"],
-            reviewed["edit_wars"],
+            reviewed["revert_analysis"],
         ),
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
