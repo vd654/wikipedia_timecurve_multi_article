@@ -36,6 +36,8 @@ htmlcov/
 
 # Local/raw data and temporary files
 data/**/*.xml
+data/**/*.xml.partial
+data/**/*.xml.state.json
 tmp/
 
 # Generated model/API caches (kept locally, excluded from the repository)

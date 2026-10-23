@@ -1,277 +1,111 @@
 # Wikipedia Timecurve
 
-Wikipedia Timecurve visualizes the evolution of a Wikipedia article as a
-two-dimensional semantic landscape. Each point represents a complete article
-revision, and each line connects two chronologically consecutive revisions.
-Labels are placed with continuous cartographic decluttering rather than fixed
-zoom tiers: as zooming or panning creates enough screen space, the next
-eligible label appears according to its semantic priority.
+Wikipedia Timecurve turns the revision history of an English Wikipedia article
+into an interactive two-dimensional semantic map. Each point is one complete
+article revision, consecutive revisions form a chronological trajectory, and
+labels describe changes at several semantic levels. Zooming reveals more detail
+only where enough screen space is available.
 
-## Final Palestine visualization
+The project separates two use cases:
 
-The presentation-ready visualization is available at
-[`output/Palestine_final.html`](output/Palestine_final.html).
+1. Reproduce the reviewed `Palestine_final` visualization without an API key.
+2. Run the complete pipeline for Palestine or another Wikipedia article.
 
-The final dataset contains:
+## Quick overview
 
-- Article: `Palestine`
-- Time range: December 2, 2012 to July 23, 2014
-- 620 complete revisions and therefore 619 trajectory edges
-- 619 labels for 619 edges, generated from complete revision comparisons
-- Label model: `gpt-5.6-terra`
-- Embedding model: `sentence-transformers/all-MiniLM-L6-v2`
-- Projection: classical metric multidimensional scaling (MDS)
-- Clustering: HDBSCAN on the visible two-dimensional projection
-- 44 clusters and 140 noise points
-- 71 exact SHA1 reverts
-- Deterministic point classification: 87 added-only, 63 removed-only,
-  288 mixed, and 181 revisions with no cleaned-text change; the first point is
-  classified as the start
-
-## Method
+| Component | Implementation |
+| --- | --- |
+| Revision source | English Wikipedia MediaWiki API, stored locally as XML |
+| Semantic representation | `sentence-transformers/all-MiniLM-L6-v2` |
+| Projection | Classical metric MDS over cosine distances |
+| Clustering | HDBSCAN on the two-dimensional projection |
+| Change labels | Complete before/after revision comparison with OpenAI |
+| Change-type colors | Deterministic Git word diff, without an LLM |
+| Reverts | Exact SHA1 returns only |
+| Renderer | Vega plus the custom semantic-zoom JavaScript runtime |
 
 ```text
 Wikipedia XML
-→ complete cleaned revisions
-→ encoding chunks of at most 256 tokens
-→ one averaged and L2-normalized vector per revision
+→ cleaned complete revisions
+→ revision embeddings
 → cosine-distance matrix
-→ classical MDS in two dimensions
-→ HDBSCAN on the MDS coordinates
-→ chronological revision trajectory
-→ Terra full-text comparison for every edge
-→ continuous cartographic labeling based on a five-level hierarchy
+→ two-dimensional MDS projection
+→ HDBSCAN clusters
+→ chronological Catmull–Rom trajectory
+→ edge labels and semantic hierarchy
+→ interactive Vega HTML
 ```
 
-The distance between two revisions is defined as:
+## Reproduce `Palestine_final`
+
+The reviewed final visualization and every input required to rebuild it are
+stored in the repository. No Wikipedia XML file, embedding model download,
+OpenAI API key, or previous generated HTML file is required.
+
+The complete current snapshot is on the
+[`current-visualization-2026-08-20`](https://github.com/vd654/wikipedia_timecurve_multi_article/tree/current-visualization-2026-08-20)
+branch:
+
+```bash
+git clone --branch current-visualization-2026-08-20 --single-branch \
+  https://github.com/vd654/wikipedia_timecurve_multi_article.git
+cd wikipedia_timecurve_multi_article
+
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+
+python src/build_final.py
+```
+
+The result is written to:
 
 ```text
-1 - dot(L2-normalized revision vector A,
-        L2-normalized revision vector B)
+output/Palestine_final.html
 ```
 
-## Edge labels
-
-For each of the 619 edges, `gpt-5.6-terra` receives the complete cleaned
-revision text before and after the change, together with the author, timestamp,
-and—when available in the XML—the edit comment for both revisions. No
-precomputed diff is supplied; the model compares the complete texts directly.
-It produces one indivisible two-to-three-word label that already names the
-subject and action or outcome of the specific change, plus a detailed
-description of the detected change. As the viewer zooms in, an edge therefore
-becomes more specific instead of merely repeating its parent topic. Metadata
-provides supporting context only; the actual text difference remains the
-decisive evidence. Word diffs and sentence windows are neither generated nor
-sent to the model.
-
-Model responses are cached after every edge. An interrupted run can therefore
-resume without repeating completed API calls. Zooming the finished
-visualization never triggers an API call.
-
-Byte-identical cleaned revision texts are deterministically labeled
-`No Content Change` and are not sent to the model. Conversely, a neutral model
-answer is rejected whenever the two cleaned full texts differ. This prevents a
-short label and its detailed description from contradictorily describing an
-actual content change as unchanged.
-
-Before rendering, the higher hierarchy levels are generated through the same
-OpenAI API from the stored edge labels and keywords within their respective
-areas. Terra creates exactly one umbrella term for each temporal section,
-topic cluster, and macro topic. These responses are cached in the hierarchy
-JSON.
-
-## Cartographic hierarchy
+The expected SHA-256 checksum is:
 
 ```text
-Article
-└── Macro topic
-    └── Topic cluster
-        └── Temporal section
-            └── Revision edge
+cbe62b112554bde8e0ad4703c97e044aa03a567417ce2718c81ef12a02e4fffb
 ```
 
-The hierarchy provides label candidates and cartographic priorities. Article,
-macro-topic, cluster, section, and short edge labels are evaluated together in
-screen coordinates at every normal scale. Their order is determined by the
-semantic depth preferred at the current zoom level, their content importance,
-and a stability bonus for labels that are already visible. There is no global
-label-count or screen-area budget: lower-priority candidates are still tested
-after every higher-priority candidate. A label is displayed when its measured
-screen-space bounding box lies fully inside the viewport, does not collide
-with an already placed label, and covers at least one revision point belonging
-to the data it describes.
+`build_final.py` reads four reviewed inputs from `final_build.json`:
 
-Macro topics have no dedicated areas, outlines, or color encoding. Only their
-direct labels remain visible. Associated cluster hulls are drawn in the
-neutral trajectory color.
+1. Revision projection
+2. Semantic label hierarchy
+3. Complete edge-label dataset
+4. Exact-revert analysis
 
-The reviewed position of a parent label remains its semantic center. Macro,
-cluster, and section labels are initially centered there and may then move to
-as many as eight centrally located revision points within their own data area;
-the article title remains fixed at the center. For every edge label, up to ten
-candidate positions are evaluated at five locations on both sides of the
-currently visible Bézier segment. The best valid position is cached and
-preferred during small viewport changes. An alternative hierarchy-label
-position is valid only when its text box still overlaps revision points from
-the macro topic, cluster, or temporal section it describes. Empty space
-outside that data area is not a valid fallback location.
+This compact final-build path is specifically configured for the reviewed
+Palestine visualization. A new article is produced with the complete pipeline
+described below.
 
-All labels retain a constant screen-space font size. Size communicates the
-hierarchy level:
+## Final Palestine dataset
 
-- Article: 28 px
-- Macro topic: 24 px
-- Topic cluster: 18 px
-- Temporal section: 13 px
-- Edge label: 10 px
-- Start and End: 14 px
+- Period: December 2, 2012 to July 23, 2014
+- 620 complete revisions and 619 trajectory edges
+- 619 non-empty labels, one for every edge
+- 44 HDBSCAN clusters and 140 noise points
+- 71 exact SHA1 reverts
+- Edge-label model: `gpt-5.6-terra`
+- Embedding model: `sentence-transformers/all-MiniLM-L6-v2`
+- Change types: 87 added-only, 63 removed-only, 288 mixed, 181
+  no-cleaned-text-change revisions, plus the initial start point
 
-Zoom does not impose a hard visibility tier. Instead, it defines a preferred
-semantic depth. In the overview, the article, macro topics, and topic clusters
-are evaluated first. As the viewer zooms in, priority moves continuously
-toward topic clusters, temporal sections, short edge labels, and finally
-detailed edge descriptions. Lower-level labels remain candidates at every
-normal zoom level and may appear whenever their actual screen-space box fits
-into a free area. The next finer level receives only a moderate forward
-penalty, allowing it to use free space shortly before reaching its ideal
-semantic depth. Start and End remain high-priority special labels.
+The ready-to-open file is
+[`output/Palestine_final.html`](output/Palestine_final.html).
 
-Every visible child level should contribute at least one new content term or a
-specific direction of change. Short edge labels therefore name the subject
-plus the action or result; their detailed variants add the author, time, and
-full scope. An audit function can flag semantically unspecific child labels for
-editorial review, but such findings do not currently abort the standard map
-build.
+## Requirements
 
-When two text boxes touch, the lower-priority label is hidden. In addition, an
-8 px density grid indexes visible Catmull–Rom edges and revision points. For
-hierarchy labels, this density is used only to choose among positions that
-still cover the label's own data area. Edge labels choose the candidate with
-the lowest edge and node density. Separate enter and exit thresholds provide
-hysteresis: an existing label may remain visible after a small deterioration,
-while a new label must satisfy a stricter free-space threshold. Placement is
-recomputed only after a zoom or pan gesture ends and is blended with a 150 ms
-opacity transition. An 8 px inner margin and SVG clipping keep text inside the
-plot area and prevent overlap with the title bar or legend.
+- Python 3.10 or newer
+- Git
+- Internet access for downloading Wikipedia revisions
+- Internet access on the first projection run to download the embedding model
+- An OpenAI API key only when generating new edge or hierarchy labels
 
-Identical article, macro, cluster, and section labels are deduplicated before
-rendering. Spatially separate revision edges retain their own labels even when
-their text is identical. Similar to symbol spacing on a road map, identical
-edge labels are suppressed only when their selected screen positions are less
-than 120 px apart. Completely overlapping edges receive one label for the same
-geometry. The preferred label is selected by the availability of a detailed
-description, followed by the size of the word change, information content,
-label confidence, and semantic jump. All other edges remain present as
-geometry and revision events.
-
-Every visible label uses a fully opaque, uniformly dark text fill. Hierarchy
-labels use a 4 px white halo, while edge labels use a 2 px white halo. Hidden
-collision candidates are removed with a short opacity transition.
-
-Every distinct revision edge remains a label candidate. There is no global
-count or area cap. A detailed multiline description is attempted only when the
-visible spline segment is at least 140 screen pixels long and its measured
-text area is both label-collision-free and largely free of edges and nodes.
-Otherwise, the short map label is tried at the best remaining Bézier position.
-The edge label is hidden only when neither variant has enough free space. The
-complete description remains available through the hover tooltip.
-
-Hierarchy and edge labels are placed together using a zoom-dependent priority.
-Coarse topic levels reserve space first while zoomed out; important edge labels
-gradually gain priority as the viewer zooms in. Previously visible labels
-receive a stability bonus but must still pass the collision and free-space
-checks. Detailed descriptions become eligible at zoom level 4.25. Eligibility
-does not depend on whether a parent label or the short label was visible in the
-previous frame. Detailed descriptions are embedded independently from short
-map labels, so reviewed short labels remain unchanged. Where enough space is
-available, the full description is displayed; otherwise, the short label is
-used or the annotation remains hidden until a closer zoom. Effectively
-point-like edges use the short label only. Their detailed descriptions remain
-embedded in the data and available in the hover tooltip.
-
-## Visual encodings
-
-The fill color of every revision point deterministically describes the change
-relative to its direct predecessor:
-
-- `added` — gold `#F2C14E`: words were only added
-- `removed` — violet `#8F5BD7`: words were only removed
-- `mixed` — orange `#D9822B`: words were both added and removed
-- `no_change` — gray `#B8B8B8`: no change in the cleaned text
-- `start` — dark gray `#343A40`: the first point has no predecessor
-
-The classification comes exclusively from the Git word diff and does not use
-an LLM call. Standard revision points are drawn without an additional outline
-or ring and use a high fill opacity.
-
-Cluster hulls, intra-group trajectories, and standard direction arrows are
-drawn in the neutral trajectory color. Temporal-section point rings are not
-rendered. Macro topics remain available as semantic labels but have no color
-encoding or legend entry. Signal red identifies exact SHA1 reverts. Noise
-revisions remain circular like all other revisions and receive the same
-change-type color encoding. Direct semantic cluster labels communicate cluster
-identity; the color legend contains no macro topics.
-
-Each cluster hull contains all projected revision points assigned to its
-HDBSCAN cluster. A slightly expanded convex hull is drawn for regular
-two-dimensional point sets. If the projected points lie on a line or at
-effectively the same position, a thin line connects their distinguishable
-positions instead. No additional round end caps are drawn.
-
-The chronological main trajectory is rendered as an open centripetal
-Catmull–Rom spline (`alpha = 0.5`). Every connection between consecutive
-revisions is represented by its own cubic Bézier segment, keeping edge
-metadata and width individually addressable. The curve interpolates every
-revision point and therefore changes neither point positions nor chronology.
-Reflected neighboring points define the endpoint tangents. Coincident revision
-points produce a zero-length segment, while bounded tangents prevent visual
-spikes. Revert arcs remain an independent overlay.
-
-Points and trajectory lines are deliberately prominent in the detailed view.
-Every standard spline segment that is at least 34 screen pixels long receives
-an arrow at the center of its visible curve to show chronological revision
-direction. The arrow angle follows the local spline tangent and retains its
-screen-space size while zooming. Trajectory and exact-revert colors are derived
-from the same constants as their legend symbols. Hulls and intra-group lines
-remain neutral; point fills represent the four change types plus Start.
-
-## Exact reverts
-
-Reverts are detected exclusively as exact SHA1 returns: a revision is a revert
-when it restores an earlier article state with an identical SHA1 hash. The
-two-dimensional projection does not influence this classification.
-
-Exact-revert trajectory segments do not receive standard direction arrows,
-preventing outward and return movements from becoming unreadable through
-overlapping arrowheads. A dotted red return arc begins at the revision whose
-change is being undone and ends at the new reverting revision. In a sequence
-`Revision 1 → Revision 2 → return to Revision 1`, the arrowhead therefore
-points from position 2 back to position 1. A separate revert glyph with a white
-background mask is no longer drawn; the dotted arc provides the complete
-encoding while the standard revision point remains visible.
-
-SHA1 equality determines the revert independently of whether the involved
-revisions were created by different editors or by the same editor. Self-reverts
-are therefore also shown in red. If the projection or stored rounding places an
-exact SHA1 revert slightly beside the restored revision, only that exact revert
-point is visually snapped to the coordinates of its `restored_revision_id`.
-
-If the same visual return connection occurs repeatedly in either direction,
-nearby endpoints within five percent of the connection length are treated as
-the same pair. Only the chronologically latest exact revert is drawn. Its arc
-starts at the revision undone by that final event, and its arrowhead points to
-the latest reverting revision. Earlier overlapping forward or return arcs for
-the same connection are suppressed. The arcs are computed in screen
-coordinates and do not modify the semantic MDS positions.
-
-Pure status labels without a content change (`No content change`,
-`Unchanged content`, or `Content unchanged`) are not rendered on the map. The
-corresponding revisions and trajectory edges remain present.
-
-## Installation
-
-Python 3 and Git are required. Generating new labels additionally requires an
-OpenAI API key.
+Install all project and local-test dependencies from the single requirements
+file:
 
 ```bash
 python3 -m venv .venv
@@ -279,23 +113,45 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Store the API key only in the ignored `.env` file:
+`pytest` is included in this file only for the local test suite; the production
+pipeline does not import it. The project does not use Altair, pandas, or
+tiktoken directly.
+
+For LLM-backed labeling, store the key in the ignored `.env` file:
 
 ```text
 OPENAI_API_KEY=sk-...
 ```
 
-## Running the pipeline
+Never commit `.env` or API credentials.
+
+## Run the complete pipeline
+
+The following example recreates the Palestine analysis period. Replace the
+article name and dates to process another English Wikipedia article. Article
+names containing spaces should be quoted.
 
 ### 1. Download the revision history
 
 ```bash
-python src/wiki_api.py --article Palestine
+python src/wiki_api.py \
+  --article Palestine \
+  --start 2012-12-02 \
+  --end 2014-07-23
 ```
 
-The XML file is stored at `data/Palestine/Palestine.xml`.
+The resumable downloader writes:
 
-### 2. Generate the projection
+```text
+data/Palestine/Palestine.xml
+```
+
+If a request is interrupted, run the same command again. Progress is recovered
+from the temporary `.partial` and `.state.json` files. Use `--restart` only to
+discard that incomplete download and start it again. Raw XML and resume files
+remain local and are not committed.
+
+### 2. Generate the semantic projection
 
 ```bash
 python src/main_pipeline.py \
@@ -306,103 +162,215 @@ python src/main_pipeline.py \
   --output-name Palestine_small
 ```
 
-The pipeline produces a label-free map using the same interactive foundation
-as the final semantic-zoom visualization. It also stores projection metadata,
-revision vectors, and the cosine-distance matrix. Macro groups are derived
-deterministically from the projection; this step requires neither LLM calls nor
-label caches. Output files receive sequential version numbers.
+The command prints the exact generated paths. Output names are numbered to
+avoid overwriting an earlier run. The important files are:
 
-### 3. Build the final map
-
-The final map can be reproduced from the reviewed projection, hierarchy, edge
-labels, and revert analysis without making another API call:
-
-```bash
-python src/build_final.py
+```text
+*_projection.json
+*_revision_embeddings.npy
+*_cosine_distance_matrix.npy
+*.html
 ```
 
-The compact final build reads four relative input paths from
-`final_build.json`:
+The HTML produced at this stage is a label-free map using the same renderer as
+the final visualization. This step requires no OpenAI API key. On the first
+run, Sentence Transformers downloads the embedding model.
 
-1. The revision projection
-2. The reviewed semantic hierarchy
-3. The complete edge-label dataset
-4. The exact-revert analysis
+### 3. Generate one label per revision edge
 
-It does not require previous HTML visualizations, the Wikipedia XML dump,
-embeddings, obsolete intermediate caches, or API access. This allows the
-checked-in `Palestine_final.html` to be reproduced byte for byte on another
-machine.
+Use the projection path printed by step 2:
 
-Complete ISO timestamps stored in edge descriptions are shortened locally to
-`DD-MM-YYYY` in visible detailed labels. Source data retains the complete
-timestamp, and no additional API call is required.
+```bash
+python src/edge_labels.py \
+  --article Palestine \
+  --visualization \
+  output/Palestine_small/Palestine_small_bert_timecurve_001_projection.json
+```
 
-A reviewed label pyramid can be marked as fixed in the hierarchy JSON. Its
-macro, cluster, and section labels are then preserved across later prompt or
-logic changes. Fixing the hierarchy also survives editorial corrections to
-individual edge labels. It is invalidated only when the projection—and
-therefore the geometric basis of the hierarchy—changes materially.
+The example assumes a fresh run numbered `001`. If the command in step 2
+prints another number, use that exact projection path here and in step 4.
+
+`edge_labels.py` compares the complete cleaned text before and after each
+trajectory edge. It also supplies the author, timestamp, and available edit
+comments. The model returns a short two-to-three-word label and a detailed
+description. No precomputed text diff is sent to the model.
+
+This step requires `OPENAI_API_KEY`. Every successful response is written
+immediately to a resumable `*_edge_label_cache_*.json` file. Run the same
+command again after an interruption; only missing edges are requested. Use
+`--refresh-cache` to deliberately regenerate cached responses. Generated cache
+files are excluded from Git.
+
+### 4. Build the hierarchy and interactive visualization
+
+Pass the projection from step 2 and the edge-label JSON from step 3:
+
+```bash
+python src/semantic_zoom.py \
+  --projection \
+  output/Palestine_small/Palestine_small_bert_timecurve_001_projection.json \
+  --diff-labels \
+  output/Palestine_small/Palestine_small_bert_timecurve_001_full_revision_edge_labels_gpt-5.6-terra.json \
+  --article Palestine \
+  --xml data/Palestine/Palestine.xml
+```
+
+This generates a hierarchy JSON and the semantic-zoom HTML next to the
+projection. By default, OpenAI supplies the macro-topic, topic-cluster, and
+temporal-section labels. Existing compatible hierarchy labels are reused from
+the hierarchy output file.
+
+To use deterministic fallback hierarchy names without making hierarchy-label
+API calls, add:
+
+```text
+--no-llm
+```
+
+`--no-llm` does not generate the edge-label JSON; that file must already exist.
+The initial projection HTML from step 2 remains the completely label-free,
+no-OpenAI alternative.
+
+### API and network requirements by command
+
+| Command | Wikipedia/network | Embedding download | OpenAI API |
+| --- | ---: | ---: | ---: |
+| `wiki_api.py` | Yes | No | No |
+| `main_pipeline.py` | No after XML exists | First run only | No |
+| `edge_labels.py` | No after XML exists | No | Yes |
+| `semantic_zoom.py` | No after inputs exist | No | Yes by default; no with `--no-llm` |
+| `build_final.py` | No | No | No |
+
+## How the visualization works
+
+### Semantic geometry
+
+Each point represents one complete sampled revision. Long revisions are split
+into temporary chunks of at most 256 tokens. Their chunk embeddings are
+averaged and L2-normalized into one vector per revision. Semantic distance is:
+
+```text
+1 - dot(L2-normalized revision vector A,
+        L2-normalized revision vector B)
+```
+
+Classical metric MDS projects the distance matrix into two dimensions. HDBSCAN
+clusters the visible MDS coordinates. The chronological path is rendered as an
+open centripetal Catmull–Rom spline; geometry never changes the chronological
+revision order.
+
+### Label hierarchy and semantic zoom
+
+```text
+Article
+└── Macro topic
+    └── Topic cluster
+        └── Temporal section
+            └── Revision edge
+```
+
+Labels are evaluated in screen coordinates rather than switched through rigid
+zoom tiers. Important broad labels are preferred in the overview, while short
+edge labels and detailed descriptions gain priority as the viewer zooms in.
+Lower levels may still appear earlier when free space is available.
+
+Every candidate receives a measured screen-space bounding box. It must remain
+inside the plot, avoid already placed labels, and overlap data belonging to the
+topic or edge it describes. Edge candidates sample several positions along
+both sides of their Bézier segment and prefer the position with the lowest edge
+and point density. Hysteresis, cached positions, and short opacity transitions
+reduce flickering during pan and zoom.
+
+Font sizes communicate hierarchy:
+
+- Article: 28 px
+- Macro topic: 24 px
+- Topic cluster: 18 px
+- Temporal section: 13 px
+- Edge label: 10 px
+- Start and End: 14 px
+
+Detailed multiline descriptions become eligible at zoom level 4.25 when their
+visible spline segment and surrounding free space are large enough. The full
+description remains available in the revision tooltip when it cannot be placed
+on the map.
+
+### Visual encodings
+
+Revision-point fill describes the cleaned-text change relative to the direct
+predecessor. This classification is produced deterministically by the Git word
+diff and does not call an LLM:
+
+- Gold `#F2C14E`: added only
+- Violet `#8F5BD7`: removed only
+- Orange `#D9822B`: added and removed
+- Gray `#B8B8B8`: no cleaned-text change
+- Dark gray `#343A40`: first revision (`Start`)
+
+Neutral green-gray lines show the standard trajectory and its direction.
+Macro topics and clusters have no separate color encoding. Temporal-section
+point rings are not rendered.
+
+### Exact reverts
+
+A revert is shown only when a revision restores the exact SHA1 hash of an
+earlier article state. A dotted signal-red arc starts at the revision whose
+change is undone and points to the later reverting revision. Detection is
+independent of the two-dimensional projection and includes self-reverts.
+
+When repeated returns create the same visual connection, only the
+chronologically latest arc is drawn. Partial reverts and edit-war inference are
+not part of the current project.
 
 ## Interaction
 
-- Mouse wheel or trackpad: continuously zoom around the pointer from 1% to
-  200×. When zooming out, geometry contracts while lines, points, and text
-  retain their screen-pixel sizes. At the outermost scale, the map collapses
-  into a point with the prioritized article label from the active dataset.
-- Drag: pan the map.
-- Double-click: restore the full view.
-- Revision point: display revision ID, timestamp, author, and incoming change
-  type.
+- Mouse wheel or trackpad: zoom around the pointer
+- Drag: pan the visualization
+- Double-click: restore the full view
+- Hover a revision point: show revision ID, timestamp, author, and change type
 
-The HTML file embeds the data and Vega specification but loads Vega and
-Vega-Tooltip from a CDN. It is therefore not yet a fully self-contained offline
-document. For a presentation without internet access, additionally provide a
-static SVG or PDF export, or bundle both JavaScript libraries locally.
+The generated HTML embeds its data and Vega specification, but currently loads
+Vega and Vega Tooltip from a CDN. Opening the interactive HTML therefore
+requires internet access. The rebuild itself does not.
 
-## Project structure
+## Files and reproducibility
 
 ```text
 src/
-├── build_final.py        reproducible final build without API or XML access
-├── wiki_api.py           download Wikipedia revisions
-├── text_cleaning.py      convert wikitext into comparison text
-├── revision_io.py        shared XML revision loading and selection
-├── main_pipeline.py      embeddings, MDS, HDBSCAN, and base map
-├── revert_detection.py   detect exact SHA1 reverts
-├── edge_labels.py        one Terra label per complete revision pair
-├── semantic_zoom.py      hierarchy and Vega specification
-├── semantic_zoom_runtime.py
-│                          HTML shell and browser interaction runtime
-├── trajectory_geometry.py
-│                          spline, cluster-region, and revert geometry
-├── git_word_diff.py      validated word diff for audit data
-├── llm_provider.py       OpenAI client and model configuration
-├── config.py             shared paths and CLI arguments
-└── output_utils.py       output paths and atomic artifact writes
+├── wiki_api.py              resumable Wikipedia revision download
+├── main_pipeline.py        embeddings, MDS, HDBSCAN, and base map
+├── edge_labels.py          complete-revision edge labeling
+├── semantic_zoom.py         hierarchy and Vega specification
+├── semantic_zoom_runtime.py browser interaction and label placement
+├── trajectory_geometry.py   spline, hull, and revert geometry
+├── revert_detection.py      exact SHA1 revert detection
+├── git_word_diff.py         deterministic word-change analysis
+├── revision_io.py           shared XML revision loading
+├── text_cleaning.py         wikitext cleaning
+├── llm_provider.py          OpenAI client and model configuration
+├── build_final.py           API-free reviewed Palestine rebuild
+├── config.py                paths and shared arguments
+└── output_utils.py          output naming and atomic writes
 
-tests/                    local tests excluded from Git
-data/Palestine/           local XML revision history excluded from Git
-output/Palestine_final_data/
-                          four reviewed source files for the final build
-output/Palestine_final.html
-final_build.json          relative inputs for the reproducible final build
-requirements.txt         runtime dependencies
-requirements-dev.txt     runtime plus local test dependencies
+final_build.json                           reviewed Palestine input manifest
+output/Palestine_final_data/               four reviewed build inputs
+output/Palestine_final.html                presentation-ready visualization
+requirements.txt                           runtime and local-test dependencies
 ```
+
+Only the four JSON inputs referenced by `final_build.json` are required to
+reconstruct `Palestine_final`. The XML dump, embeddings, distance matrix,
+resumable API caches, and earlier HTML outputs are not required for that build.
 
 ## Local tests
 
-The `tests/` directory is intentionally excluded through `.gitignore` and is
-not part of the public repository. A fresh clone therefore contains no tests.
-When the local test suite is available, run it with:
+The local test directory is deliberately excluded from the public repository.
+When it is available, run:
 
 ```bash
-python -m pip install -r requirements-dev.txt
 PYTHONPATH=src python -m pytest -q
 ```
 
-The local tests cover revision order, full-text context, diff reconstruction,
-exact-revert detection, fixed label positions, priorities, and collision
-handling. Independently of the local test suite, the checked-in final `v8`
-label dataset contains 619 non-empty labels for all 619 edges.
+The suite covers revision ordering, complete-text selection, word-diff
+reconstruction, exact reverts, final-build reproducibility, geometry, label
+priorities, and collision handling.
