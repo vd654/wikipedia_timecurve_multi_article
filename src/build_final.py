@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 from config import BASE_DIR
+from output_utils import write_text_atomic
 from semantic_zoom import build_vega_spec, render_html
 
 
@@ -141,10 +142,7 @@ def build_final_html(config_path: Path, output_override: Path | None = None) -> 
             reviewed["revert_analysis"],
         ),
     )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = output_path.with_suffix(output_path.suffix + ".tmp")
-    temporary.write_text(html, encoding="utf-8")
-    temporary.replace(output_path)
+    write_text_atomic(output_path, html)
     return output_path
 
 

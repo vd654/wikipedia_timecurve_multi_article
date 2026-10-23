@@ -1,4 +1,7 @@
-"""Small OpenAI structured-output client factory shared by the pipeline."""
+"""OpenAI configuration and credentials shared by the labeling stages."""
+
+import os
+from pathlib import Path
 
 from openai import OpenAI
 
@@ -17,3 +20,22 @@ def create_llm_client(*, api_key: str | None):
     if not api_key:
         raise ValueError("Für OpenAI fehlt der API-Key.")
     return OpenAI(api_key=api_key)
+
+
+def load_api_key(env_path: Path) -> str:
+    """Read OPENAI_API_KEY from the environment or the project's .env file."""
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if api_key:
+        return api_key
+
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            name, separator, value = line.partition("=")
+            if separator and name.strip() == "OPENAI_API_KEY":
+                api_key = value.strip().strip('"\'')
+                if api_key:
+                    return api_key
+
+    raise RuntimeError(
+        "OPENAI_API_KEY fehlt. Bitte den Schlüssel in .env eintragen."
+    )

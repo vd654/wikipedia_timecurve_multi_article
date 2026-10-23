@@ -3,20 +3,9 @@
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+from revision_io import child_text, local_name
+
 REVERT_ANALYSIS_VERSION = "2026-10-22-exact-sha1-reverts-v15"
-
-
-def local_name(tag: str) -> str:
-    return tag.rsplit("}", 1)[-1]
-
-
-def child_text(element: ET.Element | None, name: str) -> str:
-    if element is None:
-        return ""
-    for child in element:
-        if local_name(child.tag) == name:
-            return child.text or ""
-    return ""
 
 
 def probable_bot(user: str, tags: str = "") -> bool:

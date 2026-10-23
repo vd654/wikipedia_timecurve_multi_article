@@ -2,8 +2,10 @@
 Helpers for output file names.
 """
 
+import json
 import os
 import re
+from pathlib import Path
 
 
 def next_numbered_path(directory: str, base_name: str,
@@ -26,11 +28,17 @@ def next_numbered_path(directory: str, base_name: str,
     return os.path.join(directory, f"{base_name}_{next_number:0{digits}d}.{ext}")
 
 
-def partial_path(path: str) -> str:
-    """Return a sibling path with ``.partial`` before the final extension.
+def write_text_atomic(path: Path, text: str) -> None:
+    """Write UTF-8 text through a sibling temporary file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(text, encoding="utf-8")
+    temporary.replace(path)
 
-    ``str.replace`` must not be used here because an extension-like substring
-    can also occur in the article directory or the output basename.
-    """
-    stem, ext = os.path.splitext(path)
-    return f"{stem}.partial{ext}"
+
+def write_json_atomic(path: Path, payload: object) -> None:
+    """Write consistently formatted JSON without exposing partial output."""
+    write_text_atomic(
+        path,
+        json.dumps(payload, ensure_ascii=False, indent=2),
+    )

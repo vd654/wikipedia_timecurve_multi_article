@@ -367,18 +367,23 @@ src/
 ├── build_final.py        reproducible final build without API or XML access
 ├── wiki_api.py           download Wikipedia revisions
 ├── text_cleaning.py      convert wikitext into comparison text
+├── revision_io.py        shared XML revision loading and selection
 ├── main_pipeline.py      embeddings, MDS, HDBSCAN, and base map
 ├── revert_detection.py   detect exact SHA1 reverts
 ├── edge_labels.py        one Terra label per complete revision pair
 ├── apply_edge_labels.py  apply reviewed edge labels to an existing dataset
 ├── estimate_label_cost.py
 │                          estimate the scope and cost of a label run
-├── semantic_zoom.py      hierarchy and interactive final map
+├── semantic_zoom.py      hierarchy and Vega specification
+├── semantic_zoom_runtime.py
+│                          HTML shell and browser interaction runtime
+├── trajectory_geometry.py
+│                          spline, cluster-region, and revert geometry
 ├── revision_keywords.py  optional detailed diff-audit pipeline
 ├── git_word_diff.py      validated word diff for audit data
 ├── llm_provider.py       OpenAI client and model configuration
 ├── config.py             shared paths and CLI arguments
-└── output_utils.py       sequentially numbered output files
+└── output_utils.py       output paths and atomic artifact writes
 
 tests/                    local tests excluded from Git
 data/Palestine/           local XML revision history excluded from Git

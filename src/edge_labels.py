@@ -18,12 +18,13 @@ from llm_provider import (
     DEFAULT_OPENAI_MODEL,
     LLM_PROVIDER,
     create_llm_client,
+    load_api_key,
     model_or_default,
 )
-from revision_keywords import (
+from output_utils import write_json_atomic
+from revision_io import (
     find_latest_visualization,
     iter_revisions,
-    load_api_key,
     load_visualization_revision_ids,
     resolve_projection_path,
     revision_state_sha1,
@@ -331,15 +332,6 @@ def load_cache(path: Path) -> dict:
     return payload
 
 
-def write_json(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    temporary.replace(path)
-
-
 def generate_edge_labels(
     revisions: list[dict],
     client: Any,
@@ -368,7 +360,7 @@ def generate_edge_labels(
                 "current_revision_id": current["revision_id"],
                 **result,
             }
-            write_json(cache_path, cache)
+            write_json_atomic(cache_path, cache)
             results.append({
                 "previous_revision_id": previous["revision_id"],
                 "current_revision_id": current["revision_id"],
@@ -424,7 +416,7 @@ def generate_edge_labels(
                 "current_revision_id": current["revision_id"],
                 **result,
             }
-            write_json(cache_path, cache)
+            write_json_atomic(cache_path, cache)
         results.append({
             "previous_revision_id": previous["revision_id"],
             "current_revision_id": current["revision_id"],
@@ -542,7 +534,7 @@ def main() -> int:
         "edge_limit": args.limit,
         "revision_pairs": results,
     }
-    write_json(output_path, payload)
+    write_json_atomic(output_path, payload)
     print(f"JSON gespeichert: {output_path}", flush=True)
     return 0
 

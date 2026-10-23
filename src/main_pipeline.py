@@ -14,6 +14,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import OUTPUT_DIR, add_pipeline_args, article_paths, article_slug
 from output_utils import next_numbered_path
+from revision_io import child_text, direct_child, local_name
 from revert_detection import (
     analyze_reverts,
     history_window_for_points,
@@ -33,24 +34,6 @@ NON_PROSE_SECTIONS = {
     "bibliography", "citations", "external links", "further reading",
     "notes", "references", "see also", "sources",
 }
-
-
-def local_name(tag: str) -> str:
-    return tag.rsplit("}", 1)[-1]
-
-
-def direct_child(element: ET.Element, name: str) -> ET.Element | None:
-    for child in element:
-        if local_name(child.tag) == name:
-            return child
-    return None
-
-
-def child_text(element: ET.Element | None, name: str) -> str:
-    if element is None:
-        return ""
-    child = direct_child(element, name)
-    return (child.text or "") if child is not None else ""
 
 
 def parse_timestamp(value: str) -> datetime:

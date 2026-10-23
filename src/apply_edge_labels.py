@@ -8,6 +8,7 @@ import json
 import re
 from pathlib import Path
 
+from output_utils import write_text_atomic
 from semantic_zoom import (
     build_vega_spec,
     hierarchy_specificity_issues,
@@ -254,13 +255,6 @@ def apply_edge_labels(hierarchy: dict, edge_label_payload: dict) -> list[str]:
     if not updated:
         raise ValueError("Die Preview-Datei enthält keine Kantenlabels.")
     return updated
-
-
-def write_text_atomic(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(text, encoding="utf-8")
-    temporary.replace(path)
 
 
 def parse_args() -> argparse.Namespace:

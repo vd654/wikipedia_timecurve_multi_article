@@ -7,15 +7,13 @@ import argparse
 import json
 from pathlib import Path
 
-import tiktoken
-
 from edge_labels import (
     EdgeLabel,
     SYSTEM_PROMPT,
     apply_metadata_overrides,
     build_prompt,
 )
-from revision_keywords import (
+from revision_io import (
     iter_revisions,
     load_visualization_revision_ids,
     select_visualized_revisions,
@@ -37,6 +35,12 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    try:
+        import tiktoken
+    except ImportError as error:
+        raise RuntimeError(
+            "tiktoken fehlt. Bitte `pip install -r requirements.txt` ausführen."
+        ) from error
     revision_ids = load_visualization_revision_ids(args.projection)
     revisions = list(select_visualized_revisions(
         iter_revisions(args.xml, revision_ids=revision_ids), revision_ids
